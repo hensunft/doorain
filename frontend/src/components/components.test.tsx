@@ -60,10 +60,10 @@ describe('BlockView', () => {
 
 describe('LoginPage', () => {
   const renderLogin = () => render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><LoginPage /></MemoryRouter></QueryClientProvider>)
-  it('нет регистрации, есть подсказка про локальное создание владельца', () => {
+  it('регистрация только по коду приглашения, публичной нет', () => {
     renderLogin()
-    expect(screen.queryByText(/зарегистрир/i)).toBeNull()
-    expect(screen.getByText(/create-owner/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /зарегистрироваться по коду приглашения/i })).toHaveAttribute('href', '/register')
+    expect(screen.getByText(/публичной регистрации нет/i)).toBeInTheDocument()
   })
   it('показывает единое сообщение об ошибке входа', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: 'invalid_credentials', message: 'Неверное имя пользователя или пароль', request_id: 'abc' }), { status: 401 })))

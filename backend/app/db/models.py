@@ -47,8 +47,29 @@ class User(Base):
     id: Mapped[uuid.UUID] = _pk()
     username: Mapped[str] = mapped_column(String(64), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    access_level: Mapped[str] = mapped_column(String(10), default="user")  # owner | user (уровень доступа, не роль диалога)
+    email: Mapped[str | None] = mapped_column(String(200))
+    disclaimer_accepted_at: Mapped[datetime | None]
+    last_login_at: Mapped[datetime | None]
+    disabled_at: Mapped[datetime | None]
     created_at: Mapped[datetime] = _ts()
     password_changed_at: Mapped[datetime] = _ts()
+
+
+class Invite(Base):
+    """Код приглашения: публичной саморегистрации нет, учётную запись открывает код от владельца."""
+
+    __tablename__ = "invites"
+    id: Mapped[uuid.UUID] = _pk()
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    hint: Mapped[str] = mapped_column(String(12), default="")  # последние символы кода: чтобы владелец узнал свой код в списке
+    note: Mapped[str | None] = mapped_column(String(200))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = _ts()
+    expires_at: Mapped[datetime]
+    used_at: Mapped[datetime | None]
+    used_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    revoked_at: Mapped[datetime | None]
 
 
 class AuthSession(Base):
@@ -90,6 +111,7 @@ class ConsultationSession(Base):
     parent_session_id: Mapped[uuid.UUID | None]  # сессия, из которой создана смена роли
     created_at: Mapped[datetime] = _ts()
     updated_at: Mapped[datetime] = _ts()
+    deleted_at: Mapped[datetime | None]  # мягкое удаление: окончательную очистку выполняет владелец
 
 
 class BusinessProfile(Base):

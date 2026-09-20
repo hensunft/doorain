@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { DoorArt } from '../../components/art'
 import { Banner } from '../../components/States'
 import { Field, Spinner } from '../../components/ui'
@@ -34,12 +34,12 @@ export function LoginPage() {
       </div>
       <form onSubmit={submit} className="space-y-4" aria-label="Вход">
         <div className="md:hidden"><h1>DoorAIn</h1></div>
-        <h2>Вход владельца</h2>
+        <h2>Вход</h2>
         <Field id="u" label="Имя пользователя"><input id="u" className="input" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required /></Field>
         <Field id="p" label="Пароль"><input id="p" className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required aria-invalid={!!err} /></Field>
         {err && <Banner tone="error">{err instanceof ApiError && err.status === 429 ? 'Слишком много попыток входа. Повторите позже.' : errorText(err)}</Banner>}
         <button className="btn btn-primary w-full" type="submit" disabled={login.isPending}>{login.isPending ? <Spinner label="Входим…" /> : 'Войти'}</button>
-        <p className="hint">Регистрации нет. Учётную запись владельца создаёт администратор сервера командой <code>create-owner</code>.</p>
+        <p className="hint">Нет учётной записи? <Link to="/register">Зарегистрироваться по коду приглашения</Link>. Код выдаёт владелец; публичной регистрации нет.</p>
         <p className="hint">Ответы носят информационный характер и не заменяют профессиональную юридическую помощь.</p>
       </form>
     </div>

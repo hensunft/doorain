@@ -50,7 +50,7 @@ from ..schemas.api import (
 from ..services import jobs
 from ..services.ingestion.indexer import active_generation
 from ..services.portrait import graph
-from .deps import is_busy, owner, require_writable, run_of, session_of
+from .deps import current_user, is_busy, require_writable, run_of, session_of
 
 router = APIRouter(tags=["sessions"])
 ROLE_TITLE = {"student": "Студент", "entrepreneur": "Предприниматель", "expert": "Эксперт"}
@@ -67,15 +67,15 @@ def session_out(db: Session, obj: ConsultationSession) -> SessionOut:
 
 
 @router.get("/sessions", response_model=list[SessionOut])
-def list_sessions(status: str = Query("active", pattern="^(active|archived|all)$"), ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> list[SessionOut]:
-    q = select(ConsultationSession).where(ConsultationSession.user_id == ctx.user.id).order_by(ConsultationSession.updated_at.desc())
+def list_sessions(status: str = Query("active", pattern="^(active|archived|all)$"), ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> list[SessionOut]:
+    q = select(ConsultationSession).where(ConsultationSession.user_id == ctx.user.id, ConsultationSession.deleted_at.is_(None)).order_by(ConsultationSession.updated_at.desc())
     if status != "all":
         q = q.where(ConsultationSession.status == status)
     return [session_out(db, x) for x in db.scalars(q)]
 
 
 @router.post("/sessions", response_model=SessionOut, status_code=201)
-def create_session(body: SessionCreate, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> SessionOut:
+def create_session(body: SessionCreate, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> SessionOut:
     require_writable(db)
     asof = body.as_of_date or date.today()
     obj = ConsultationSession(user_id=ctx.user.id, role=body.role, as_of_date=asof, title=(body.title or f"{ROLE_TITLE[body.role]}, {asof.strftime('%d.%m.%Y')}").strip())
@@ -90,12 +90,12 @@ def create_session(body: SessionCreate, ctx: auth.AuthContext = Depends(owner), 
 
 
 @router.get("/sessions/{session_id}", response_model=SessionOut)
-def get_session(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> SessionOut:
+def get_session(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> SessionOut:
     return session_out(db, session_of(db, ctx, session_id))
 
 
 @router.patch("/sessions/{session_id}", response_model=SessionOut)
-def patch_session(session_id: uuid.UUID, body: SessionPatch, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> SessionOut:
+def patch_session(session_id: uuid.UUID, body: SessionPatch, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> SessionOut:
     obj = session_of(db, ctx, session_id)
     if body.title:
         obj.title = body.title.strip()
@@ -107,7 +107,7 @@ def patch_session(session_id: uuid.UUID, body: SessionPatch, ctx: auth.AuthConte
 
 
 @router.post("/sessions/{session_id}/change-role", response_model=SessionOut, status_code=201)
-def change_role(session_id: uuid.UUID, body: RoleChangeIn, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> SessionOut:
+def change_role(session_id: uuid.UUID, body: RoleChangeIn, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> SessionOut:
     """Смена роли создаёт НОВУЮ сессию; предыдущая и её данные сохраняются, сведения не переносятся."""
     require_writable(db)
     old = session_of(db, ctx, session_id)
@@ -123,8 +123,12 @@ def change_role(session_id: uuid.UUID, body: RoleChangeIn, ctx: auth.AuthContext
 
 
 @router.delete("/sessions/{session_id}", status_code=204)
-def delete_session(session_id: uuid.UUID, confirm: str = Query(..., description="Точное название сессии"), ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> None:
-    """Удаляет сообщения, факты, риски, граф, цитаты, экспорты сессии. Корпус НПА не затрагивается. Прежние backup и выгруженные файлы не изменяются."""
+def delete_session(session_id: uuid.UUID, confirm: str = Query(..., description="Точное название сессии"), ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> None:
+    """Мягкое удаление: сессия исчезает из интерфейса, задания отменяются, файлы экспортов стираются.
+
+    Окончательная очистка строк — команда владельца (POST /admin/sessions/purge). Корпус НПА не затрагивается,
+    прежние backup и уже выгруженные файлы не изменяются.
+    """
     obj = session_of(db, ctx, session_id)
     if confirm.strip() != obj.title.strip():
         raise ApiError(422, "confirm_mismatch", "Для удаления введите точное название сессии")
@@ -134,10 +138,11 @@ def delete_session(session_id: uuid.UUID, confirm: str = Query(..., description=
     for ex in db.scalars(select(Export).where(Export.session_id == obj.id)):
         if ex.file_path:
             Path(ex.file_path).unlink(missing_ok=True)
+            ex.file_path = None
     if run_ids:
         db.execute(delete(Job).where(Job.run_id.in_(run_ids)))
-    db.add(AuditEvent(actor=ctx.user.username, action="session.delete", object_type="session", object_id=str(obj.id)))
-    db.execute(delete(ConsultationSession).where(ConsultationSession.id == obj.id))  # каскад на уровне БД
+    obj.deleted_at = now()
+    db.add(AuditEvent(actor=ctx.user.username, action="session.delete", object_type="session", object_id=str(obj.id), details={"soft": True}))
     db.commit()
 
 
@@ -153,7 +158,7 @@ def _chips(db: Session, run_id: uuid.UUID | None) -> list[CitationChip]:
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[MessageOut])
-def list_messages(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> list[MessageOut]:
+def list_messages(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> list[MessageOut]:
     obj = session_of(db, ctx, session_id)
     runs = {r.id: r for r in db.scalars(select(GenerationRun).where(GenerationRun.session_id == obj.id))}
     by_user = {r.user_message_id: r for r in runs.values()}
@@ -169,7 +174,7 @@ def list_messages(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner),
 
 
 @router.post("/sessions/{session_id}/messages", response_model=RunAccepted, status_code=202)
-def post_message(session_id: uuid.UUID, body: MessageIn, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> RunAccepted:
+def post_message(session_id: uuid.UUID, body: MessageIn, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> RunAccepted:
     require_writable(db)
     obj = session_of(db, ctx, session_id)
     if obj.status != "active":
@@ -221,7 +226,7 @@ def _fold_blocks(db: Session, run_id: uuid.UUID) -> tuple[list[dict[str, Any]], 
 
 
 @router.get("/runs/{run_id}", response_model=RunSnapshot)
-def run_snapshot(run_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> RunSnapshot:
+def run_snapshot(run_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> RunSnapshot:
     run = run_of(db, ctx, run_id)
     blocks, last = _fold_blocks(db, run.id)
     done = run.answer_status in ("validated", "refused", "cancelled", "failed") and run.analysis_status != "running"
@@ -229,7 +234,7 @@ def run_snapshot(run_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: 
 
 
 @router.get("/runs/{run_id}/trace")
-def run_trace(run_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> dict[str, Any]:
+def run_trace(run_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, Any]:
     """Аудит ответа (только владельцу): версии prompt/schema/методологии, chunk IDs и scores, модель, тайминги, проверки."""
     run = run_of(db, ctx, run_id)
     cits = db.scalars(select(Citation).where(Citation.run_id == run.id).order_by(Citation.rank)).all()
@@ -242,7 +247,7 @@ def run_trace(run_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Ses
 
 
 @router.post("/runs/{run_id}/cancel", response_model=RunSnapshot)
-def cancel_run(run_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> RunSnapshot:
+def cancel_run(run_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> RunSnapshot:
     run = run_of(db, ctx, run_id)
     for j in db.scalars(select(Job).where(Job.run_id == run.id, Job.status.in_(("queued", "running")))):
         was_queued = j.status == "queued"
@@ -264,7 +269,7 @@ def cancel_run(run_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Se
 
 
 @router.post("/runs/{run_id}/analysis/retry", response_model=RunAccepted, status_code=202)
-def retry_analysis(run_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> RunAccepted:
+def retry_analysis(run_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> RunAccepted:
     require_writable(db)
     run = run_of(db, ctx, run_id)
     if run.answer_status != "validated" or run.analysis_status not in ("failed", "cancelled"):
@@ -295,7 +300,7 @@ def _auth_alive(token: str | None) -> bool:
 
 
 @router.get("/runs/{run_id}/events")
-async def run_events(run_id: uuid.UUID, request: Request, after: int = Query(0, ge=0), last_event_id: str | None = Header(default=None), ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db), s: Settings = Depends(get_settings)) -> StreamingResponse:
+async def run_events(run_id: uuid.UUID, request: Request, after: int = Query(0, ge=0), last_event_id: str | None = Header(default=None), ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db), s: Settings = Depends(get_settings)) -> StreamingResponse:
     run = run_of(db, ctx, run_id)
     rid = run.id
     token = request.cookies.get(s.cookie_name)

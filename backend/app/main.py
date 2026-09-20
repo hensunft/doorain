@@ -14,7 +14,7 @@ from sqlalchemy import select
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import __version__
-from .api import auth, corpus, misc, portrait, sessions
+from .api import admin, auth, corpus, misc, portrait, sessions
 from .core import errors
 from .core.config import Settings, get_settings
 from .core.middleware import CSP, SecurityMiddleware
@@ -60,7 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     static = _static_dir()
     app.add_middleware(SecurityMiddleware, settings=s, html_csp=CSP if static else None)
     api = APIRouter(prefix="/api/v1")
-    for r in (auth.router, sessions.router, portrait.router, corpus.router, misc.router, misc.public):
+    for r in (auth.router, sessions.router, portrait.router, corpus.router, misc.router, misc.public, admin.router):
         api.include_router(r)
     app.include_router(api)
     if static:  # dev/e2e: раздача собранного фронтенда; в production это делает Caddy

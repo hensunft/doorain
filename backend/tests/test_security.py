@@ -20,7 +20,10 @@ def _make_owner(name: str = "owner", pw: str = PASSWORD) -> None:
 
 
 def test_no_public_registration_and_unauthenticated_access(client: TestClient) -> None:
-    assert client.post("/api/v1/auth/register", json={"username": "x", "password": "y" * 20}).status_code in (404, 405)
+    # Саморегистрации нет: учётная запись открывается только кодом приглашения от владельца, setup-endpoint отсутствует.
+    r = client.post("/api/v1/auth/register", json={"username": "mallory", "password": "y" * 20, "invite_code": "подобранный"})
+    assert r.status_code == 403 and r.json()["code"] == "invalid_invite"
+    assert client.post("/api/v1/auth/register", json={"username": "mallory", "password": "y" * 20}).status_code == 422  # код обязателен
     assert client.get("/api/v1/health/live").json() == {"status": "ok"}
     for path in ("/sessions", "/auth/me", "/corpus/overview", "/system/diagnostics", "/system/status", f"/sessions/{uuid.uuid4()}/graph", f"/exports/{uuid.uuid4()}/download", f"/runs/{uuid.uuid4()}/events", f"/citations/{uuid.uuid4()}"):
         r = client.get("/api/v1" + path)

@@ -21,6 +21,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register
+         * @description Регистрация только по коду приглашения от владельца: публичной саморегистрации нет.
+         */
+        post: operations["register_api_v1_auth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/accept-disclaimer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Disclaimer */
+        post: operations["accept_disclaimer_api_v1_auth_accept_disclaimer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -103,7 +140,10 @@ export interface paths {
         post?: never;
         /**
          * Delete Session
-         * @description Удаляет сообщения, факты, риски, граф, цитаты, экспорты сессии. Корпус НПА не затрагивается. Прежние backup и выгруженные файлы не изменяются.
+         * @description Мягкое удаление: сессия исчезает из интерфейса, задания отменяются, файлы экспортов стираются.
+         *
+         *     Окончательная очистка строк — команда владельца (POST /admin/sessions/purge). Корпус НПА не затрагивается,
+         *     прежние backup и уже выгруженные файлы не изменяются.
          */
         delete: operations["delete_session_api_v1_sessions__session_id__delete"];
         options?: never;
@@ -793,10 +833,161 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Users */
+        get: operations["users_api_v1_admin_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch User */
+        patch: operations["patch_user_api_v1_admin_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Invites */
+        get: operations["invites_api_v1_admin_invites_get"];
+        put?: never;
+        /** Create Invite */
+        post: operations["create_invite_api_v1_admin_invites_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invites/{invite_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke Invite */
+        delete: operations["revoke_invite_api_v1_admin_invites__invite_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stats
+         * @description Обезличенная статистика: количества и распределения, без текстов вопросов и ответов.
+         */
+        get: operations["stats_api_v1_admin_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Audit */
+        get: operations["audit_api_v1_admin_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sessions/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Purge
+         * @description Окончательное удаление мягко удалённых сессий (со всеми сообщениями, фактами, рисками и графом).
+         */
+        post: operations["purge_api_v1_admin_sessions_purge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminStats */
+        AdminStats: {
+            /** Users */
+            users: number;
+            /** Active Users */
+            active_users: number;
+            /** Sessions */
+            sessions: number;
+            /** Deleted Sessions */
+            deleted_sessions: number;
+            /** Messages */
+            messages: number;
+            /** Risks Active */
+            risks_active: number;
+            /** Sessions By Role */
+            sessions_by_role: {
+                [key: string]: number;
+            };
+            /** Risks By Level */
+            risks_by_level: {
+                [key: string]: number;
+            };
+            /** Owner Can Read User Sessions */
+            owner_can_read_user_sessions: boolean;
+        };
         /** AnswerBlock */
         AnswerBlock: {
             /** Id */
@@ -830,11 +1021,38 @@ export interface components {
              */
             removed: boolean;
         };
+        /** AuditEventOut */
+        AuditEventOut: {
+            /** Id */
+            id: number;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Actor */
+            actor: string;
+            /** Action */
+            action: string;
+            /** Object Type */
+            object_type: string | null;
+            /** Object Id */
+            object_id: string | null;
+            /** Details */
+            details: {
+                [key: string]: unknown;
+            };
+        };
         /** AuthOut */
         AuthOut: {
             user: components["schemas"]["UserOut"];
             /** Csrf Token */
             csrf_token: string;
+            /**
+             * Single User Mode
+             * @default false
+             */
+            single_user_mode: boolean;
         };
         /** Body_upload_api_v1_corpus_uploads_post */
         Body_upload_api_v1_corpus_uploads_post: {
@@ -1301,6 +1519,56 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** InviteCreate */
+        InviteCreate: {
+            /** Note */
+            note?: string | null;
+        };
+        /** InviteCreated */
+        InviteCreated: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /** InviteOut */
+        InviteOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Hint */
+            hint: string;
+            /** Note */
+            note: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Used At */
+            used_at: string | null;
+            /** Used By */
+            used_by: string | null;
+            /** Revoked At */
+            revoked_at: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "active" | "used" | "revoked" | "expired";
+        };
         /** JobOut */
         JobOut: {
             /**
@@ -1498,6 +1766,15 @@ export interface components {
             options: string[];
             /** Concept */
             concept: string;
+        };
+        /** RegisterIn */
+        RegisterIn: {
+            /** Username */
+            username: string;
+            /** Password */
+            password: string;
+            /** Invite Code */
+            invite_code: string;
         };
         /** RevisionOut */
         RevisionOut: {
@@ -1930,6 +2207,33 @@ export interface components {
             /** Condition */
             condition?: string | null;
         };
+        /** UserAdminOut */
+        UserAdminOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Username */
+            username: string;
+            /** Access Level */
+            access_level: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Last Login At */
+            last_login_at: string | null;
+            /** Disclaimer Accepted At */
+            disclaimer_accepted_at: string | null;
+            /** Disabled At */
+            disabled_at: string | null;
+            /** Sessions */
+            sessions: number;
+            /** Deleted Sessions */
+            deleted_sessions: number;
+        };
         /** UserOut */
         UserOut: {
             /**
@@ -1939,6 +2243,18 @@ export interface components {
             id: string;
             /** Username */
             username: string;
+            /**
+             * Access Level
+             * @enum {string}
+             */
+            access_level: "owner" | "user";
+            /** Disclaimer Accepted At */
+            disclaimer_accepted_at?: string | null;
+        };
+        /** UserPatch */
+        UserPatch: {
+            /** Disabled */
+            disabled?: boolean | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1991,6 +2307,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_api_v1_auth_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_disclaimer_api_v1_auth_accept_disclaimer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthOut"];
                 };
             };
         };
@@ -3485,6 +3854,216 @@ export interface operations {
                 content: {
                     "application/json": {
                         [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
+    users_api_v1_admin_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminOut"][];
+                };
+            };
+        };
+    };
+    patch_user_api_v1_admin_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    invites_api_v1_admin_invites_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteOut"][];
+                };
+            };
+        };
+    };
+    create_invite_api_v1_admin_invites_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_invite_api_v1_admin_invites__invite_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invite_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stats_api_v1_admin_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStats"];
+                };
+            };
+        };
+    };
+    audit_api_v1_admin_audit_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEventOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    purge_api_v1_admin_sessions_purge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
                     };
                 };
             };

@@ -440,6 +440,10 @@ def test_delete_session_cascades_but_keeps_corpus(owner: Api, demo: dict) -> Non
     assert owner.delete(f"/sessions/{sid}", params={"confirm": title}).status_code == 204
     assert owner.get(f"/sessions/{sid}").status_code == 404
     db = SessionLocal()
+    assert db.scalar(select(func.count()).select_from(m.ConsultationSession).where(m.ConsultationSession.deleted_at.is_not(None))) == 1  # мягкое удаление
+    db.close()
+    assert owner.post("/admin/sessions/purge").json() == {"purged": 1}  # окончательную очистку выполняет владелец
+    db = SessionLocal()
     for model in (m.Message, m.GenerationRun, m.Citation, m.Risk, m.RiskEvidence, m.RiskStatusEvent, m.GraphNode, m.GraphEdge, m.SessionFact, m.Export, m.ClaimEvidence, m.Job, m.JobEvent):
         assert db.scalar(select(func.count()).select_from(model).where(*([model.type.in_(("chat_run",))] if model is m.Job else []))) == 0, model.__name__  # type: ignore[attr-defined]
     assert db.scalar(select(func.count()).select_from(m.DocumentRevision)) == 4 and db.scalar(select(func.count()).select_from(m.Chunk)) > 0

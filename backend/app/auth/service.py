@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -12,9 +14,13 @@ from ..core.config import Settings
 from ..core.errors import ApiError
 from ..core.security import hash_password, needs_rehash, new_token, token_hash, verify_password
 from ..core.util import now
-from ..db.models import AuthSession, LoginAttempt, User
+from ..db.models import AuthSession, Invite, LoginAttempt, User
 
 MIN_PASSWORD = 12
+
+
+def _safe_key(username: str) -> str:
+    return username.strip().lower()[:50]
 
 
 @dataclass
@@ -29,13 +35,57 @@ def check_password_policy(password: str) -> None:
 
 
 def create_owner(db: Session, username: str, password: str) -> User:
-    if db.scalar(select(func.count()).select_from(User)):
+    if db.scalar(select(func.count()).select_from(User).where(User.access_level == "owner")):
         raise ApiError(409, "owner_exists", "Владелец уже создан; для смены пароля используйте reset-password")
     check_password_policy(password)
-    user = User(username=username.strip().lower(), password_hash=hash_password(password))
+    user = User(username=_uname(username), password_hash=hash_password(password), access_level="owner", disclaimer_accepted_at=now())
     db.add(user)
     db.commit()
     return user
+
+
+def _uname(username: str) -> str:
+    name = username.strip().lower()
+    if not re.fullmatch(r"[a-z0-9._-]{3,64}", name):
+        raise ApiError(422, "bad_username", "Логин: 3–64 символа, латиница, цифры, точка, дефис или подчёркивание")
+    return name
+
+
+def create_invite(db: Session, s: Settings, owner_id: uuid.UUID, note: str | None = None) -> tuple[str, Invite]:
+    """Код показывается один раз: в базе хранится только его хеш."""
+    code = new_token()
+    inv = Invite(code_hash=token_hash(code), hint=code[-6:], note=(note or None), created_by=owner_id, expires_at=now() + timedelta(days=s.invite_ttl_days))
+    db.add(inv)
+    db.commit()
+    return code, inv
+
+
+def register(db: Session, s: Settings, ip: str, ua: str | None, username: str, password: str, invite_code: str) -> tuple[str, AuthContext]:
+    """Регистрация только по коду приглашения: публичной саморегистрации нет."""
+    _throttle(db, s, ip, f"register:{_safe_key(username)}")
+    inv = db.scalar(select(Invite).where(Invite.code_hash == token_hash(invite_code.strip())))
+    ok_invite = bool(inv and inv.used_at is None and inv.revoked_at is None and inv.expires_at > now())
+    if not ok_invite:
+        db.add(LoginAttempt(ip=ip, username_key=f"register:{_safe_key(username)}", success=False))
+        db.commit()
+        raise ApiError(403, "invalid_invite", "Код приглашения недействителен, уже использован или истёк")
+    assert inv is not None
+    name = _uname(username)
+    check_password_policy(password)
+    if db.scalar(select(User).where(User.username == name)):
+        raise ApiError(409, "username_taken", "Такой логин уже занят")
+    user = User(username=name, password_hash=hash_password(password), access_level="user")
+    db.add(user)
+    db.flush()
+    inv.used_at, inv.used_by = now(), user.id
+    db.commit()
+    return login(db, s, ip, ua, name, password)
+
+
+def accept_disclaimer(db: Session, ctx: AuthContext) -> None:
+    if ctx.user.disclaimer_accepted_at is None:
+        ctx.user.disclaimer_accepted_at = now()
+        db.commit()
 
 
 def revoke_all(db: Session, user_id, except_id=None) -> None:
@@ -83,8 +133,12 @@ def login(db: Session, s: Settings, ip: str, ua: str | None, username: str, pass
     if not ok or not user:
         db.commit()
         raise ApiError(401, "invalid_credentials", "Неверное имя пользователя или пароль")
+    if user.disabled_at is not None:
+        db.commit()
+        raise ApiError(403, "account_disabled", "Учётная запись отключена владельцем")
     if needs_rehash(user.password_hash):
         user.password_hash = hash_password(password)
+    user.last_login_at = now()
     token = new_token()  # новый токен при каждом входе = ротация сессии
     sess = AuthSession(user_id=user.id, token_hash=token_hash(token), expires_at=now() + timedelta(hours=s.session_ttl_hours), ip=ip, user_agent=(ua or "")[:300])
     db.add(sess)

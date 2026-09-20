@@ -91,8 +91,11 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     co = sub.add_parser("create-owner", help="создать единственного владельца (интерактивный ввод пароля)")
     co.add_argument("--username", required=True)
-    rp = sub.add_parser("reset-password", help="сбросить пароль владельца и отозвать все сессии входа")
+    rp = sub.add_parser("reset-password", help="сбросить пароль пользователя и отозвать все сессии входа")
     rp.add_argument("--username", required=True)
+    iv = sub.add_parser("invite", help="выпустить код приглашения (регистрация возможна только по нему)")
+    iv.add_argument("--note", help="для кого код: подпись в списке приглашений")
+    sub.add_parser("list-users", help="учётные записи и уровни доступа")
     eo = sub.add_parser("export-openapi", help="записать OpenAPI в JSON-файл")
     eo.add_argument("--out", required=True)
     dm = sub.add_parser("load-demo-corpus", help="загрузить ДЕМОНСТРАЦИОННЫЕ данные (не нормативная база)")
@@ -120,6 +123,25 @@ def main() -> None:
         elif a.cmd == "reset-password":
             service.reset_password(db, a.username, _password())
             print("Пароль изменён; все прежние сессии входа отозваны.")
+        elif a.cmd == "invite":
+            from sqlalchemy import select  # noqa: PLC0415
+
+            from .core.config import get_settings  # noqa: PLC0415
+            from .db.models import User  # noqa: PLC0415
+
+            owner_user = db.scalar(select(User).where(User.access_level == "owner"))
+            if not owner_user:
+                sys.exit("Владелец ещё не создан: выполните create-owner")
+            code, inv = service.create_invite(db, get_settings(), owner_user.id, a.note)
+            print(f"Код приглашения: {code}\nДействует до {inv.expires_at:%d.%m.%Y %H:%M} UTC. Код показывается один раз — в базе хранится только его хеш.")
+        elif a.cmd == "list-users":
+            from sqlalchemy import select  # noqa: PLC0415
+
+            from .db.models import User  # noqa: PLC0415
+
+            for u in db.scalars(select(User).order_by(User.created_at)):
+                state = "отключён" if u.disabled_at else "активен"
+                print(f"{u.username:<20} {u.access_level:<6} {state:<9} последний вход: {u.last_login_at or '—'}")
         elif a.cmd == "load-demo-corpus":
             from .demo import load_demo  # noqa: PLC0415
 

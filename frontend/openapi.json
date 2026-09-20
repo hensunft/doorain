@@ -46,6 +46,69 @@
     }
    }
   },
+  "/api/v1/auth/register": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Register",
+    "description": "Регистрация только по коду приглашения от владельца: публичной саморегистрации нет.",
+    "operationId": "register_api_v1_auth_register_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RegisterIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AuthOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/accept-disclaimer": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Accept Disclaimer",
+    "operationId": "accept_disclaimer_api_v1_auth_accept_disclaimer_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AuthOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/auth/logout": {
    "post": {
     "tags": [
@@ -307,7 +370,7 @@
      "sessions"
     ],
     "summary": "Delete Session",
-    "description": "Удаляет сообщения, факты, риски, граф, цитаты, экспорты сессии. Корпус НПА не затрагивается. Прежние backup и выгруженные файлы не изменяются.",
+    "description": "Мягкое удаление: сессия исчезает из интерфейса, задания отменяются, файлы экспортов стираются.\n\nОкончательная очистка строк — команда владельца (POST /admin/sessions/purge). Корпус НПА не затрагивается,\nпрежние backup и уже выгруженные файлы не изменяются.",
     "operationId": "delete_session_api_v1_sessions__session_id__delete",
     "parameters": [
      {
@@ -2176,10 +2239,344 @@
      }
     }
    }
+  },
+  "/api/v1/admin/users": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Users",
+    "operationId": "users_api_v1_admin_users_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/UserAdminOut"
+         },
+         "type": "array",
+         "title": "Response Users Api V1 Admin Users Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/users/{user_id}": {
+   "patch": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Patch User",
+    "operationId": "patch_user_api_v1_admin_users__user_id__patch",
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "User Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UserPatch"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserAdminOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/invites": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Invites",
+    "operationId": "invites_api_v1_admin_invites_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/InviteOut"
+         },
+         "type": "array",
+         "title": "Response Invites Api V1 Admin Invites Get"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Create Invite",
+    "operationId": "create_invite_api_v1_admin_invites_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/InviteCreate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/InviteCreated"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/invites/{invite_id}": {
+   "delete": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Revoke Invite",
+    "operationId": "revoke_invite_api_v1_admin_invites__invite_id__delete",
+    "parameters": [
+     {
+      "name": "invite_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Invite Id"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/stats": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Stats",
+    "description": "Обезличенная статистика: количества и распределения, без текстов вопросов и ответов.",
+    "operationId": "stats_api_v1_admin_stats_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminStats"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/audit": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Audit",
+    "operationId": "audit_api_v1_admin_audit_get",
+    "parameters": [
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 500,
+       "minimum": 1,
+       "default": 100,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/AuditEventOut"
+         },
+         "title": "Response Audit Api V1 Admin Audit Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/sessions/purge": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Purge",
+    "description": "Окончательное удаление мягко удалённых сессий (со всеми сообщениями, фактами, рисками и графом).",
+    "operationId": "purge_api_v1_admin_sessions_purge_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "integer"
+         },
+         "type": "object",
+         "title": "Response Purge Api V1 Admin Sessions Purge Post"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
   "schemas": {
+   "AdminStats": {
+    "properties": {
+     "users": {
+      "type": "integer",
+      "title": "Users"
+     },
+     "active_users": {
+      "type": "integer",
+      "title": "Active Users"
+     },
+     "sessions": {
+      "type": "integer",
+      "title": "Sessions"
+     },
+     "deleted_sessions": {
+      "type": "integer",
+      "title": "Deleted Sessions"
+     },
+     "messages": {
+      "type": "integer",
+      "title": "Messages"
+     },
+     "risks_active": {
+      "type": "integer",
+      "title": "Risks Active"
+     },
+     "sessions_by_role": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Sessions By Role"
+     },
+     "risks_by_level": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Risks By Level"
+     },
+     "owner_can_read_user_sessions": {
+      "type": "boolean",
+      "title": "Owner Can Read User Sessions"
+     }
+    },
+    "type": "object",
+    "required": [
+     "users",
+     "active_users",
+     "sessions",
+     "deleted_sessions",
+     "messages",
+     "risks_active",
+     "sessions_by_role",
+     "risks_by_level",
+     "owner_can_read_user_sessions"
+    ],
+    "title": "AdminStats"
+   },
    "AnswerBlock": {
     "properties": {
      "id": {
@@ -2245,6 +2642,65 @@
     ],
     "title": "AnswerBlock"
    },
+   "AuditEventOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "At"
+     },
+     "actor": {
+      "type": "string",
+      "title": "Actor"
+     },
+     "action": {
+      "type": "string",
+      "title": "Action"
+     },
+     "object_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Object Type"
+     },
+     "object_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Object Id"
+     },
+     "details": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Details"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "at",
+     "actor",
+     "action",
+     "object_type",
+     "object_id",
+     "details"
+    ],
+    "title": "AuditEventOut"
+   },
    "AuthOut": {
     "properties": {
      "user": {
@@ -2253,6 +2709,11 @@
      "csrf_token": {
       "type": "string",
       "title": "Csrf Token"
+     },
+     "single_user_mode": {
+      "type": "boolean",
+      "title": "Single User Mode",
+      "default": false
      }
     },
     "type": "object",
@@ -3418,6 +3879,140 @@
     "type": "object",
     "title": "HTTPValidationError"
    },
+   "InviteCreate": {
+    "properties": {
+     "note": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     }
+    },
+    "type": "object",
+    "title": "InviteCreate"
+   },
+   "InviteCreated": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "title": "Code"
+     },
+     "hint": {
+      "type": "string",
+      "title": "Hint"
+     },
+     "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Expires At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code",
+     "hint",
+     "expires_at"
+    ],
+    "title": "InviteCreated"
+   },
+   "InviteOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "hint": {
+      "type": "string",
+      "title": "Hint"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Expires At"
+     },
+     "used_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Used At"
+     },
+     "used_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Used By"
+     },
+     "revoked_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Revoked At"
+     },
+     "state": {
+      "type": "string",
+      "enum": [
+       "active",
+       "used",
+       "revoked",
+       "expired"
+      ],
+      "title": "State"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "hint",
+     "note",
+     "created_at",
+     "expires_at",
+     "used_at",
+     "used_by",
+     "revoked_at",
+     "state"
+    ],
+    "title": "InviteOut"
+   },
    "JobOut": {
     "properties": {
      "id": {
@@ -3914,6 +4509,35 @@
      "concept"
     ],
     "title": "QuizQuestionOut"
+   },
+   "RegisterIn": {
+    "properties": {
+     "username": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 3,
+      "title": "Username"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Password"
+     },
+     "invite_code": {
+      "type": "string",
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Invite Code"
+     }
+    },
+    "type": "object",
+    "required": [
+     "username",
+     "password",
+     "invite_code"
+    ],
+    "title": "RegisterIn"
    },
    "RevisionOut": {
     "properties": {
@@ -5109,6 +5733,85 @@
     ],
     "title": "TimelineItem"
    },
+   "UserAdminOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "username": {
+      "type": "string",
+      "title": "Username"
+     },
+     "access_level": {
+      "type": "string",
+      "title": "Access Level"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "last_login_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Login At"
+     },
+     "disclaimer_accepted_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Disclaimer Accepted At"
+     },
+     "disabled_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Disabled At"
+     },
+     "sessions": {
+      "type": "integer",
+      "title": "Sessions"
+     },
+     "deleted_sessions": {
+      "type": "integer",
+      "title": "Deleted Sessions"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "username",
+     "access_level",
+     "created_at",
+     "last_login_at",
+     "disclaimer_accepted_at",
+     "disabled_at",
+     "sessions",
+     "deleted_sessions"
+    ],
+    "title": "UserAdminOut"
+   },
    "UserOut": {
     "properties": {
      "id": {
@@ -5119,14 +5822,52 @@
      "username": {
       "type": "string",
       "title": "Username"
+     },
+     "access_level": {
+      "type": "string",
+      "enum": [
+       "owner",
+       "user"
+      ],
+      "title": "Access Level"
+     },
+     "disclaimer_accepted_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Disclaimer Accepted At"
      }
     },
     "type": "object",
     "required": [
      "id",
-     "username"
+     "username",
+     "access_level"
     ],
     "title": "UserOut"
+   },
+   "UserPatch": {
+    "properties": {
+     "disabled": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Disabled"
+     }
+    },
+    "type": "object",
+    "title": "UserPatch"
    },
    "ValidationError": {
     "properties": {

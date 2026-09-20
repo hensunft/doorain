@@ -32,7 +32,7 @@ test.describe.configure({ mode: 'serial' })
 test('вход обязателен; ошибка входа единообразна; дисклеймер после входа', async ({ page }) => {
   await page.goto('/')
   await expect(page).toHaveURL(/\/login/)
-  await expect(page.getByText('Регистрации нет')).toBeVisible()
+  await expect(page.getByRole('link', { name: /Зарегистрироваться по коду приглашения/ })).toBeVisible()
   await page.getByLabel('Имя пользователя').fill('e2e')
   await page.getByLabel('Пароль').fill('wrong password 123')
   await page.getByRole('button', { name: 'Войти' }).click()
@@ -212,4 +212,51 @@ test('выход завершает сессию: защищённые стра�
   await expect(page).toHaveURL(/\/login/)
   const r = await page.request.get('/api/v1/sessions')
   expect(r.status()).toBe(401)
+})
+
+test('пользователь по приглашению: регистрация → дисклеймер → роль → вопросы → выход → вход', async ({ page }) => {
+  await login(page)
+  await page.getByRole('link', { name: 'Администрирование' }).click()
+  await page.getByLabel('Для кого код').fill('e2e-пользователь')
+  await page.getByRole('button', { name: 'Выпустить код' }).click()
+  const code = (await page.locator('code.select-all').innerText()).trim()
+  expect(code.length).toBeGreaterThan(20)
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Выйти' }).click()
+
+  const user = `u${Date.now().toString().slice(-8)}`
+  await page.goto('/register')
+  await page.getByLabel('Код приглашения').fill(code)
+  await page.getByLabel('Имя пользователя').fill(user)
+  await page.getByLabel('Пароль').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Создать учётную запись' }).click()
+
+  // дисклеймер показывается до работы и фиксируется
+  await expect(page.getByRole('heading', { name: 'Прежде чем начать' })).toBeVisible()
+  await expect(page.getByText('не оказывает юридических услуг')).toBeVisible()
+  await expect(page.getByText('видны только вам и владельцу сервиса')).toBeVisible()
+  await page.getByRole('button', { name: /Я ознакомился/ }).click()
+  await expect(page.getByRole('heading', { name: 'Портрет вашего правового положения' })).toBeVisible()
+  // разделы владельца пользователю не видны
+  await expect(page.getByRole('link', { name: 'Администрирование' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'База знаний' })).toHaveCount(0)
+
+  await startSession(page, 'Предприниматель')
+  await ask(page, NO_POLICY)
+  await expect(page.getByRole('button', { name: /Открыть источник: ДЕМО-1-ФЗ/ }).first()).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Риски сессии' }).getByRole('row')).not.toHaveCount(1)
+  const url = page.url()
+
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Выйти' }).click()
+  await expect(page).toHaveURL(/\/login/)
+  await page.goto(url)
+  await expect(page).toHaveURL(/\/login/)  // чужой (и свой) рабочий стол без входа недоступен
+  await page.getByLabel('Имя пользователя').fill(user)
+  await page.getByLabel('Пароль').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Войти' }).click()
+  await expect(page).toHaveURL(url)  // вход возвращает на запрошенную страницу
+  await expect(page.getByText(NO_POLICY)).toBeVisible()  // сессия открыта в том же состоянии
+  await expect(page.getByRole('table', { name: 'Риски сессии' }).getByRole('row')).not.toHaveCount(1)
+  await expect(page.getByRole('heading', { name: 'Прежде чем начать' })).toHaveCount(0)  // дисклеймер уже принят
 })

@@ -35,7 +35,7 @@ from ..services import jobs, quiz
 from ..services.exports import pdf
 from ..services.ingestion.indexer import active_generation, get_state
 from ..services.risks.methodology import DISCLAIMER
-from .deps import owner, require_writable, session_of
+from .deps import current_user, owner, require_writable, session_of
 
 router = APIRouter(tags=["misc"])
 public = APIRouter(tags=["system"])
@@ -47,7 +47,7 @@ def _quiz_out(q: Quiz) -> QuizOut:
 
 
 @router.post("/sessions/{session_id}/quiz", response_model=QuizOut, status_code=202)
-def create_quiz(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> QuizOut:
+def create_quiz(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> QuizOut:
     require_writable(db)
     s = session_of(db, ctx, session_id)
     if s.role != "student":
@@ -69,18 +69,18 @@ def _quiz_of(db: Session, ctx: auth.AuthContext, qid: uuid.UUID) -> tuple[Quiz, 
 
 
 @router.get("/quizzes/{quiz_id}", response_model=QuizOut)
-def get_quiz(quiz_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> QuizOut:
+def get_quiz(quiz_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> QuizOut:
     return _quiz_out(_quiz_of(db, ctx, quiz_id)[0])
 
 
 @router.get("/sessions/{session_id}/quizzes", response_model=list[QuizOut])
-def list_quizzes(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> list[QuizOut]:
+def list_quizzes(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> list[QuizOut]:
     s = session_of(db, ctx, session_id)
     return [_quiz_out(q) for q in db.scalars(select(Quiz).where(Quiz.session_id == s.id).order_by(Quiz.created_at.desc()))]
 
 
 @router.post("/quizzes/{quiz_id}/attempts", response_model=QuizAttemptOut, status_code=201)
-def submit_attempt(quiz_id: uuid.UUID, body: QuizAttemptIn, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> QuizAttemptOut:
+def submit_attempt(quiz_id: uuid.UUID, body: QuizAttemptIn, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> QuizAttemptOut:
     require_writable(db)
     q, s = _quiz_of(db, ctx, quiz_id)
     att: QuizAttempt = quiz.submit(db, s, q, body.answers)
@@ -89,7 +89,7 @@ def submit_attempt(quiz_id: uuid.UUID, body: QuizAttemptIn, ctx: auth.AuthContex
 
 # ───────────── экспорт ─────────────
 @router.post("/sessions/{session_id}/exports", response_model=ExportOut, status_code=202)
-def create_export(session_id: uuid.UUID, body: ExportCreate, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> Export:
+def create_export(session_id: uuid.UUID, body: ExportCreate, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> Export:
     require_writable(db)
     s = session_of(db, ctx, session_id)
     pending = db.scalar(select(GenerationRun.id).where(GenerationRun.session_id == s.id, (GenerationRun.answer_status.in_(("queued", "running"))) | (GenerationRun.analysis_status == "running")).limit(1))
@@ -117,18 +117,18 @@ def _export_of(db: Session, ctx: auth.AuthContext, eid: uuid.UUID) -> Export:
 
 
 @router.get("/exports/{export_id}", response_model=ExportOut)
-def get_export(export_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> Export:
+def get_export(export_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> Export:
     return _export_of(db, ctx, export_id)
 
 
 @router.get("/sessions/{session_id}/exports", response_model=list[ExportOut])
-def list_exports(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> list[Export]:
+def list_exports(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> list[Export]:
     s = session_of(db, ctx, session_id)
     return list(db.scalars(select(Export).where(Export.session_id == s.id).order_by(Export.created_at.desc())))
 
 
 @router.get("/exports/{export_id}/download")
-def download_export(export_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> FileResponse:
+def download_export(export_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> FileResponse:
     ex = _export_of(db, ctx, export_id)  # права проверяются при каждом скачивании
     if ex.status != "ready" or not ex.file_path or not Path(ex.file_path).is_file():
         raise ApiError(409, "export_not_ready", "PDF ещё не готов")
@@ -150,7 +150,7 @@ def _worker_alive(db: Session) -> tuple[bool, str | None]:
 
 
 @router.get("/system/status", response_model=SystemStatus)
-def status(ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db), s: Settings = Depends(get_settings)) -> SystemStatus:
+def status(ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db), s: Settings = Depends(get_settings)) -> SystemStatus:
     p = get_providers()
     h = p.llm.health()
     gen = active_generation(db)

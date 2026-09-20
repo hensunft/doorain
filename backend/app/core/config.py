@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "testserver"]
     trusted_proxy_cidrs: list[str] = []
     trusted_proxy_hosts: list[str] = []  # имена сервисов (например ["web"]): IP разрешаются через DNS Docker, без привязки к подсети
+    single_user_mode: bool = False  # вход пропускается, всё работает под локальным пользователем; в production запрещено
+    invite_ttl_days: int = 14
+    owner_can_read_user_sessions: bool = True  # решение владельца стенда; каждый такой доступ пишется в журнал и виден пользователю
     login_ip_max_failures: int = 8
     login_account_max_failures: int = 20
     login_window_minutes: int = 15
@@ -86,6 +89,8 @@ class Settings(BaseSettings):
                 raise ValueError("В production разрешён только provider_mode=ollama")
             if any(h in ("example.com", "your-domain.example") for h in self.allowed_hosts) or not self.allowed_hosts:
                 raise ValueError("DOORAIN_ALLOWED_HOSTS содержит placeholder или пуст")
+            if self.single_user_mode:
+                raise ValueError("DOORAIN_SINGLE_USER_MODE недопустим в production: сервис доступен снаружи и обязан требовать вход")
         return self
 
     @property

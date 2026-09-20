@@ -1,8 +1,9 @@
-import { BookOpenText, History, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings } from 'lucide-react'
+import { BookOpenText, History, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, ShieldUser } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
 import { Dialog } from '../components/Dialog'
 import { Banner, OfflineBanner } from '../components/States'
+import { useMe } from './App'
 import { useLayoutMode, useLocalState, useOnline } from '../lib/hooks'
 import { useSessions, useStatus } from '../lib/queries'
 import { ROLE_RU } from '../lib/risk'
@@ -18,6 +19,7 @@ function Brand({ compact }: { compact?: boolean }) {
 
 function SidebarNav({ compact, onNavigate }: { compact: boolean; onNavigate?: () => void }) {
   const sessions = useSessions('active')
+  const isOwner = useMe().data?.user.access_level === 'owner'
   const { id } = useParams()
   const item = 'flex items-center gap-2 rounded-md px-2 py-1.5 text-small no-underline text-ink hover:bg-hover'
   const active = 'bg-selected font-medium'
@@ -25,7 +27,8 @@ function SidebarNav({ compact, onNavigate }: { compact: boolean; onNavigate?: ()
     <nav aria-label="Основная навигация" className="flex min-h-0 flex-1 flex-col gap-1 px-2">
       <Link to="/" onClick={onNavigate} className="btn btn-primary mb-2 no-underline"><Plus className="size-4" aria-hidden />{!compact && 'Новая сессия'}{compact && <span className="sr-only">Новая сессия</span>}</Link>
       <NavLink to="/history" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><History className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">История</span> : 'История'}</NavLink>
-      <NavLink to="/kb" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><BookOpenText className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">База знаний</span> : 'База знаний'}</NavLink>
+      {isOwner && <NavLink to="/kb" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><BookOpenText className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">База знаний</span> : 'База знаний'}</NavLink>}
+      {isOwner && <NavLink to="/admin" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><ShieldUser className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Администрирование</span> : 'Администрирование'}</NavLink>}
       <NavLink to="/settings" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><Settings className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Настройки</span> : 'Настройки'}</NavLink>
       {!compact && (
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto">

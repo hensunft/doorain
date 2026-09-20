@@ -1,7 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { AdminPage } from '../features/admin/AdminPage'
+import { DisclaimerGate } from '../features/auth/DisclaimerGate'
 import { LoginPage } from '../features/auth/LoginPage'
+import { RegisterPage } from '../features/auth/RegisterPage'
 import { HistoryPage } from '../features/sessions/HistoryPage'
 import { KnowledgeBasePage } from '../features/kb/KnowledgeBasePage'
 import { SettingsPage } from '../features/settings/SettingsPage'
@@ -39,19 +42,25 @@ function RequireAuth() {
   if (me.isLoading) return <div className="mx-auto max-w-md p-8"><Skeleton lines={4} /></div>
   if (me.error instanceof ApiError && me.error.status === 401) return <Navigate to="/login" replace state={{ from: loc.pathname }} />
   if (me.isError) return <div className="mx-auto max-w-md p-8"><ErrorNote error={me.error} onRetry={() => me.refetch()} /></div>
-  return <AppShell />
+  return (
+    <DisclaimerGate accepted={!!me.data?.user.disclaimer_accepted_at} ownerCanRead={me.data?.user.access_level !== 'owner'}>
+      <AppShell />
+    </DisclaimerGate>
+  )
 }
 
 export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route element={<RequireAuth />}>
         <Route index element={<WelcomePage />} />
         <Route path="s/:id" element={<WorkspacePage />} />
         <Route path="history" element={<HistoryPage />} />
         <Route path="kb" element={<KnowledgeBasePage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

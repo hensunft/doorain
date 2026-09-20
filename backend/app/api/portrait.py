@@ -45,23 +45,23 @@ from ..services.portrait import graph
 from ..services.risks import engine
 from ..services.risks.methodology import TOPIC_TITLES
 from ..services.risks.scoring import METHODOLOGY_VERSION
-from .deps import owner, require_writable, session_of
+from .deps import current_user, require_writable, session_of
 
 router = APIRouter(tags=["portrait"])
 
 
 @router.get("/sessions/{session_id}/graph", response_model=GraphOut)
-def get_graph(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> dict:
+def get_graph(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> dict:
     return graph.view(db, session_of(db, ctx, session_id))
 
 
 @router.get("/sessions/{session_id}/timeline", response_model=list[TimelineItem])
-def get_timeline(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> list[dict]:
+def get_timeline(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> list[dict]:
     return graph.timeline(db, session_of(db, ctx, session_id))
 
 
 @router.put("/sessions/{session_id}/layout", status_code=204)
-def put_layout(session_id: uuid.UUID, body: LayoutIn, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> None:
+def put_layout(session_id: uuid.UUID, body: LayoutIn, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> None:
     s = session_of(db, ctx, session_id)
     valid = {str(i) for i in db.scalars(select(GraphNode.id).where(GraphNode.session_id == s.id))}
     pos = {k: {"x": max(-1e5, min(1e5, v.get("x", 0.0))), "y": max(-1e5, min(1e5, v.get("y", 0.0)))} for k, v in body.positions.items() if k in valid}
@@ -89,7 +89,7 @@ def _risk_out(db: Session, r: Risk) -> RiskOut:
 
 
 @router.get("/sessions/{session_id}/risks", response_model=RisksOut)
-def list_risks(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> RisksOut:
+def list_risks(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> RisksOut:
     s = session_of(db, ctx, session_id)
     rows = list(db.scalars(select(Risk).where(Risk.session_id == s.id)))
     active = sorted([r for r in rows if r.status in ("open", "in_progress")], key=lambda r: (-(r.score or 0), -(r.s or 0), r.created_at))
@@ -111,7 +111,7 @@ def _risk_of(db: Session, ctx: auth.AuthContext, risk_id: uuid.UUID) -> Risk:
 
 
 @router.get("/risks/{risk_id}", response_model=RiskDetail)
-def risk_detail(risk_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> RiskDetail:
+def risk_detail(risk_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> RiskDetail:
     r = _risk_of(db, ctx, risk_id)
     evs = []
     for e in db.scalars(select(RiskEvidence).where(RiskEvidence.risk_id == r.id).order_by(RiskEvidence.created_at)):
@@ -132,7 +132,7 @@ def risk_detail(risk_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: 
 
 
 @router.patch("/risks/{risk_id}", response_model=RiskOut)
-def patch_risk(risk_id: uuid.UUID, body: RiskPatch, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> RiskOut:
+def patch_risk(risk_id: uuid.UUID, body: RiskPatch, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> RiskOut:
     require_writable(db)
     r = _risk_of(db, ctx, risk_id)
     engine.set_status(db, r, body.status, body.reason, body.version, "owner")
@@ -164,7 +164,7 @@ def _cit_of(db: Session, ctx: auth.AuthContext, cid: uuid.UUID) -> Citation:
 
 
 @router.get("/citations/{citation_id}", response_model=CitationOut)
-def get_citation(citation_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> CitationOut:
+def get_citation(citation_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> CitationOut:
     c = _cit_of(db, ctx, citation_id)
     ch = db.get(Chunk, c.chunk_id) if c.chunk_id else None
     prev = db.get(Chunk, ch.prev_id) if ch and ch.prev_id else None
@@ -173,14 +173,14 @@ def get_citation(citation_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner),
 
 
 @router.get("/citations/{citation_id}/export", response_class=PlainTextResponse)
-def export_citation(citation_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> PlainTextResponse:
+def export_citation(citation_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> PlainTextResponse:
     c = _cit_of(db, ctx, citation_id)
     name = quote(safe_filename(f"citation-{c.snapshot['locator']}.txt", "citation.txt"))
     return PlainTextResponse(_formatted(c), headers={"Content-Disposition": f"attachment; filename=\"citation.txt\"; filename*=UTF-8''{name}"})
 
 
 @router.get("/revisions/{revision_id}/file")
-def revision_file(revision_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> FileResponse:
+def revision_file(revision_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> FileResponse:
     """Оригинал документа — только как attachment (не активный документ на origin приложения)."""
     r = db.get(DocumentRevision, revision_id)
     if not r or not Path(r.original_path).is_file():

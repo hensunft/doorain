@@ -25,11 +25,80 @@ class LoginIn(BaseModel):
 class UserOut(Out):
     id: uuid.UUID
     username: str
+    access_level: Literal["owner", "user"]
+    disclaimer_accepted_at: datetime | None = None
 
 
 class AuthOut(BaseModel):
     user: UserOut
     csrf_token: str
+    single_user_mode: bool = False
+
+
+class RegisterIn(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=1, max_length=256)
+    invite_code: str = Field(min_length=1, max_length=128)
+
+
+class InviteCreate(BaseModel):
+    note: str | None = Field(default=None, max_length=200)
+
+
+class InviteCreated(BaseModel):
+    code: str  # показывается один раз: в базе хранится только хеш
+    hint: str
+    expires_at: datetime
+
+
+class InviteOut(Out):
+    id: uuid.UUID
+    hint: str
+    note: str | None
+    created_at: datetime
+    expires_at: datetime
+    used_at: datetime | None
+    used_by: str | None
+    revoked_at: datetime | None
+    state: Literal["active", "used", "revoked", "expired"]
+
+
+class UserAdminOut(Out):
+    id: uuid.UUID
+    username: str
+    access_level: str
+    created_at: datetime
+    last_login_at: datetime | None
+    disclaimer_accepted_at: datetime | None
+    disabled_at: datetime | None
+    sessions: int
+    deleted_sessions: int
+
+
+class UserPatch(BaseModel):
+    disabled: bool | None = None
+
+
+class AdminStats(BaseModel):
+    users: int
+    active_users: int
+    sessions: int
+    deleted_sessions: int
+    messages: int
+    risks_active: int
+    sessions_by_role: dict[str, int]
+    risks_by_level: dict[str, int]
+    owner_can_read_user_sessions: bool
+
+
+class AuditEventOut(Out):
+    id: int
+    at: datetime
+    actor: str
+    action: str
+    object_type: str | None
+    object_id: str | None
+    details: dict[str, Any]
 
 
 class ChangePasswordIn(BaseModel):
