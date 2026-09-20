@@ -172,7 +172,6 @@ def test_object_ownership_isolation(owner: Api, demo: dict) -> None:
     sid = new_session(owner)
     snap = ask(owner, sid, "У нас нет политики обработки персональных данных на сайте.")
     cid = owner.get(f"/sessions/{sid}/messages").json()[-1]["citations"][0]["id"]
-    from app.auth.service import create_owner
     from app.db.session import SessionLocal
 
     db = SessionLocal()
@@ -190,7 +189,6 @@ def test_object_ownership_isolation(owner: Api, demo: dict) -> None:
     assert other.post(f"/sessions/{sid}/messages", json={"text": "привет привет", "client_request_id": uuid.uuid4().hex}).status_code == 404
     assert other.delete(f"/sessions/{sid}", params={"confirm": "x"}).status_code == 404
     assert other.get("/sessions").json() == []
-    _ = create_owner
 
 
 def test_client_ip_trusts_forwarded_header_only_from_trusted_proxy() -> None:

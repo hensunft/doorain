@@ -17,7 +17,7 @@ import hashlib
 import json
 import os
 import platform
-import statistics
+import shutil
 import subprocess
 import sys
 import threading
@@ -29,7 +29,6 @@ from typing import Any
 import httpx
 
 HERE = Path(__file__).resolve().parent
-LEVEL = {"calibration": "calibration", "holdout": "holdout"}
 
 
 class Sampler(threading.Thread):
@@ -190,7 +189,7 @@ def main() -> None:
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     report = {
         "created_at": datetime.now(UTC).isoformat(), "profile": a.profile, "split": a.split, "as_of": a.as_of, "dataset_sha256": hashlib.sha256(ds.encode()).hexdigest()[:16],
-        "hardware": {"platform": platform.platform(), "gpu": subprocess.run(["nvidia-smi", "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader"], capture_output=True, text=True).stdout.strip() if shutil_which("nvidia-smi") else None},
+        "hardware": {"platform": platform.platform(), "gpu": subprocess.run(["nvidia-smi", "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader"], capture_output=True, text=True).stdout.strip() if shutil.which("nvidia-smi") else None},
         "model": diag["llm"], "thresholds": diag["thresholds"], "provider_mode": diag["provider_mode"], "corpus": {"revisions": corpus["revisions"], "chunks": corpus["chunks"], "has_demo": corpus["has_demo"], "generation": (corpus["active_generation"] or {}).get("seq")},
         "resources": sampler.summary() if sampler else None, "aggregate": aggregate(rows), "calibration_suggestion": calibrate(rows) if a.split == "calibration" else None,
         "caveats": ["expected_* — гипотезы автора набора, не экспертная разметка", "автоматические метрики не заменяют юридическую экспертизу; LLM-as-judge не использовался", "при provider_mode=test или корпусе с демо-данными результаты не характеризуют качество реальной модели/права"],
@@ -213,12 +212,5 @@ def main() -> None:
     print(json.dumps(report["aggregate"], ensure_ascii=False, indent=1))
 
 
-def shutil_which(x: str) -> str | None:
-    import shutil  # noqa: PLC0415
-
-    return shutil.which(x)
-
-
 if __name__ == "__main__":
     main()
-    _ = statistics

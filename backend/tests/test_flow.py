@@ -91,6 +91,7 @@ def test_trace_is_stored_for_audit(owner: Api, demo: dict) -> None:
     t = run.trace
     assert {p["name"] for p in t["prompts"]} >= {"analysis/classify", "common/rules", "entrepreneur/answer"} and all(p["version"] and p["sha256"] for p in t["prompts"])
     assert t["retrieval"]["scores"] and t["retrieval"]["timings_ms"] and t["sources"]["C1"] and t["ttft_ms"] is not None and t["analysis"]["attempts"] == 1
+    assert t["raw_answer"] and "[C1]" in t["raw_answer"] and t["analysis"]["raw"]  # сырой вывод модели сохранён отдельно
     db.close()
 
 
@@ -130,6 +131,8 @@ def test_insufficient_grounds_when_threshold_not_met(owner: Api, demo: dict, mon
     sid = new_session(owner)
     snap = ask(owner, sid, "Нужна ли политика обработки персональных данных на сайте?")
     assert snap["answer_status"] == "refused" and snap["refusal_reason"] == "insufficient_grounds"
+    tr = owner.get(f"/runs/{snap['run_id']}/trace").json()  # трасса отказа сохраняется (для аудита и калибровки порога)
+    assert tr["trace"]["retrieval"]["scores"] and tr["trace"]["retrieval"]["reason"] == "below_threshold" and tr["model_info"]["provider"] == "test"
     assert "не отвечаю «по памяти»" in owner.get(f"/sessions/{sid}/messages").json()[-1]["text"]
 
 
@@ -429,9 +432,8 @@ def test_old_citations_survive_new_revision_and_generation(owner: Api, demo: dic
 def test_delete_session_cascades_but_keeps_corpus(owner: Api, demo: dict) -> None:
     sid = new_session(owner)
     ask(owner, sid, NO_POLICY)
-    exp = owner.post(f"/sessions/{sid}/exports", json={}).json()
+    owner.post(f"/sessions/{sid}/exports", json={})
     run_jobs()
-    path = Path(json.loads(json.dumps(owner.get(f"/exports/{exp['id']}").json())).get("id") and "")  # noqa: F841
     title = owner.get(f"/sessions/{sid}").json()["title"]
     assert owner.delete(f"/sessions/{sid}", params={"confirm": "не то"}).status_code == 422
     assert owner.delete(f"/sessions/{sid}", params={"confirm": title}).status_code == 204

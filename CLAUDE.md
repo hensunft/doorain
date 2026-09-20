@@ -6,7 +6,7 @@
 
 ```bash
 # backend (uv, Python 3.12)
-cd backend && uv sync && uv run pytest                 # 76+ тестов, SQLite; на PostgreSQL: DOORAIN_TEST_DATABASE_URL=postgresql+psycopg://…  uv run pytest
+cd backend && uv sync && uv run pytest                 # 81 тест, SQLite; на PostgreSQL: DOORAIN_TEST_DATABASE_URL=postgresql+psycopg://…  uv run pytest
 uv run ruff check app tests && uv run mypy app
 uv run alembic revision --autogenerate -m "…"          # только против PostgreSQL 17; затем alembic check
 uv run python -m app.cli export-openapi --out ../frontend/openapi.json

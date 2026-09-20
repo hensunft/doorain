@@ -2,6 +2,10 @@
 # GPU: -f compose.yaml -f compose.nvidia.yaml. Интернет-доступ: -f compose.internet.yaml (см. docs/internet-access.md).
 name: doorain
 
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }  # ротация технических логов; тела запросов и пароли в них не пишутся
+
 x-backend: &backend
   image: doorain/backend:${DOORAIN_VERSION:-0.1.0}
   build:
@@ -10,6 +14,7 @@ x-backend: &backend
     args:
       WITH_ML: ${WITH_ML:-1}
   restart: unless-stopped
+  logging: *logging
   networks: [internal]
   security_opt: ["no-new-privileges:true"]
   cap_drop: [ALL]

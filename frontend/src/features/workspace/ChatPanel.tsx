@@ -10,7 +10,7 @@ import { ApiError, newRequestId, post } from '../../lib/api'
 import { useOnline } from '../../lib/hooks'
 import { keys, useGraph, useMessages, useStatus } from '../../lib/queries'
 import { nodesForRisk, useSelection } from '../../lib/selection'
-import { useRunStream, type StreamEvent } from '../../lib/stream'
+import { useRunStream } from '../../lib/stream'
 import { Blocks } from './MessageView'
 
 type RunAccepted = { run_id: string; message_id: string; deduplicated?: boolean }
@@ -21,10 +21,11 @@ const EXAMPLES: Record<Session['role'], string[]> = {
   expert: ['Что говорится в статье 18.1 о политике оператора?', 'Какие обязанности оператора установлены при сборе персональных данных?'],
 }
 
-function RunStream({ runId, session, hideBlocks, onFinished, onEvent }: { runId: string; session: Session; hideBlocks: boolean; onFinished: () => void; onEvent: (e: StreamEvent) => void }) {
+const NO_CHIPS: never[] = []
+
+function RunStream({ runId, session, hideBlocks, onFinished }: { runId: string; session: Session; hideBlocks: boolean; onFinished: () => void }) {
   const qc = useQueryClient()
   const stream = useRunStream(runId, (ev) => {
-    onEvent(ev)
     if (ev.type === 'portrait_updated') { void qc.invalidateQueries({ queryKey: keys.graph(session.id) }); void qc.invalidateQueries({ queryKey: keys.timeline(session.id) }) }
     if (ev.type === 'risk_updated') void qc.invalidateQueries({ queryKey: keys.risks(session.id) })
     if (ev.type === 'answer_completed') void qc.invalidateQueries({ queryKey: keys.messages(session.id) }) // сохранённый ответ (с источниками) заменяет буфер
@@ -33,10 +34,9 @@ function RunStream({ runId, session, hideBlocks, onFinished, onEvent }: { runId:
     }
   })
   const { openCitation } = useSelection()
-  const chips = useMemo(() => [], [])
   return (
     <div className="space-y-2" aria-busy={!stream.done}>
-      {!hideBlocks && stream.blocks.length > 0 && <Blocks blocks={stream.blocks} chips={chips} onCite={openCitation} />}
+      {!hideBlocks && stream.blocks.length > 0 && <Blocks blocks={stream.blocks} chips={NO_CHIPS} onCite={openCitation} />}
       {!stream.done && (
         <p className="flex items-center gap-2 text-small text-muted" role="status">
           <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -156,7 +156,7 @@ export function ChatPanel({ session, draft, setDraft }: { session: Session; draf
             </article>
           )
         })}
-        {runId && <RunStream key={`${runId}:${retryNonce}`} runId={runId} session={session} hideBlocks={rows.some((m) => m.role === 'assistant' && m.run_id === runId)} onEvent={() => undefined} onFinished={() => setRunId(null)} />}
+        {runId && <RunStream key={`${runId}:${retryNonce}`} runId={runId} session={session} hideBlocks={rows.some((m) => m.role === 'assistant' && m.run_id === runId)} onFinished={() => setRunId(null)} />}
         {!runId && lastAssistantWithFailedAnalysis?.run_id && (
           <Banner tone="warn" action={<Button onClick={() => retry.mutate(lastAssistantWithFailedAnalysis.run_id as string)} disabled={retry.isPending}>Повторить анализ</Button>}>
             Ответ проверен и сохранён, но слепок и риски по нему не обновлены (analysis failed). Повтор не создаст дублей.

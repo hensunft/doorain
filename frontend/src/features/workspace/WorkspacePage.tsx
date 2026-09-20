@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { FileDown, GraduationCap, Repeat, X } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Dialog } from '../../components/Dialog'
 import { Banner, ErrorNote, Skeleton } from '../../components/States'
@@ -157,8 +157,6 @@ function Inner({ session }: { session: Session }) {
 export function WorkspacePage() {
   const { id = '' } = useParams()
   const session = useSession(id)
-  const reset = useCallback(() => undefined, [])
-  void reset
   if (session.isLoading) return <div className="p-6"><Skeleton lines={6} /></div>
   if (session.isError) return <div className="mx-auto max-w-lg space-y-3 p-6"><ErrorNote error={session.error} onRetry={() => session.refetch()} /><Link to="/history" className="btn no-underline">К истории</Link></div>
   if (!session.data) return null

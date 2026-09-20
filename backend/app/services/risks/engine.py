@@ -87,12 +87,12 @@ def apply_facts(db: Session, s: ConsultationSession, run_id: uuid.UUID, msg: Mes
     return by_key, novelty
 
 
-def apply_analysis(db: Session, s: ConsultationSession, run_id: uuid.UUID, msg: Message, result: AnalysisResult, cites: dict[str, Citation]) -> dict[str, Any]:
+def apply_analysis(db: Session, s: ConsultationSession, run_id: uuid.UUID, msg: Message, result: AnalysisResult, cites: dict[str, Citation], topics: list[str] | None = None) -> dict[str, Any]:
     """Одна транзакция (коммит снаружи): факты → риски → граф. Идемпотентно по стабильным ключам."""
     changed: list[str] = []
     ignored = 0
     facts, novelty = apply_facts(db, s, run_id, msg, result)
-    q = graph.question(db, s, msg, "answered", list(dict.fromkeys(result.topic_ids)))
+    q = graph.question(db, s, msg, "answered", list(dict.fromkeys(topics or result.topic_ids)))  # темы вопроса — от классификатора; из аналитики только если их нет
     for marker in dict.fromkeys(result.citation_ids or list(cites)):
         c = cites.get(marker)
         if c:

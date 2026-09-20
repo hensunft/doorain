@@ -58,8 +58,7 @@ export function riskIdsForNode(graph: Graph | undefined, risks: Risk[], nodeId: 
   const node = graph.nodes.find((n) => n.id === nodeId)
   if (!node) return out
   const riskNodeToId = new Map(graph.nodes.filter((n) => n.kind === 'risk').map((n) => [n.id, String(n.data['risk_id'])]))
-  const riskNeighbors = (id: string) => graph.edges.flatMap((e) => (e.source === id && riskNeighborsKind(e.target) ? [e.target] : e.target === id && riskNeighborsKind(e.source) ? [e.source] : []))
-  const riskNeighborsKind = (id: string) => riskNodeToId.has(id)
+  const riskNeighbors = (id: string) => graph.edges.flatMap((e) => (e.source === id && riskNodeToId.has(e.target) ? [e.target] : e.target === id && riskNodeToId.has(e.source) ? [e.source] : []))
   if (node.kind === 'risk') {
     const r = riskNodeToId.get(node.id)
     if (r) out.add(r)

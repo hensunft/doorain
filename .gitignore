@@ -35,4 +35,6 @@ test-results/
 .tmp/
 docs/source/_pdf.txt
 evals/reports/*.json
+evals/reports/*.csv
 !evals/reports/.gitkeep
+*.tsbuildinfo

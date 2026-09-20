@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -74,13 +75,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 def _embedded() -> bool:
-    import os  # noqa: PLC0415
-
     return os.environ.get("DOORAIN_EMBEDDED_WORKER") == "1" and get_settings().env != "production"
 
 
 def _static_dir() -> Path | None:
-    import os  # noqa: PLC0415
-
     d = os.environ.get("DOORAIN_SERVE_STATIC")
     return Path(d).resolve() if d and get_settings().env != "production" and Path(d).is_dir() else None

@@ -102,14 +102,13 @@ switch ($Command) {
     } else { Warn 'nvidia-smi не найден: работа в CPU-режиме (медленно)' }
     if ($Deep) {
       Say '== Глубокая проверка (нужен запущенный стек)'
-      if ((ComposeQuiet @('exec', '-T', 'api', 'python', '-c', "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=5).status==200 else 1)")) -eq 0) { Ok 'API отвечает' } else { Fail 'API не отвечает' }
-      if ((ComposeQuiet @('exec', '-T', 'worker', 'python', '-c', "import urllib.request; urllib.request.urlopen('https://huggingface.co', timeout=5)")) -eq 0) { Fail 'worker имеет выход в интернет (изоляция нарушена)' } else { Ok 'worker не имеет внешней сети (изоляция internal)' }
-      $model = EnvValue 'DOORAIN_OLLAMA_MODEL'; if (-not $model) { $model = 'qwen3:4b-instruct-2507-q4_K_M' }
-      Say "Реальный inference ($model)…"
-      $a = ComposeArgs; & docker @a exec -T ollama ollama run $model 'ответь одним словом: да' *> $null
-      if ($LASTEXITCODE -eq 0) { Ok 'Модель отвечает'; & docker @a exec -T ollama ollama ps } else { Fail 'Модель не ответила (выполните prepare)' }
-    }
-    if ($CheckPublic) {
+      function Probe([string]$svc, [string]$code) { $a = ComposeArgs; $out = $code | & docker @a exec -T $svc python - ; $rc = $LASTEXITCODE; $out | ForEach-Object { Write-Host "    $_" }; return $rc }  # код — через stdin; вывод не смешивается с кодом возврата
+      if ((Probe 'api' "import urllib.request,sys`nsys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=5).status==200 else 1)") -eq 0) { Ok 'API отвечает' } else { Fail 'API не отвечает' }
+      if ((Probe 'worker' "import urllib.request,sys`ntry:`n    urllib.request.urlopen('https://huggingface.co', timeout=5)`nexcept Exception:`n    sys.exit(0)`nprint('REACHABLE')`nsys.exit(1)") -eq 0) { Ok 'worker не имеет внешней сети (изоляция internal)' } else { Fail 'worker имеет выход в интернет (изоляция нарушена)' }
+      Say 'Реальный inference (HTTP API Ollama из контейнера worker)…'
+      $infer = "import httpx,os,sys`nr=httpx.post(os.environ['DOORAIN_OLLAMA_URL']+'/api/generate', json={'model':os.environ['DOORAIN_OLLAMA_MODEL'],'prompt':'Reply with one word: yes','stream':False,'options':{'num_predict':8}}, timeout=600)`nr.raise_for_status()`nd=r.json()`nprint('response=%r eval_count=%s total_ms=%d' % (d.get('response','').strip()[:30], d.get('eval_count'), d.get('total_duration',0)//1000000))"
+      if ((Probe 'worker' $infer) -eq 0) { Ok 'Модель отвечает'; Compose @('exec', '-T', 'ollama', 'ollama', 'ps') } else { Fail 'Модель не ответила (выполните prepare)' }
+    }    if ($CheckPublic) {
       Say '== Внешний адрес (явный запрос к api.ipify.org)'
       try { $ip = (Invoke-RestMethod 'https://api.ipify.org' -TimeoutSec 10); Say "Публичный IP: $ip; сверьте с WAN-адресом роутера: если они различаются — вероятно CGNAT (см. docs/internet-access.md)" } catch { Warn 'Не удалось определить публичный IP' }
       $d = EnvValue 'DOORAIN_DOMAIN'; if ($d) { try { Say ("DNS {0}: {1}" -f $d, ((Resolve-DnsName $d -ErrorAction Stop | Where-Object { $_.IPAddress } | ForEach-Object IPAddress) -join ', ')) } catch { Warn "Домен $d не разрешается" } }

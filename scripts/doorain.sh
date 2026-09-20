@@ -68,12 +68,12 @@ case "$CMD" in
     else warn "nvidia-smi не найден: CPU-режим (медленно)"; fi
     if [ "$DEEP" = 1 ]; then
       echo "== Глубокая проверка (нужен запущенный стек)"
-      dc exec -T api python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=5).status==200 else 1)" && ok "API отвечает" || fail "API не отвечает"
-      dc exec -T worker python -c "import urllib.request; urllib.request.urlopen('https://huggingface.co', timeout=5)" >/dev/null 2>&1 && fail "worker имеет выход в интернет (изоляция нарушена)" || ok "worker не имеет внешней сети"
-      model="$(env_value DOORAIN_OLLAMA_MODEL)"; model="${model:-qwen3:4b-instruct-2507-q4_K_M}"
-      dc exec -T ollama ollama run "$model" 'ответь одним словом: да' >/dev/null 2>&1 && { ok "Модель отвечает"; dc exec -T ollama ollama ps; } || fail "Модель не ответила (выполните prepare)"
-    fi
-    if [ "$CHECK_PUBLIC" = 1 ]; then echo "== Внешний адрес (явный запрос к api.ipify.org)"; echo "Публичный IP: $(curl -fsS --max-time 10 https://api.ipify.org || echo н/д); сверьте с WAN роутера (CGNAT?)"; fi
+      probe() { printf '%s\n' "$2" | dc exec -T "$1" python -; }  # код передаётся через stdin
+      probe api $'import urllib.request,sys\nsys.exit(0 if urllib.request.urlopen("http://127.0.0.1:8000/api/v1/health/live", timeout=5).status==200 else 1)' && ok "API отвечает" || fail "API не отвечает"
+      probe worker $'import urllib.request,sys\ntry:\n    urllib.request.urlopen("https://huggingface.co", timeout=5)\nexcept Exception:\n    sys.exit(0)\nprint("REACHABLE")\nsys.exit(1)' && ok "worker не имеет внешней сети" || fail "worker имеет выход в интернет (изоляция нарушена)"
+      echo "Реальный inference (HTTP API Ollama из контейнера worker)…"
+      probe worker $'import httpx,os\nr=httpx.post(os.environ["DOORAIN_OLLAMA_URL"]+"/api/generate", json={"model":os.environ["DOORAIN_OLLAMA_MODEL"],"prompt":"Reply with one word: yes","stream":False,"options":{"num_predict":8}}, timeout=600)\nr.raise_for_status()\nd=r.json()\nprint("response=%r eval_count=%s total_ms=%d" % (d.get("response","").strip()[:30], d.get("eval_count"), d.get("total_duration",0)//1000000))' && { ok "Модель отвечает"; dc exec -T ollama ollama ps; } || fail "Модель не ответила (выполните prepare)"
+    fi    if [ "$CHECK_PUBLIC" = 1 ]; then echo "== Внешний адрес (явный запрос к api.ipify.org)"; echo "Публичный IP: $(curl -fsS --max-time 10 https://api.ipify.org || echo н/д); сверьте с WAN роутера (CGNAT?)"; fi
     echo; echo "Итог: ошибок $FAIL, предупреждений $WARN"; [ "$FAIL" -eq 0 ] || exit 1;;
 
   prepare)

@@ -34,7 +34,7 @@ from .. import jobs
 from ..ingestion.indexer import Cancelled, applicable_revisions, fp_hash
 from ..portrait import graph
 from ..risks import engine
-from ..risks.methodology import DEMO_NOTICE
+from ..risks.methodology import DEMO_NOTICE, RISK_TYPES
 from . import prompts, verify
 from .retrieval import retrieve
 
@@ -221,7 +221,7 @@ def _answer(db: Session, job: Job, p: Providers, s: Settings, run: GenerationRun
     trace["prompts"].append({**cr.meta, "vars": {"question": msg.content, "history_ids": [h_["message_id"] for h_ in hist]}})
     trace["classification"] = cls.model_dump()
     trace["stages_ms"]["classify"] = int((time.monotonic() - t1) * 1000)
-    run.trace = trace
+    run.trace = dict(trace)  # копия: JSON-колонка не отслеживает мутацию на месте
     if jobs.is_cancelled(db, job):
         raise Cancelled()
     if not cls.in_scope:
@@ -239,7 +239,7 @@ def _answer(db: Session, job: Job, p: Providers, s: Settings, run: GenerationRun
     emit("status", {"stage": "retrieval", "message": "Ищу нормы в базе знаний"})
     retr = retrieve(db, p, s, gen, revs, cls.rewritten_query or msg.content, msg.content)
     trace["retrieval"] = {"timings_ms": retr.timings_ms, "considered": retr.considered, "reason": retr.reason, "scores": retr.scores, "generation_id": str(gen.id), "query": cls.rewritten_query}
-    run.trace = trace
+    run.trace = dict(trace)  # копия: JSON-колонка не отслеживает мутацию на месте
     if not retr.sufficient:
         return _refuse(db, job, run, session, msg, emit, "insufficient_grounds", topics=cls.topics)
     hits = retr.selected
@@ -269,7 +269,7 @@ def _answer(db: Session, job: Job, p: Providers, s: Settings, run: GenerationRun
     user = f"ИСТОЧНИКИ:\n<<<SOURCES\n{src_txt}\n<<<END_SOURCES\n\nИСТОРИЯ ДИАЛОГА:\n{hist_txt}\n\nВОПРОС ПОЛЬЗОВАТЕЛЯ:\n{msg.content}"
     trace["prompts"] += [{**rules.meta, "vars": {"as_of": run.as_of_date.isoformat()}}, {**role_prompt.meta, "vars": {"profile": profile}}]
     trace["sources"] = {c.marker: str(c.chunk_id) for c in cits}
-    run.trace = trace
+    run.trace = dict(trace)  # копия: JSON-колонка не отслеживает мутацию на месте
     db.commit()
     emit("status", {"stage": "generation", "message": "Формирую ответ (проверка ссылок по абзацам)"})
     sources = {c.marker: c.excerpt for c in cits}
@@ -293,10 +293,12 @@ def _answer(db: Session, job: Job, p: Providers, s: Settings, run: GenerationRun
         emit("answer_delta", {"block": blk, "provisional": True})
 
     buf, last_hb, gen_t = "", time.monotonic(), time.monotonic()
+    raw_parts: list[str] = []  # фактическая выдача модели — отдельно от финального (проверенного) результата
     for piece in p.llm.stream([{"role": "system", "content": system}, {"role": "user", "content": user}]):
         if piece == TRUNCATED_MARK:
             state["truncated"] = True
             continue
+        raw_parts.append(piece)
         buf += piece
         done, buf = verify.split_paragraphs(buf)
         for para in done:
@@ -313,6 +315,8 @@ def _answer(db: Session, job: Job, p: Providers, s: Settings, run: GenerationRun
         emit("answer_delta", {"block": blocks[-1], "provisional": True})
     trace["stages_ms"]["generation"] = int((time.monotonic() - gen_t) * 1000)
     trace["ttft_ms"], trace["unsupported_blocks"] = state["first_ms"], state["unsupported"]
+    trace["raw_answer"] = "".join(raw_parts)[:20000]
+    run.trace = dict(trace)
     if jobs.is_cancelled(db, job):
         raise Cancelled()
     # финальная проверка: лексическая опора; при полном провале — отказ
@@ -345,7 +349,7 @@ def _answer(db: Session, job: Job, p: Providers, s: Settings, run: GenerationRun
     db.add(asst)
     db.flush()
     run.assistant_message_id, run.answer_status, run.warnings = asst.id, "validated", [*run.warnings, *warns]
-    run.trace = trace
+    run.trace = dict(trace)  # копия: JSON-колонка не отслеживает мутацию на месте
     q = graph.question(db, session, msg, "answered", list(dict.fromkeys(cls.topics)))
     for c in cits:
         if c.marker in cited:
@@ -402,18 +406,22 @@ def run_analysis(db: Session, job: Job | None, p: Providers, s: Settings, run: G
         "existing_risks": [{"risk_type": r.risk_type, "scope": r.scope_key, "status": r.status, "p": r.p, "s": r.s} for r in risks],
         "history": _history(db, session, msg.seq, 4),
         "profile": _profile_text(db, session),
+        "risk_types": {k: v[0] for k, v in RISK_TYPES.items()},  # ключ → описание: модель выбирает тип по смыслу
     }
     pr = prompts.render("analysis/analyze")
     base = [{"role": "system", "content": pr.text}, {"role": "user", "content": f"<context>{json.dumps(ctx, ensure_ascii=False)}</context>"}]
     result: AnalysisResult | None = None
     err = ""
     attempts = 0
+    raw_dump = ""
     trace = dict(run.trace or {})
     while attempts < 2 and result is None:  # максимум один корректирующий повтор
         attempts += 1
         msgs = base + ([{"role": "user", "content": f"Предыдущий ответ отклонён: {err}. Верни корректный JSON по схеме."}] if err else [])
         try:
-            r = AnalysisResult.model_validate(p.llm.json(msgs, AnalysisResult.model_json_schema(), num_predict=900))
+            raw = p.llm.json(msgs, AnalysisResult.model_json_schema(), num_predict=900)
+            raw_dump = json.dumps(raw, ensure_ascii=False)[:8000]
+            r = AnalysisResult.model_validate(raw)
             allowed = set(cites)
             used = set(r.citation_ids) | {m for rc in r.risk_candidates for m in (*rc.obligation_citation_ids, *rc.consequence_citation_ids)}
             if r.message_id != str(msg.id):
@@ -427,13 +435,13 @@ def run_analysis(db: Session, job: Job | None, p: Providers, s: Settings, run: G
                 break  # модель недоступна/таймаут — повтор бессмыслен
         except (ValidationError, ValueError) as e:
             err = str(e)[:300]
-    trace["analysis"] = {"prompt": pr.meta, "attempts": attempts, "error": (None if result else err)}
+    trace["analysis"] = {"prompt": pr.meta, "attempts": attempts, "error": (None if result else err), "raw": raw_dump}
     if result is None:
         run.analysis_status, run.trace = "failed", trace
         db.commit()
         emit("status", {"stage": "analysis_failed", "message": "Аналитика не выполнена; проверенный ответ сохранён. Можно повторить анализ."})
         return
-    summary = engine.apply_analysis(db, session, run.id, msg, result, cites)  # одна транзакция
+    summary = engine.apply_analysis(db, session, run.id, msg, result, cites, (run.trace or {}).get("classification", {}).get("topics"))  # одна транзакция
     run.analysis_status, run.trace = "completed", trace
     db.commit()
     emit("portrait_updated", {"question_result": "answered", **summary})

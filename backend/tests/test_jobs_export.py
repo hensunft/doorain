@@ -43,7 +43,7 @@ def test_lease_expiry_requeues_then_fails_after_max_attempts(env: Path) -> None:
 
 def test_heartbeat_extends_lease_and_reports_cancel(env: Path) -> None:
     db = SessionLocal()
-    j = jobs.enqueue(db, "build_generation", {})
+    jobs.enqueue(db, "build_generation", {})
     db.commit()
     claimed = jobs.claim_next(db)
     assert claimed
@@ -52,7 +52,6 @@ def test_heartbeat_extends_lease_and_reports_cancel(env: Path) -> None:
     jobs.request_cancel(db, claimed)
     assert jobs.heartbeat(db, claimed) is True
     db.close()
-    _ = j
 
 
 def test_idempotency_key_and_queue_limit(env: Path, monkeypatch: pytest.MonkeyPatch) -> None:

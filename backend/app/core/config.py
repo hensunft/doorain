@@ -68,7 +68,6 @@ class Settings(BaseSettings):
     job_lease_s: int = 90
     job_max_attempts: int = 3
     worker_poll_s: float = 1.0
-    log_retention_days: int = 30
 
     @property
     def cookie_name(self) -> str:
@@ -98,10 +97,6 @@ class Settings(BaseSettings):
     @property
     def exports_dir(self) -> Path:
         return self.data_dir / "exports"
-
-    @property
-    def backups_dir(self) -> Path:
-        return self.data_dir / "backups"
 
 
 @lru_cache
