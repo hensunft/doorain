@@ -6,7 +6,7 @@
 
 ```bash
 # backend (uv, Python 3.12)
-cd backend && uv sync && uv run pytest                 # 81 тест, SQLite; на PostgreSQL: DOORAIN_TEST_DATABASE_URL=postgresql+psycopg://…  uv run pytest
+cd backend && uv sync && uv run pytest                 # 97 тестов, SQLite; на PostgreSQL: DOORAIN_TEST_DATABASE_URL=postgresql+psycopg://…  uv run pytest
 uv run ruff check app tests && uv run mypy app
 uv run alembic revision --autogenerate -m "…"          # только против PostgreSQL 17; затем alembic check
 uv run python -m app.cli export-openapi --out ../frontend/openapi.json
@@ -16,13 +16,17 @@ pnpm gen:api                                           # openapi.json → src/li
 pnpm e2e                                               # Playwright: поднимает backend/app/devserver.py (тестовые провайдеры, SQLite)
 # стек
 scripts/doorain.ps1|sh  init | doctor | prepare | start | stop | create-owner | backup | restore | export-bundle | import-bundle
+python -m app.cli invite --note "для кого"             # код приглашения (регистрация только по нему); list-users
+python -m app.cli kb doctor | search "<q>" --debug | add <файл|url> --license … | list | update | reindex | eval
+python knowledge_base/fetch_pravo.py --tier start      # ручная загрузка НПА с pravo.gov.ru (вне рантайма)
 DOORAIN_EXTRA_COMPOSE=tests/docker/compose.drill.yaml WITH_ML=0 scripts/doorain.ps1 start   # проверочный стенд без моделей
 python evals/run_eval.py --user owner --split holdout   # DOORAIN_EVAL_PASSWORD в окружении
 ```
 
 ## Инварианты (не нарушать)
 
-* Единственный владелец; регистрации/setup-endpoint нет; пароль только интерактивно; секреты не в Git; production отклоняет слабую конфигурацию.
+* Два уровня доступа: `owner` (база знаний, админка, диагностика) и `user` (только свои сессии). Публичной саморегистрации нет — только код приглашения; пароль владельца вводится интерактивно; секреты не в Git; production отклоняет слабую конфигурацию и `SINGLE_USER_MODE`.
+* Изоляция проверяется в запросе к БД (`session_of`), а не скрытием кнопок; чужой объект отдаёт 404. Владелец видит чужие сессии, только если включён `DOORAIN_OWNER_CAN_READ_USER_SESSIONS`, и каждый просмотр пишется в журнал.
 * Любой изменяющий запрос — cookie-сессия + `X-CSRF-Token` + проверка Origin; владелец объекта проверяется в каждом маршруте.
 * PostgreSQL и файлы — источник истины; Qdrant восстанавливаем. Редакции неизменяемы; цитаты хранят снимок реквизитов и выдержки.
 * Ссылки, реквизиты и даты подставляет сервер; модель выбирает только выданные `[C#]`; непроверенное заменяется «Недостаточно данных». Облачного fallback нет.
@@ -39,5 +43,7 @@ python evals/run_eval.py --user owner --split holdout   # DOORAIN_EVAL_PASSWORD 
 * TypeScript закреплён на 5.9 (см. docs/decisions.md); react-table — v8.
 * Мутируя `Message`/`GenerationRun`, помните о `session.version` и SSE-событиях (`job_events`).
 * Пороги отказа (`DOORAIN_MIN_RERANK_SCORE`) не откалиброваны, пока не выполнена калибровка на `split=calibration` (docs/evaluation.md).
+* Вердикт классификатора «вне области» — мягкий: снимается нормами со скором ≥ порог + `DOORAIN_SCOPE_OVERRIDE_MIN_SCORE`. Жёсткий отказ остаётся ниже `порог − DOORAIN_PARTIAL_ANSWER_MARGIN`; между ними ответ идёт с явной оговоркой о неполноте оснований.
+* Манифест корпуса — `knowledge_base/manifest.yaml`; документ без `license` не индексируется.
 
 Подробности — `docs/` (architecture, decisions, security, risk-methodology, knowledge-base, deployment, internet-access, backup-restore, evaluation, design-system, progress).

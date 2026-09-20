@@ -6,7 +6,7 @@
 
 | Область | Реализация | Проверка |
 |---|---|---|
-| Владелец | Только CLI `create-owner` (интерактивный пароль); публичной регистрации и setup-endpoint нет; второго владельца создать нельзя. Сброс — `reset-password` (отзывает все сессии). | `test_no_public_registration…`, `test_owner_can_only_be_created_once` |
+| Доступ | Два уровня: `owner` и `user` (`docs/access.md`). Изоляция — фильтр по `user_id` в запросе, чужой объект отдаёт 404; разделы владельца — 403. Владелец создаётся только CLI `create-owner` (интерактивный пароль); публичной регистрации и setup-endpoint нет; второго владельца создать нельзя. Сброс — `reset-password` (отзывает все сессии). | `test_no_public_registration…`, `test_owner_can_only_be_created_once` |
 | Пароли | Argon2id (argon2-cffi), случайная соль, `needs_rehash`; минимум 12 символов. | `test_password_is_argon2id_and_tokens_are_hashed` |
 | Сессии | Случайный токен, в БД — SHA-256 хэш; cookie `HttpOnly`, `SameSite=Lax`, `Secure` и префикс `__Host-` в production; ротация при входе и смене пароля; logout и смена пароля отзывают сессии; SSE каждые 20 с перепроверяет доступ; PDF проверяет права при каждом скачивании. | `test_logout_revokes_server_side`, `test_change_password_revokes_all_other_sessions`, `test_export_pdf_content_snapshot_and_auth` |
 | CSRF / Origin / Host | Токен `X-CSRF-Token` = HMAC(сессия); проверка `Origin` и `Sec-Fetch-Site` для изменяющих запросов (включая login, загрузки, logout); `TrustedHostMiddleware`; CORS отсутствует. | `test_csrf_required…`, `test_origin_check`, `test_host_header_checked` |

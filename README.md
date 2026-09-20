@@ -14,6 +14,12 @@ scripts\doorain.ps1 start -Gpu           # http://127.0.0.1:8080
 scripts\doorain.ps1 create-owner owner   # пароль вводится интерактивно
 ```
 
+Пользователи добавляются по коду приглашения (публичной регистрации нет):
+
+```powershell
+docker compose -p doorain exec api python -m app.cli invite --note "Иван"
+```
+
 Затем «База знаний» → импорт проверенных документов (`docs/knowledge-base.md`). Linux/Bash: `scripts/doorain.sh` (те же команды, флаги `--gpu`, `--internet`). Подробно: `docs/deployment.md`.
 
 Разработка: `cd backend && uv sync && uv run pytest`; `cd frontend && pnpm install && pnpm test && pnpm build`. Команды и инварианты — `CLAUDE.md`.
@@ -28,9 +34,10 @@ backend/    API, worker, сервисы rag/ingestion/risks/portrait/exports, м
 infra/      Dockerfile, Caddyfile, models.lock.json (ревизии моделей, digest образов)
 scripts/    doorain.ps1 / doorain.sh: init, doctor, prepare, start, stop, backup, restore, bundle
 evals/      датасет (74 кейса, calibration/holdout), раннер, шаблон экспертной разметки
+knowledge_base/ манифест корпуса (слои, лицензии) и ручная загрузка НПА с pravo.gov.ru
 tests/      e2e (Playwright), docker (стенд проверки)
-docs/       product, architecture, decisions, security, risk-methodology, knowledge-base, deployment,
-            internet-access, backup-restore, evaluation, design-system, skills-used, progress
+docs/       product, architecture, decisions, security, access, risk-methodology, knowledge-base,
+            deployment, internet-access, backup-restore, evaluation, design-system, skills-used, progress
 ```
 
 ## Статус готовности
