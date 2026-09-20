@@ -260,3 +260,35 @@ test('пользователь по приглашению: регистраци
   await expect(page.getByRole('table', { name: 'Риски сессии' }).getByRole('row')).not.toHaveCount(1)
   await expect(page.getByRole('heading', { name: 'Прежде чем начать' })).toHaveCount(0)  // дисклеймер уже принят
 })
+
+test('слепок: бейдж риска вместо отдельного узла, сводка уровней, экспорт SVG и PNG', async ({ page }) => {
+  await login(page)
+  await startSession(page, 'Предприниматель')
+  await ask(page, NO_POLICY)
+  await expect(page.getByRole('button', { name: /Открыть источник: ДЕМО-1-ФЗ/ }).first()).toBeVisible()
+
+  // риск показан окраской и бейджем на связанных узлах, отдельного узла риска по умолчанию нет
+  await expect(page.getByLabel('Сводка по уровням риска')).toBeVisible()
+  await expect(page.getByLabel('Мини-карта слепка')).toBeVisible()
+  const riskFilter = page.getByRole('checkbox', { name: 'Риски' })
+  await expect(riskFilter).not.toBeChecked()
+  await expect(page.locator('.react-flow__node').filter({ hasText: 'Нет опубликованной политики' })).toHaveCount(0)
+  await riskFilter.check()
+  await expect(page.locator('.react-flow__node').filter({ hasText: 'Нет опубликованной политики' })).toHaveCount(1)
+  await riskFilter.uncheck()
+
+  // фильтры интервала и уровня не ломают граф
+  await page.getByRole('combobox', { name: 'Интервал вопросов' }).selectOption('5')
+  await page.getByRole('combobox', { name: 'Уровень риска' }).selectOption('high')
+  await page.getByRole('combobox', { name: 'Уровень риска' }).selectOption('')
+
+  for (const fmt of ['SVG', 'PNG'] as const) {
+    const dl = page.waitForEvent('download')
+    await page.getByRole('button', { name: fmt, exact: true }).click()
+    const file = await dl
+    expect(file.suggestedFilename()).toMatch(new RegExp(`doorain-portrait-.*\.${fmt.toLowerCase()}$`))
+    const p = await file.path()
+    expect(fs.statSync(p).size).toBeGreaterThan(400)
+    if (fmt === 'SVG') expect(fs.readFileSync(p, 'utf8')).toContain('<svg')
+  }
+})

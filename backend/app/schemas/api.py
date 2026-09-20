@@ -219,6 +219,8 @@ class GraphNodeOut(BaseModel):
     label: str
     weight: int
     risk_level: Literal["low", "medium", "high", "critical"] | None = None
+    resolved_level: Literal["low", "medium", "high", "critical"] | None = None  # след снятого риска: узел светлеет, обводка остаётся
+    risk_count: int = 0  # активных рисков на узле — бейдж вместо отдельных узлов риска
     data: dict[str, Any] = {}
 
 

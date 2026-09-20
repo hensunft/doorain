@@ -76,9 +76,12 @@ def view(db: Session, s: ConsultationSession) -> dict[str, Any]:
     def rid(n: GraphNode) -> uuid.UUID | None:
         return uuid.UUID(n.data["risk_id"]) if n.kind == "risk" and n.data.get("risk_id") else None
 
-    lvl: dict[uuid.UUID, int] = {}  # node.id -> rank
-    def bump(nid: uuid.UUID, rank: int) -> None:
-        lvl[nid] = max(lvl.get(nid, 0), rank)
+    lvl: dict[uuid.UUID, int] = {}  # node.id -> rank активных рисков
+    past: dict[uuid.UUID, int] = {}  # node.id -> rank снятых рисков: узел светлеет, но след в истории остаётся
+    counts: dict[uuid.UUID, int] = {}  # node.id -> сколько активных рисков связано (бейдж вместо отдельных узлов)
+
+    def bump(acc: dict[uuid.UUID, int], nid: uuid.UUID, rank: int) -> None:
+        acc[nid] = max(acc.get(nid, 0), rank)
 
     q_topics: dict[uuid.UUID, list[uuid.UUID]] = {}
     for e in edges:
@@ -91,12 +94,21 @@ def view(db: Session, s: ConsultationSession) -> dict[str, Any]:
             if y.kind == "risk" and x.kind in ("question", "norm"):
                 ry = rid(y)
                 r = risks.get(ry) if ry else None
-                if r and r.status in ACTIVE:
-                    bump(x.id, level_rank(r.level))
+                if not r:
+                    continue
+                if r.status in ACTIVE:
+                    bump(lvl, x.id, level_rank(r.level))
+                    counts[x.id] = counts.get(x.id, 0) + 1
+                else:
+                    bump(past, x.id, level_rank(r.level))
     for qid, tids in q_topics.items():
         for t in tids:
             if lvl.get(qid):
-                bump(t, lvl[qid])
+                bump(lvl, t, lvl[qid])
+            if past.get(qid):
+                bump(past, t, past[qid])
+            if counts.get(qid):
+                counts[t] = counts.get(t, 0) + counts[qid]
     degree: dict[uuid.UUID, set[uuid.UUID]] = {}
     for e in edges:
         if e.kind in ("cites", "asks_about"):
@@ -109,7 +121,8 @@ def view(db: Session, s: ConsultationSession) -> dict[str, Any]:
         d = dict(n.data)
         if r:
             d.update(status=r.status, score=r.score)
-        out_nodes.append({"id": str(n.id), "kind": n.kind, "label": n.label, "weight": len(degree.get(n.id, ())) or 1, "risk_level": rl, "data": d})
+        prev = (r.level if r and r.status not in ACTIVE else None) if n.kind == "risk" else (LEVELS[past[n.id] - 1] if past.get(n.id) and not lvl.get(n.id) else None)
+        out_nodes.append({"id": str(n.id), "kind": n.kind, "label": n.label, "weight": len(degree.get(n.id, ())) or 1, "risk_level": rl, "resolved_level": prev, "risk_count": counts.get(n.id, 0), "data": d})
     lay = s.layout or {}
     return {
         "nodes": out_nodes,

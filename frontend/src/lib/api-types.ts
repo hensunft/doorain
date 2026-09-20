@@ -1476,6 +1476,13 @@ export interface components {
             weight: number;
             /** Risk Level */
             risk_level?: ("low" | "medium" | "high" | "critical") | null;
+            /** Resolved Level */
+            resolved_level?: ("low" | "medium" | "high" | "critical") | null;
+            /**
+             * Risk Count
+             * @default 0
+             */
+            risk_count: number;
             /**
              * Data
              * @default {}

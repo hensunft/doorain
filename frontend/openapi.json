@@ -3798,6 +3798,28 @@
       ],
       "title": "Risk Level"
      },
+     "resolved_level": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "low",
+         "medium",
+         "high",
+         "critical"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resolved Level"
+     },
+     "risk_count": {
+      "type": "integer",
+      "title": "Risk Count",
+      "default": 0
+     },
      "data": {
       "additionalProperties": true,
       "type": "object",

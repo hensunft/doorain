@@ -2,6 +2,7 @@ import dagre from '@dagrejs/dagre'
 import {
   Background,
   Controls,
+  MiniMap,
   Handle,
   Position,
   ReactFlow,
@@ -12,12 +13,13 @@ import {
   type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Maximize2, Search } from 'lucide-react'
+import { Download, Maximize2, Search } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Graph, GraphNode, Level } from '../../lib/api'
 import { put } from '../../lib/api'
-import { LEVEL_HEX, LEVEL_RU, NODE_KIND_RU } from '../../lib/risk'
+import { LEVEL_HEX, LEVEL_ORDER, LEVEL_RU } from '../../lib/risk'
 import { nodesForRisk, useSelection } from '../../lib/selection'
+import { download, NODE_TITLE, svgToPng, toSvg, type Positions } from './graphExport'
 
 interface PData extends Record<string, unknown> {
   label: string
@@ -28,15 +30,25 @@ interface PData extends Record<string, unknown> {
   active: boolean
   hiddenCount: number
   resolved: boolean
+  past: Level | null
+  count: number
+  title: string
 }
 
 const SIZE: Record<GraphNode['kind'], number> = { center: 60, topic: 44, question: 34, norm: 24, risk: 34 }
-const nodeSize = (n: { kind: GraphNode['kind']; weight: number }) => SIZE[n.kind] + (n.kind === 'norm' ? Math.min(12, (n.weight - 1) * 4) : 0)
+/** Радиус растёт логарифмически от числа связей: ключевые для пользователя нормы и темы заметнее, но граф не «раздувается». */
+const nodeSize = (n: { kind: GraphNode['kind']; weight: number }) =>
+  SIZE[n.kind] + (n.kind === 'norm' || n.kind === 'topic' ? Math.round(Math.min(16, Math.log2(Math.max(1, n.weight)) * 7)) : 0)
 
 function PortraitNode({ data }: NodeProps<Node<PData>>) {
   const size = nodeSize({ kind: data.kind, weight: data.weight })
   const color = LEVEL_HEX[data.level ?? 'none']
-  const base: React.CSSProperties = { width: size, height: size, opacity: data.dim ? 0.3 : 1, borderColor: data.kind === 'center' ? '#2f2e2b' : color }
+  // «Эффект портрета»: цвет меняется плавно, снятый риск оставляет тонкую обводку прежнего цвета.
+  const base: React.CSSProperties = {
+    width: size, height: size, opacity: data.dim ? 0.3 : 1,
+    borderColor: data.kind === 'center' ? '#2f2e2b' : data.level ? color : data.past ? LEVEL_HEX[data.past] : color,
+    transition: 'background-color 400ms ease, border-color 400ms ease, opacity 200ms ease',
+  }
   let shape: React.CSSProperties
   switch (data.kind) {
     case 'center': shape = { ...base, borderRadius: '50%', background: '#2f2e2b' }; break
@@ -47,9 +59,18 @@ function PortraitNode({ data }: NodeProps<Node<PData>>) {
   }
   const short = data.label.length > 30 ? `${data.label.slice(0, 29)}…` : data.label
   return (
-    <div className="flex flex-col items-center" title={`${NODE_KIND_RU[data.kind]}: ${data.label}${data.level ? ` — ${LEVEL_RU[data.level]} риск` : ''}`}>
+    <div className="flex flex-col items-center" title={data.title}>
       <Handle type="target" position={Position.Top} className="!opacity-0" />
-      <div style={{ ...shape, borderStyle: shape.borderStyle ?? 'solid', outline: data.active ? '3px solid #7a3447' : 'none', outlineOffset: 2 }} className="border" />
+      <div className="relative">
+        <div style={{ ...shape, borderStyle: shape.borderStyle ?? 'solid', outline: data.active ? '3px solid #7a3447' : 'none', outlineOffset: 2 }} className="border" />
+        {data.count > 0 && (
+          <span
+            className="absolute -right-1.5 -top-1.5 flex min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-medium text-white"
+            style={{ background: color, transition: 'background-color 400ms ease' }}
+            aria-hidden
+          >{data.count}</span>
+        )}
+      </div>
       <span className="mt-1 max-w-[120px] text-center text-[12px] leading-tight text-ink" style={{ opacity: data.dim ? 0.35 : 1 }}>
         {short}
         {data.hiddenCount > 0 && <span className="block text-muted">+{data.hiddenCount} скрыто</span>}
@@ -59,8 +80,6 @@ function PortraitNode({ data }: NodeProps<Node<PData>>) {
   )
 }
 const nodeTypes = { portrait: PortraitNode }
-
-type Positions = Record<string, { x: number; y: number }>
 
 function computeLayout(nodes: GraphNode[], edges: Graph['edges'], keep: Positions): Positions {
   const g = new dagre.graphlib.Graph()
@@ -84,8 +103,9 @@ function computeLayout(nodes: GraphNode[], edges: Graph['edges'], keep: Position
   return out
 }
 
-export interface GraphFilters { topic: string; kinds: Record<'question' | 'norm' | 'risk', boolean>; showResolved: boolean; collapsed: string[] }
-const defaultFilters: GraphFilters = { topic: '', kinds: { question: true, norm: true, risk: true }, showResolved: true, collapsed: [] }
+export interface GraphFilters { topic: string; kinds: Record<'question' | 'norm' | 'risk', boolean>; showResolved: boolean; collapsed: string[]; minLevel: Level | ''; lastN: number }
+// Риск по умолчанию — не отдельный узел, а окраска связанных узлов и бейдж с количеством (kinds.risk = false).
+const defaultFilters: GraphFilters = { topic: '', kinds: { question: true, norm: true, risk: false }, showResolved: true, collapsed: [], minLevel: '', lastN: 0 }
 
 function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   const { sel, selectNode, selectMessage, openCitation, clear } = useSelection()
@@ -119,6 +139,19 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
       const nb = graph.edges.filter((e) => e.source === n.id || e.target === n.id).map((e) => (e.source === n.id ? e.target : e.source))
       if (nb.length && nb.every((x) => hide.has(x) || byId.get(x)?.kind === 'norm' || byId.get(x)?.kind === 'risk') && nb.some((x) => collapsedQuestions.has(x))) hide.add(n.id)
     }
+    if (filters.minLevel) {  // показать только высокие и критические
+      const min = LEVEL_ORDER.indexOf(filters.minLevel)
+      for (const n of graph.nodes) {
+        if (n.kind !== 'question' && n.kind !== 'norm') continue
+        const lv = n.risk_level ? LEVEL_ORDER.indexOf(n.risk_level) : -1
+        if (lv < min) hide.add(n.id)
+      }
+    }
+    if (filters.lastN > 0) {  // последние N вопросов
+      const qs = graph.nodes.filter((n) => n.kind === 'question')
+      const keep = new Set(qs.slice(-filters.lastN).map((n) => n.id))
+      for (const n of qs) if (!keep.has(n.id)) hide.add(n.id)
+    }
     if (filters.topic) {
       const inTopic = new Set(graph.edges.filter((e) => e.kind === 'asks_about' && e.target === filters.topic).map((e) => e.source))
       for (const n of graph.nodes) if (n.kind === 'question' && !inTopic.has(n.id)) hide.add(n.id)
@@ -143,7 +176,11 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   const nodes: Node<PData>[] = useMemo(
     () => visible.map((n) => ({
       id: n.id, type: 'portrait', position: layout[n.id] ?? { x: 0, y: 0 },
-      data: { label: n.label, kind: n.kind, level: n.risk_level ?? null, weight: n.weight, dim: marked.size > 0 && !marked.has(n.id), active: marked.has(n.id), hiddenCount: hidden.hiddenBy.get(n.id) ?? 0, resolved: n.kind === 'risk' && !n.risk_level },
+      data: {
+        label: n.label, kind: n.kind, level: n.risk_level ?? null, weight: n.weight,
+        dim: marked.size > 0 && !marked.has(n.id), active: marked.has(n.id), hiddenCount: hidden.hiddenBy.get(n.id) ?? 0,
+        resolved: n.kind === 'risk' && !n.risk_level, past: n.resolved_level ?? null, count: n.risk_count, title: NODE_TITLE(n),
+      },
     })),
     [visible, layout, marked, hidden.hiddenBy],
   )
@@ -159,6 +196,15 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   useEffect(() => {
     if (match.size === 1) { const id = [...match][0]; const p = id ? positions.current[id] : undefined; if (p) void rf.setCenter(p.x + 30, p.y + 30, { zoom: 1.1, duration: 250 }) }
   }, [match, rf])
+
+  const exportGraph = useCallback(async (fmt: 'svg' | 'png') => {
+    const svg = toSvg(visible, graph.edges, positions.current as Positions, (n) => nodeSize(n), `DoorAIn — цифровой слепок, ${new Date().toLocaleDateString('ru-RU')}`)
+    if (!svg) return
+    const stamp = new Date().toISOString().slice(0, 10)
+    if (fmt === 'svg') { download(`doorain-portrait-${stamp}.svg`, new Blob([svg], { type: 'image/svg+xml' })); return }
+    const png = await svgToPng(svg)
+    if (png) download(`doorain-portrait-${stamp}.png`, png)
+  }, [visible, graph.edges])
 
   const topics = graph.nodes.filter((n) => n.kind === 'topic')
   const anySel = !!(sel.riskId || sel.nodeId || sel.messageId)
@@ -179,9 +225,25 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
         {(['question', 'norm', 'risk'] as const).map((k) => (
           <label key={k} className="flex items-center gap-1"><input type="checkbox" checked={filters.kinds[k]} onChange={(e) => setF({ ...filters, kinds: { ...filters.kinds, [k]: e.target.checked } })} />{k === 'question' ? 'Вопросы' : k === 'norm' ? 'Нормы' : 'Риски'}</label>
         ))}
+        <label className="flex items-center gap-1"><span className="sr-only">Уровень риска</span>
+          <select className="input !min-h-8 !w-36" value={filters.minLevel} onChange={(e) => setF({ ...filters, minLevel: e.target.value as Level | '' })}>
+            <option value="">Любой риск</option>
+            <option value="high">Высокие и выше</option>
+            <option value="critical">Только критические</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-1"><span className="sr-only">Интервал вопросов</span>
+          <select className="input !min-h-8 !w-36" value={filters.lastN} onChange={(e) => setF({ ...filters, lastN: Number(e.target.value) })}>
+            <option value={0}>Все вопросы</option>
+            <option value={5}>Последние 5</option>
+            <option value={10}>Последние 10</option>
+          </select>
+        </label>
         <label className="flex items-center gap-1"><input type="checkbox" checked={filters.showResolved} onChange={(e) => setF({ ...filters, showResolved: e.target.checked })} />Снятые</label>
         <button className="btn" onClick={() => setF({ ...filters, collapsed: filters.collapsed.length ? [] : topics.map((t) => t.id) })}>{filters.collapsed.length ? 'Развернуть темы' : 'Свернуть темы'}</button>
         <button className="btn btn-icon" aria-label="Уместить всё" onClick={() => void rf.fitView({ padding: 0.15, duration: 200 })}><Maximize2 className="size-4" aria-hidden /></button>
+        <button className="btn" onClick={() => exportGraph('svg')}><Download className="size-4" aria-hidden />SVG</button>
+        <button className="btn" onClick={() => void exportGraph('png')}>PNG</button>
         {anySel && <button className="btn" onClick={clear}>Снять выделение</button>}
       </div>
       <div className="relative min-h-0 flex-1">
@@ -199,6 +261,7 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
         >
           <Background gap={24} color="#efefed" />
           <Controls showInteractive={false} />
+          <MiniMap pannable zoomable ariaLabel="Мини-карта слепка" nodeColor={(n) => LEVEL_HEX[((n.data as PData).level ?? 'none')]} maskColor="rgba(250,250,248,0.75)" style={{ width: 120, height: 84 }} />
         </ReactFlow>
         <ul className="pointer-events-none absolute bottom-2 left-2 flex max-w-[90%] flex-wrap gap-x-3 gap-y-1 rounded-md bg-canvas/90 px-2 py-1 text-[11px] text-muted" aria-label="Легенда">
           {(['low', 'medium', 'high', 'critical'] as const).map((l) => <li key={l} className="flex items-center gap-1"><span className="inline-block size-2.5 rounded-full" style={{ background: LEVEL_HEX[l] }} />{LEVEL_RU[l]}</li>)}

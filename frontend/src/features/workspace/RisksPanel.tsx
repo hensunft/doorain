@@ -7,7 +7,7 @@ import { Button, RiskBadge } from '../../components/ui'
 import { FrameArt } from '../../components/art'
 import type { Risk, Session } from '../../lib/api'
 import { useGraph, useRisks } from '../../lib/queries'
-import { STATUS_RU } from '../../lib/risk'
+import { LEVEL_HEX, LEVEL_ORDER, LEVEL_RU, STATUS_RU } from '../../lib/risk'
 import { riskIdsForNode, useSelection } from '../../lib/selection'
 import { RiskDetail } from './RiskDetail'
 
@@ -57,6 +57,22 @@ function RisksTable({ rows, highlight, selected, onSelect }: { rows: Risk[]; hig
 
 const FILTERS = [['active', 'Активные'], ['needs_clarification', 'Уточнения'], ['resolved', 'Снятые']] as const
 
+/** Сводка над таблицей: сколько активных рисков каждого уровня. Цвет не единственный носитель смысла — рядом подпись. */
+function LevelSummary({ rows }: { rows: Risk[] }) {
+  const counts = LEVEL_ORDER.map((l) => [l, rows.filter((r) => r.level === l).length] as const).filter(([, n]) => n > 0)
+  if (!counts.length) return null
+  return (
+    <ul className="flex flex-wrap gap-1.5 px-3 pb-2" aria-label="Сводка по уровням риска">
+      {counts.map(([l, n]) => (
+        <li key={l} className="chip" style={{ borderColor: LEVEL_HEX[l] }}>
+          <span className="inline-block size-2 rounded-full" style={{ background: LEVEL_HEX[l] }} aria-hidden />
+          {LEVEL_RU[l]}: <span className="tnum font-medium">{n}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function RisksPanel({ session }: { session: Session }) {
   const risks = useRisks(session.id)
   const graph = useGraph(session.id)
@@ -77,6 +93,7 @@ export function RisksPanel({ session }: { session: Session }) {
       <div role="tablist" aria-label="Фильтр рисков" className="flex gap-1 px-3 py-2">
         {FILTERS.map(([id, label]) => <button key={id} role="tab" aria-selected={filter === id} className={`btn ${filter === id ? 'btn-primary' : 'btn-quiet'}`} onClick={() => setFilter(id)}>{label}{data ? ` ${id === 'active' ? data.active.length : id === 'resolved' ? data.resolved.length : data.needs_clarification.length}` : ''}</button>)}
       </div>
+      {filter === 'active' && data && <LevelSummary rows={data.active} />}
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3">
         {risks.isLoading && <Skeleton lines={5} />}
         {risks.isError && <ErrorNote error={risks.error} onRetry={() => risks.refetch()} />}
