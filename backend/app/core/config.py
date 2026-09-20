@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     chars_per_token: float = 2.6
     min_rerank_score: float = 0.0
     threshold_source: str = "uncalibrated"
+    partial_answer_margin: float = 1.5  # ниже порога, но выше (порог − margin) → ответ с оговоркой о неполноте оснований
+    scope_override_min_score: float = 2.0  # насколько сильными должны быть найденные нормы, чтобы перевесить вердикт «вне области»
     chunk_target_tokens: int = 700
     chunk_overlap_tokens: int = 60
     chunking_version: str = "npa-v1"

@@ -48,6 +48,7 @@ REFUSALS = {
     "needs_clarification": "Для ответа нужно уточнение.",
     "index_incompatible": "Индекс построен другой моделью embeddings или другой версией разбиения, поэтому поиск заблокирован до переиндексации (База знаний → «Переиндексировать»). Чужие векторы не используются.",
 }
+PARTIAL_NOTICE = "Оснований в базе знаний недостаточно для уверенного ответа: найденные фрагменты соответствуют вопросу лишь частично. Ниже — только то, что удалось подтвердить источниками; проверьте применимость и при необходимости загрузите более точные документы."
 FAIL_TEXT = {"model_unavailable": "Локальная модель сейчас недоступна. Ответ не сформирован; облачный сервис не используется.", "internal_error": "Внутренняя ошибка при обработке запроса."}
 
 
@@ -224,21 +225,29 @@ def _answer(db: Session, job: Job, p: Providers, s: Settings, run: GenerationRun
     run.trace = dict(trace)  # копия: JSON-колонка не отслеживает мутацию на месте
     if jobs.is_cancelled(db, job):
         raise Cancelled()
-    if not cls.in_scope:
-        return _refuse(db, job, run, session, msg, emit, "out_of_scope")
-    if cls.clarification:
+    if cls.clarification and cls.in_scope:
         return _refuse(db, job, run, session, msg, emit, "needs_clarification", cls.clarification, cls.topics)
     gen = db.get(CorpusGeneration, run.corpus_generation_id) if run.corpus_generation_id else None
     revs = applicable_revisions(db, gen, run.as_of_date) if gen else []
+    corpus_problem = None
     if not gen or not db.scalar(select(DocumentRevision.id).where(DocumentRevision.status == "ready").limit(1)):
-        return _refuse(db, job, run, session, msg, emit, "corpus_empty", topics=cls.topics)
-    if not revs:
-        return _refuse(db, job, run, session, msg, emit, "revision_unavailable", topics=cls.topics)
-    if fp_hash(p.embedder.fingerprint()) != gen.fingerprint_hash:  # совпадение размерности не означает совместимость векторов
-        return _refuse(db, job, run, session, msg, emit, "index_incompatible", topics=cls.topics)
+        corpus_problem = "corpus_empty"
+    elif not revs:
+        corpus_problem = "revision_unavailable"
+    elif fp_hash(p.embedder.fingerprint()) != gen.fingerprint_hash:  # совпадение размерности не означает совместимость векторов
+        corpus_problem = "index_incompatible"
+    if corpus_problem or gen is None:  # без корпуса проверить вердикт классификатора нечем
+        return _refuse(db, job, run, session, msg, emit, (corpus_problem or "corpus_empty") if cls.in_scope else "out_of_scope", topics=cls.topics)
     emit("status", {"stage": "retrieval", "message": "Ищу нормы в базе знаний"})
     retr = retrieve(db, p, s, gen, revs, cls.rewritten_query or msg.content, msg.content)
-    trace["retrieval"] = {"timings_ms": retr.timings_ms, "considered": retr.considered, "reason": retr.reason, "scores": retr.scores, "generation_id": str(gen.id), "query": cls.rewritten_query}
+    trace["retrieval"] = {"timings_ms": retr.timings_ms, "considered": retr.considered, "reason": retr.reason, "scores": retr.scores, "generation_id": str(gen.id), "query": cls.rewritten_query, "confidence": retr.confidence}
+    # Вердикт «вне области» — мягкий: он снимается только сильными нормами, иначе ловушки перестали бы отклоняться.
+    override = not cls.in_scope and retr.sufficient and (retr.best_score or 0.0) >= s.min_rerank_score + s.scope_override_min_score
+    if not cls.in_scope and not override:
+        run.trace = dict(trace)
+        return _refuse(db, job, run, session, msg, emit, "out_of_scope", topics=cls.topics)
+    if override:
+        trace["scope_override"] = {"best_score": round(retr.best_score or 0.0, 4), "min": s.min_rerank_score + s.scope_override_min_score}
     run.trace = dict(trace)  # копия: JSON-колонка не отслеживает мутацию на месте
     if not retr.sufficient:
         return _refuse(db, job, run, session, msg, emit, "insufficient_grounds", topics=cls.topics)
@@ -277,6 +286,10 @@ def _answer(db: Session, job: Job, p: Providers, s: Settings, run: GenerationRun
     blocks: list[dict[str, Any]] = []
     _saved_blocks[run.id] = blocks
     state: dict[str, Any] = {"first_ms": None, "unsupported": 0, "truncated": False}
+    if retr.confidence == "partial":  # мягкая деградация вместо отказа: отвечаем, но оговариваем неполноту оснований
+        blocks.append(_block(1, "notice", PARTIAL_NOTICE, [], [], "unsupported"))
+        run.warnings = [*run.warnings, "Ответ дан при неполных основаниях: найденные фрагменты лишь частично соответствуют вопросу"]
+        emit("answer_delta", {"block": blocks[0], "provisional": True})
 
     def push(para: str) -> None:
         ck = verify.check_paragraph(para, sources)

@@ -192,3 +192,25 @@ def test_original_file_served_as_attachment(owner: Api, demo: dict) -> None:
     r = owner.get(f"/revisions/{rid}/file")
     assert r.status_code == 200 and r.headers["content-disposition"].startswith("attachment") and r.headers["x-content-type-options"] == "nosniff"
     assert io.BytesIO(r.content).getbuffer().nbytes > 100
+
+
+def test_retrieval_smoke(owner: Api, demo: dict) -> None:
+    """Чек-лист исправности поиска: падает, если коллекция пуста или контрольный запрос ничего не находит."""
+    from app.db.session import SessionLocal
+    from app.providers.registry import get_providers
+    from app.services.ingestion import doctor
+    from app.services.ingestion.indexer import active_generation
+
+    db, p, s = SessionLocal(), get_providers(), get_settings()
+    rep = doctor.summary(db, p, s, date(2026, 9, 20))
+    assert rep["ok"] and not rep["critical_failed"], rep["checks"]
+    by_id = {c["id"]: c for c in rep["checks"]}
+    assert by_id["collection"]["data"]["points"] > 0
+    assert by_id["dim"]["ok"] and by_id["metric"]["ok"] and by_id["same_model"]["ok"]
+    assert by_id["raw_search"]["ok"] and by_id["guardrail_order"]["ok"]
+    assert by_id["chunks"]["data"]["short"] == 0
+
+    p.vs.drop(active_generation(db).collection_name)  # пустая коллекция обязана валить чек-лист
+    broken = doctor.summary(db, p, s, date(2026, 9, 20))
+    assert not broken["ok"] and "collection" in broken["critical_failed"] and "raw_search" in broken["critical_failed"]
+    db.close()

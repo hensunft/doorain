@@ -40,6 +40,8 @@ class Retrieval:
     reason: str | None
     timings_ms: dict[str, int]
     scores: list[dict[str, Any]]
+    confidence: str = "high"  # high | partial (найденное лишь частично соответствует вопросу — отвечаем с оговоркой)
+    best_score: float | None = None
 
 
 def rerank_passage(text: str, query: str, max_chars: int = 1200) -> str:
@@ -115,14 +117,16 @@ def retrieve(db: Session, p: Providers, s: Settings, gen: CorpusGeneration, revi
         return Retrieval([], 0, False, "no_candidates", t, scores_dump)
     best = hits[0]
     lexical_ok = bool(stems(query) & stems(best.chunk.heading_path + " " + best.chunk.text)) or "exact" in best.via
-    if best.rerank < s.min_rerank_score or not lexical_ok:
-        return Retrieval([], considered, False, "below_threshold", t, scores_dump)
+    floor = s.min_rerank_score - s.partial_answer_margin  # жёсткий отказ — только при действительно нерелевантной выдаче
+    if best.rerank < floor or not lexical_ok:
+        return Retrieval([], considered, False, "below_threshold", t, scores_dump, best_score=best.rerank)
+    conf = "high" if best.rerank >= s.min_rerank_score else "partial"
     sel: list[Hit] = []
     used = 0
     for h in hits:
         if len(sel) >= s.rerank_keep:
             break
-        if h.rerank < s.min_rerank_score and "exact" not in h.via:
+        if h.rerank < floor and "exact" not in h.via:
             continue
         need = est_tokens(h.chunk.text, s.chars_per_token)
         if used + need > s.context_budget_tokens:
@@ -132,4 +136,4 @@ def retrieve(db: Session, p: Providers, s: Settings, gen: CorpusGeneration, revi
             continue
         sel.append(h)
         used += need
-    return Retrieval(sel, considered, bool(sel), None if sel else "budget", t, scores_dump)
+    return Retrieval(sel, considered, bool(sel), None if sel else "budget", t, scores_dump, conf, best.rerank)

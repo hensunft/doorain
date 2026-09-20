@@ -125,6 +125,7 @@ def test_empty_corpus_and_model_unavailable_are_honest(owner: Api) -> None:
 
 def test_insufficient_grounds_when_threshold_not_met(owner: Api, demo: dict, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DOORAIN_MIN_RERANK_SCORE", "0.99")
+    monkeypatch.setenv("DOORAIN_PARTIAL_ANSWER_MARGIN", "0")  # проверяется именно жёсткий отказ
     from app.core.config import reset_settings_cache
 
     reset_settings_cache()
@@ -480,3 +481,34 @@ def test_diagnostics_and_maintenance_mode(owner: Api, demo: dict) -> None:
     r = owner.post("/sessions", json={"role": "expert"})
     assert r.status_code == 503 and r.json()["code"] == "maintenance"
     assert owner.get("/sessions").status_code == 200  # чтение доступно
+
+
+def test_partial_grounds_answer_carries_explicit_caveat(owner: Api, demo: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Мягкая деградация: при средних скорах отвечаем, но помечаем неполноту оснований; жёсткий отказ остаётся для пустой выдачи."""
+    monkeypatch.setenv("DOORAIN_MIN_RERANK_SCORE", "0.9")
+    monkeypatch.setenv("DOORAIN_PARTIAL_ANSWER_MARGIN", "0.9")
+    from app.core.config import reset_settings_cache
+
+    reset_settings_cache()
+    sid = new_session(owner)
+    snap = ask(owner, sid, "Нужна ли политика обработки персональных данных на сайте?")
+    assert snap["answer_status"] == "validated"
+    msg = owner.get(f"/sessions/{sid}/messages").json()[-1]
+    assert any(b["kind"] == "notice" and "лишь частично" in b["text"] for b in msg["blocks"])
+    assert any("неполных основаниях" in w for w in msg["warnings"])
+    tr = owner.get(f"/runs/{snap['run_id']}/trace").json()
+    assert tr["trace"]["retrieval"]["confidence"] == "partial"
+
+
+def test_scope_verdict_is_overridden_only_by_strong_norms(owner: Api, demo: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Вердикт классификатора «вне области» снимается найденными нормами; ловушка со слабой выдачей по-прежнему отклоняется."""
+    monkeypatch.setenv("DOORAIN_SCOPE_OVERRIDE_MIN_SCORE", "0.2")
+    from app.core.config import reset_settings_cache
+
+    reset_settings_cache()
+    sid = new_session(owner)
+    snap = ask(owner, sid, "Что считается условными данными и кто их оператор?")  # тем классификатора нет, но нормы есть
+    assert snap["answer_status"] == "validated" and snap["refusal_reason"] is None
+    tr = owner.get(f"/runs/{snap['run_id']}/trace").json()
+    assert tr["trace"]["classification"]["in_scope"] is False and tr["trace"]["scope_override"]["best_score"] > 0
+    assert ask(owner, sid, "Расскажи рецепт борща с говядиной")["refusal_reason"] == "out_of_scope"

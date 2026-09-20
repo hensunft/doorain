@@ -53,6 +53,14 @@ class VectorStore:
         s = self.client.query_points(name, query=sp, using="sparse", query_filter=flt, limit=limit, with_payload=False).points if e.sparse else []
         return [uuid.UUID(str(p.id)) for p in d], [uuid.UUID(str(p.id)) for p in s]
 
+    def info(self, name: str) -> dict[str, Any]:
+        """Фактические параметры коллекции — для чек-листа исправности поиска."""
+        if not self.client.collection_exists(name):
+            return {}
+        cfg = self.client.get_collection(name).config.params
+        dense = (cfg.vectors or {}).get("dense") if isinstance(cfg.vectors, dict) else cfg.vectors
+        return {"dim": getattr(dense, "size", None), "distance": str(getattr(dense, "distance", "")), "sparse": sorted((cfg.sparse_vectors or {}).keys())}
+
     def count(self, name: str) -> int:
         return self.client.count(name, exact=True).count if self.client.collection_exists(name) else 0
 

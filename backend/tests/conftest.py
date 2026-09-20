@@ -28,6 +28,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     monkeypatch.setenv("DOORAIN_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("DOORAIN_PROVIDER_MODE", "test")
     monkeypatch.setenv("DOORAIN_MIN_RERANK_SCORE", "0.15")
+    monkeypatch.setenv("DOORAIN_PARTIAL_ANSWER_MARGIN", "0")  # заглушка-реранкер даёт скоры 0..1; мягкая деградация включается адресно в своём тесте
     monkeypatch.setenv("DOORAIN_SECRET_KEY", "x" * 40)
     monkeypatch.setenv("DOORAIN_ALLOWED_HOSTS", '["testserver","localhost"]')
     from app.core.config import reset_settings_cache
