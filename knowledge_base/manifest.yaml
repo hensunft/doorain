@@ -1,0 +1,236 @@
+# Манифест корпуса DoorAIn: что должно быть загружено, откуда и на каком правовом основании.
+#
+# Это ПЛАН наполнения, а не утверждение об актуальности или достаточности актов. Перечень собран из
+# концепции проекта и не является официальным списком: реквизиты, действующую редакцию и дату
+# проверяйте по официальному источнику при загрузке, дата редакции фиксируется в метаданных.
+#
+# layer:   1 — нормативные правовые акты (единственно допустимое основание риска)
+#          2 — правоприменение и официальные разъяснения (помечается отдельно от нормы)
+#          3 — доктрина и учебная литература (не может быть основанием риска)
+# license: public_domain_official — официальный документ (п. 6 ст. 1259 ГК РФ, охране не подлежит)
+#          open_license          — открытая лицензия (CC и т. п.), указать в license_note
+#          owned_copy            — экземпляр, которым владелец располагает на законных основаниях
+# Документ без license не индексируется: `doorain kb add` завершится ошибкой.
+# tier:    start — минимум для первого запуска, extended — расширение.
+# Платные правовые системы не используются и обход платного доступа не предусмотрен.
+
+version: 1
+source_note: "Официальный интернет-портал правовой информации pravo.gov.ru; тексты слоя 3 добавляет владелец локально."
+items:
+  - id: fz-149
+    pravo_nd: 102108264
+    layer: 1
+    tier: start
+    title: ФЗ № 149-ФЗ «Об информации, информационных технологиях и о защите информации»
+    kind: npa
+    topics: [info_security]
+    license: public_domain_official
+    source_url: http://pravo.gov.ru/proxy/ips/?docbody=&nd=102108264
+    match: {act_numbers: ["149-ФЗ"]}
+
+  - id: fz-152
+    pravo_nd: 102108261
+    layer: 1
+    tier: start
+    title: ФЗ № 152-ФЗ «О персональных данных»
+    kind: npa
+    topics: [personal_data]
+    license: public_domain_official
+    source_url: http://pravo.gov.ru/proxy/ips/?docbody=&nd=102108261
+    match: {act_numbers: ["152-ФЗ"]}
+
+  - id: fz-187
+    pravo_nd: 102439340
+    layer: 1
+    tier: start
+    title: ФЗ № 187-ФЗ «О безопасности критической информационной инфраструктуры РФ»
+    kind: npa
+    topics: [kii]
+    license: public_domain_official
+    source_url: http://pravo.gov.ru/proxy/ips/?docbody=&nd=102439340
+    match: {act_numbers: ["187-ФЗ"]}
+
+  - id: koap-13-11
+    pravo_nd: 102074277
+    layer: 1
+    tier: start
+    title: КоАП РФ, ст. 13.11, 13.12, 13.15 (нарушения в области информации и персональных данных)
+    kind: npa
+    topics: [personal_data, liability]
+    license: public_domain_official
+    source_url: http://pravo.gov.ru/proxy/ips/?docbody=&nd=102074277
+    match: {short_names: ["КоАП РФ", "КоАП"]}
+    note: Допустимо загрузить кодекс целиком либо выдержку с перечисленными статьями.
+
+  - id: gk-part-4
+    pravo_nd: 102110716
+    layer: 1
+    tier: start
+    title: Часть четвёртая ГК РФ, главы 69, 70, 77 (программы для ЭВМ, базы данных, лицензионные договоры)
+    kind: npa
+    topics: [ip_it]
+    license: public_domain_official
+    source_url: http://pravo.gov.ru/proxy/ips/?docbody=&nd=102110716
+    match: {short_names: ["ГК РФ ч. IV", "ГК РФ"]}
+
+  - id: fz-63
+    pravo_nd: 102146610
+    layer: 1
+    tier: extended
+    title: ФЗ № 63-ФЗ «Об электронной подписи»
+    kind: npa
+    topics: [esign]
+    license: public_domain_official
+    source_url: http://pravo.gov.ru/proxy/ips/?docbody=&nd=102146610
+    match: {act_numbers: ["63-ФЗ"]}
+
+  - id: fz-98
+    layer: 1
+    tier: extended
+    title: ФЗ № 98-ФЗ «О коммерческой тайне»
+    kind: npa
+    topics: [info_security]
+    license: public_domain_official
+    source_url: http://pravo.gov.ru/proxy/ips/?docbody=&nd=102087017
+    match: {act_numbers: ["98-ФЗ"]}
+
+  - id: fz-572
+    layer: 1
+    tier: extended
+    title: ФЗ № 572-ФЗ «Об осуществлении идентификации и (или) аутентификации с использованием биометрических персональных данных»
+    kind: npa
+    topics: [personal_data]
+    license: public_domain_official
+    source_url: ""  # адрес не подтверждён: найдите документ на pravo.gov.ru и заполните pravo_nd
+    match: {act_numbers: ["572-ФЗ"]}
+
+  - id: uk-ch-28
+    layer: 1
+    tier: extended
+    title: Глава 28 УК РФ, ст. 272–274.1 (преступления в сфере компьютерной информации)
+    kind: npa
+    topics: [kii, liability]
+    license: public_domain_official
+    source_url: http://pravo.gov.ru/proxy/ips/?docbody=&nd=102041891
+    match: {short_names: ["УК РФ", "УК"]}
+
+  - id: fz-126
+    layer: 1
+    tier: extended
+    title: ФЗ № 126-ФЗ «О связи»
+    kind: npa
+    topics: [internet_business]
+    license: public_domain_official
+    source_url: http://pravo.gov.ru/proxy/ips/?docbody=&nd=102077130
+    match: {act_numbers: ["126-ФЗ"]}
+
+  - id: fz-38
+    layer: 1
+    tier: extended
+    title: ФЗ № 38-ФЗ «О рекламе» (в части маркировки интернет-рекламы)
+    kind: npa
+    topics: [internet_business]
+    license: public_domain_official
+    source_url: http://pravo.gov.ru/proxy/ips/?docbody=&nd=102105297
+    match: {act_numbers: ["38-ФЗ"]}
+
+  - id: fz-236
+    layer: 1
+    tier: extended
+    title: ФЗ № 236-ФЗ «О деятельности иностранных лиц в сети Интернет на территории РФ»
+    kind: npa
+    topics: [internet_business]
+    license: public_domain_official
+    source_url: ""  # адрес не подтверждён: найдите документ на pravo.gov.ru и заполните pravo_nd
+    match: {act_numbers: ["236-ФЗ"]}
+
+  - id: fz-258
+    layer: 1
+    tier: extended
+    title: ФЗ № 258-ФЗ «Об экспериментальных правовых режимах в сфере цифровых инноваций в РФ»
+    kind: npa
+    topics: [ai, internet_business]
+    license: public_domain_official
+    source_url: ""  # адрес не подтверждён: найдите документ на pravo.gov.ru и заполните pravo_nd
+    match: {act_numbers: ["258-ФЗ"]}
+
+  - id: fz-123
+    layer: 1
+    tier: extended
+    title: ФЗ № 123-ФЗ (эксперимент по установлению специального регулирования ИИ в Москве)
+    kind: npa
+    topics: [ai]
+    license: public_domain_official
+    source_url: ""  # адрес не подтверждён: найдите документ на pravo.gov.ru и заполните pravo_nd
+    match: {act_numbers: ["123-ФЗ"]}
+
+  - id: fz-259
+    layer: 1
+    tier: extended
+    title: ФЗ № 259-ФЗ «О цифровых финансовых активах, цифровой валюте и о внесении изменений…»
+    kind: npa
+    topics: [digital_assets]
+    license: public_domain_official
+    source_url: ""  # адрес не подтверждён: найдите документ на pravo.gov.ru и заполните pravo_nd
+    match: {act_numbers: ["259-ФЗ"]}
+
+  - id: ukaz-490
+    layer: 1
+    tier: extended
+    title: Указ Президента РФ № 490 «О развитии искусственного интеллекта в Российской Федерации»
+    kind: npa
+    topics: [ai]
+    license: public_domain_official
+    source_url: ""  # адрес не подтверждён: найдите документ на pravo.gov.ru и заполните pravo_nd
+    match: {act_numbers: ["490"]}
+
+  - id: podzakon-fstec-fsb
+    layer: 1
+    tier: extended
+    title: Подзаконные акты по защите информации и ПДн (постановления Правительства, приказы ФСТЭК и ФСБ, акты Роскомнадзора)
+    kind: npa
+    topics: [personal_data, info_security, kii]
+    license: public_domain_official
+    source_url: http://pravo.gov.ru/
+    match: {short_names: ["ФСТЭК", "ФСБ", "Роскомнадзор"]}
+    note: Загружаются по мере необходимости; у каждого акта свои реквизиты и дата редакции.
+
+  - id: vs-plenum-it
+    layer: 2
+    tier: extended
+    title: Постановления и обзоры Верховного Суда РФ по профильным вопросам
+    kind: practice
+    topics: [ip_it, liability, personal_data]
+    license: public_domain_official
+    source_url: https://vsrf.ru/
+    note: Правоприменение. В ответе помечается отдельно от нормы и не является основанием риска.
+
+  - id: regulator-clarifications
+    layer: 2
+    tier: extended
+    title: Официальные разъяснения регуляторов (Роскомнадзор, ФСТЭК, ФАС)
+    kind: practice
+    topics: [personal_data, internet_business]
+    license: public_domain_official
+    source_url: https://rkn.gov.ru/
+    note: Правоприменение, не нормативное основание риска.
+
+  - id: ai-ethics-code
+    layer: 2
+    tier: extended
+    title: Кодекс этики в сфере искусственного интеллекта
+    kind: soft_law
+    topics: [ai]
+    license: open_license
+    source_url: https://ethics.a-ai.ru/
+    note: Мягкое право, не общеобязательная норма.
+
+  - id: doctrine-open
+    layer: 3
+    tier: extended
+    title: Доктрина и учебные материалы (открытые лицензии или законный экземпляр владельца)
+    kind: doctrine
+    topics: [ip_it, personal_data, info_security]
+    license: owned_copy
+    source_url: ""
+    note: Добавляет владелец локально через `doorain kb add`. Маркируется как доктринальный источник и не может быть основанием риска.

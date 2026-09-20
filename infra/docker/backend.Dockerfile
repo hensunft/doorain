@@ -21,11 +21,12 @@ RUN groupadd --system --gid 10001 doorain && useradd --system --uid 10001 --gid 
     && mkdir -p /data /backups /models && chown -R doorain:doorain /data /backups /models
 COPY --from=build /opt/venv /opt/venv
 WORKDIR /app
-COPY backend/alembic.ini backend/corpus_manifest.json ./
+COPY backend/alembic.ini ./
 COPY backend/app ./app
 COPY backend/prompts ./prompts
 COPY backend/migrations ./migrations
 COPY fixtures ./fixtures
+COPY knowledge_base ./knowledge_base
 USER doorain
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \

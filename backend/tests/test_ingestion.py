@@ -5,11 +5,13 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+import yaml
 
 from app.core.config import get_settings
 from app.services.ingestion import parsers
 from tests.conftest import DEMO_DIR, Api, run_jobs
 
+_ACT = "ФЕДЕРАЛЬНЫЙ ЗАКОН\nСтатья 1. Предмет\n{first}\nСтатья 2. Термины\n{second}"
 META = {"doc_type": "npa", "title": "ДЕМО-ЗАКОН О защите условных данных", "short_name": "ДЕМО-1-ФЗ", "act_number": "ДЕМО-1-ФЗ", "act_date": "2025-03-01", "revision_date": "2025-03-01", "verified_at": "2025-03-05", "topics": ["personal_data"]}
 
 
@@ -213,4 +215,60 @@ def test_retrieval_smoke(owner: Api, demo: dict) -> None:
     p.vs.drop(active_generation(db).collection_name)  # пустая коллекция обязана валить чек-лист
     broken = doctor.summary(db, p, s, date(2026, 9, 20))
     assert not broken["ok"] and "collection" in broken["critical_failed"] and "raw_search" in broken["critical_failed"]
+    db.close()
+
+
+def test_kb_requires_license_and_reports_summary(owner: Api, env: Path) -> None:
+    """Документ без основания включения не индексируется; после импорта печатается сводка."""
+    from app.core.errors import ApiError
+    from app.db.session import SessionLocal
+    from app.providers.registry import get_providers
+    from app.services.ingestion import kb
+
+    db, s, p = SessionLocal(), get_settings(), get_providers()
+    src = env / "act.txt"
+    src.write_text(_ACT.format(first="Текст первой статьи закона. " * 12, second="Текст второй статьи закона. " * 12), encoding="utf-8")
+    with pytest.raises(ApiError) as e:
+        kb.add(db, s, p, str(src), {"title": "Тестовый акт", "act_number": "999-ФЗ"}, build=False)
+    assert e.value.code == "license_required"
+
+    out = kb.add(db, s, p, str(src), {"title": "Тестовый акт", "act_number": "999-ФЗ", "license": "public_domain_official", "revision_date": "2026-01-01"}, build=False)
+    assert out["created"] and out["chunks"] >= 2 and out["avg_chars"] > 0 and out["sample"]
+    assert [d for d in kb.documents(db) if d["act_number"] == "999-ФЗ"][0]["license_note"].endswith("[public_domain_official]")
+
+    src2 = env / "act2.txt"
+    src2.write_text(_ACT.format(first="Изменённый текст первой статьи. " * 12, second="Текст второй статьи закона. " * 12), encoding="utf-8")
+    doc_id = [d for d in kb.documents(db) if d["act_number"] == "999-ФЗ"][0]["document_id"]
+    upd = kb.update_revision(db, s, p, doc_id, str(src2), "2026-06-01")
+    assert upd["superseded"] == 1 and len([d for d in kb.documents(db) if d["act_number"] == "999-ФЗ"][0]["revisions"]) == 2
+    db.close()
+
+
+def test_manifest_yaml_declares_license_for_every_item() -> None:
+    from app.services.ingestion import kb
+
+    items = kb.load_manifest(get_settings())
+    assert len(items) >= 16
+    assert all(i["license"] in kb.LICENSES for i in items)
+    assert {i["layer"] for i in items} == {1, 2, 3}
+    assert all(i.get("pravo_nd") for i in items if i["tier"] == "start")
+
+
+def test_golden_set_covers_roles_and_traps(owner: Api, demo: dict) -> None:
+    from app.db.session import SessionLocal
+    from app.providers.registry import get_providers
+    from app.services.ingestion import golden
+
+    path = Path(__file__).resolve().parent / "eval" / "golden_set.yaml"
+    cases = yaml.safe_load(path.read_text(encoding="utf-8"))["cases"]
+    assert len(cases) == 40
+    assert {r: sum(1 for c in cases if c["role"] == r and c["expect"] == "answer") for r in ("student", "entrepreneur", "expert")} == {"student": 10, "entrepreneur": 10, "expert": 10}
+    assert sum(1 for c in cases if c["expect"] == "refusal") == 10
+    assert all(c.get("expect_acts") for c in cases if c["expect"] == "answer")
+
+    db, p, s = SessionLocal(), get_providers(), get_settings()
+    rep = golden.run(db, s, p, path, env_out := (Path(str(get_settings().data_dir)) / "eval"))
+    assert rep["metrics"]["answerable"] == 30 and rep["metrics"]["honest_refusals"]["of"] == 10
+    assert any("демонстрационные" in c for c in rep["caveats"])  # демо-корпус помечается
+    assert Path(rep["report_path"]).is_file() and env_out.is_dir()
     db.close()

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import date
 from typing import Literal, cast
@@ -33,7 +32,7 @@ from ..schemas.api import (
 )
 from ..services import jobs
 from ..services.ingestion import compare as cmp
-from ..services.ingestion import importer
+from ..services.ingestion import importer, kb
 from ..services.ingestion.indexer import active_generation, applicable_revisions
 from .deps import owner, require_writable
 
@@ -55,7 +54,7 @@ def overview(ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_d
 
 @router.get("/manifest", response_model=list[ManifestItem])
 def manifest(ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db), s: Settings = Depends(get_settings)) -> list[ManifestItem]:
-    items = json.loads(s.corpus_manifest.read_text(encoding="utf-8"))["items"]
+    items = kb.load_manifest(s)
     docs = list(db.scalars(select(Document).where(Document.is_demo.is_(False))))
     out = []
     for it in items:

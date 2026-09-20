@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://qdrant:6333"  # ":memory:" допустим только в тестах
     data_dir: Path = Path("/data")
     prompts_dir: Path = Path(__file__).resolve().parents[2] / "prompts"
-    corpus_manifest: Path = Path(__file__).resolve().parents[2] / "corpus_manifest.json"
+    corpus_manifest: Path = next((x for x in (Path(__file__).resolve().parents[2] / "knowledge_base" / "manifest.yaml", Path(__file__).resolve().parents[3] / "knowledge_base" / "manifest.yaml") if x.is_file()), Path("knowledge_base/manifest.yaml"))
 
     # провайдеры: ollama = реальные локальные модели, test = детерминированные заглушки (маркируются в UI)
     provider_mode: Literal["ollama", "test"] = "ollama"
