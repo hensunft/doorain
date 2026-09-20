@@ -1,0 +1,11 @@
+* text=auto
+*.sh text eol=lf
+*.ps1 text eol=crlf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
+Caddyfile text eol=lf
+infra/caddy/entrypoint.sh text eol=lf
+*.woff2 binary
+*.ttf binary
+*.png binary
+*.pdf binary

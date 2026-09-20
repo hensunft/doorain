@@ -1,0 +1,38 @@
+# секреты и локальная конфигурация
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# данные, модели, резервные копии, экспорты
+data/
+backups/
+bundles/
+models/
+*.dump
+*.snapshot
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+playwright-report/
+test-results/
+
+# логи и временные файлы
+*.log
+.tmp/
+docs/source/_pdf.txt
+evals/reports/*.json
+!evals/reports/.gitkeep

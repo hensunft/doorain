@@ -1,0 +1,164 @@
+# DoorAIn: локальный профиль (CPU). Доступ только с этого компьютера: http://127.0.0.1:8080
+# GPU: -f compose.yaml -f compose.nvidia.yaml. Интернет-доступ: -f compose.internet.yaml (см. docs/internet-access.md).
+name: doorain
+
+x-backend: &backend
+  image: doorain/backend:${DOORAIN_VERSION:-0.1.0}
+  build:
+    context: .
+    dockerfile: infra/docker/backend.Dockerfile
+    args:
+      WITH_ML: ${WITH_ML:-1}
+  restart: unless-stopped
+  networks: [internal]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  environment: &backend-env
+    DOORAIN_ENV: ${DOORAIN_ENV:-dev}
+    DOORAIN_DATABASE_URL: postgresql+psycopg://doorain:${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в .env (scripts/doorain init)}@postgres:5432/doorain
+    DOORAIN_QDRANT_URL: http://qdrant:6333
+    DOORAIN_OLLAMA_URL: ${DOORAIN_OLLAMA_URL:-http://ollama:11434}
+    DOORAIN_OLLAMA_MODEL: ${DOORAIN_OLLAMA_MODEL:-qwen3:4b-instruct-2507-q4_K_M}
+    DOORAIN_OLLAMA_NUM_CTX: ${DOORAIN_OLLAMA_NUM_CTX:-4096}
+    DOORAIN_PROVIDER_MODE: ${DOORAIN_PROVIDER_MODE:-ollama}
+    DOORAIN_SECRET_KEY: ${DOORAIN_SECRET_KEY:?Задайте DOORAIN_SECRET_KEY в .env (scripts/doorain init)}
+    DOORAIN_ALLOWED_HOSTS: ${DOORAIN_ALLOWED_HOSTS:-["localhost","127.0.0.1"]}
+    DOORAIN_TRUSTED_PROXY_HOSTS: '["web"]'  # только Caddy может передавать клиентский IP через X-Forwarded-For
+    DOORAIN_EMBED_MODEL_PATH: /models/bge-m3
+    DOORAIN_RERANKER_MODEL_PATH: /models/mmarco-mMiniLMv2-L12-H384-v1
+    DOORAIN_MIN_RERANK_SCORE: ${DOORAIN_MIN_RERANK_SCORE:-0.0}
+    DOORAIN_THRESHOLD_SOURCE: ${DOORAIN_THRESHOLD_SOURCE:-uncalibrated}
+    HF_HUB_OFFLINE: "1"
+    TRANSFORMERS_OFFLINE: "1"
+  volumes:
+    - data:/data
+    - models:/models:ro
+    - ./backups:/backups
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+    image: doorain/web:${DOORAIN_VERSION:-0.1.0}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${DOORAIN_HTTP_PORT:-8080}:80"
+    environment:
+      DOORAIN_SITE_ADDRESS: ${DOORAIN_SITE_ADDRESS:-:80}
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [edge, internal]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/api/v1/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  api:
+    <<: *backend
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      qdrant: { condition: service_healthy }
+    stop_grace_period: 20s
+    deploy: { resources: { limits: { memory: 1g } } }
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.worker.main"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.ops", "worker-alive"]
+      interval: 30s
+      timeout: 15s
+      start_period: 60s
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      qdrant: { condition: service_healthy }
+      ollama: { condition: service_healthy }
+    stop_grace_period: 60s
+    deploy: { resources: { limits: { memory: 4g } } }
+
+  migrate:
+    <<: *backend
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  postgres:
+    image: postgres:17@sha256:f4c66b820c6f974249089d3d16d86a3698eae11e8746eb6644b2271031e91232
+    restart: unless-stopped
+    networks: [internal]
+    environment:
+      POSTGRES_USER: doorain
+      POSTGRES_DB: doorain
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в .env}
+    command: ["postgres", "-c", "shared_buffers=192MB", "-c", "max_connections=40", "-c", "work_mem=8MB", "-c", "log_min_duration_statement=2000"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U doorain -d doorain"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    stop_grace_period: 30s
+    deploy: { resources: { limits: { memory: 768m } } }
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.1@sha256:12364fe851b9f17356fc88189fc06d1b521262e04659ec7345975b00c9246a10
+    restart: unless-stopped
+    networks: [internal]
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+      QDRANT__STORAGE__SNAPSHOTS_PATH: /qdrant/snapshots
+    volumes:
+      - qdrant:/qdrant/storage
+      - qdrant_snapshots:/qdrant/snapshots
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    deploy: { resources: { limits: { memory: 768m } } }
+
+  ollama:
+    image: ollama/ollama:0.34.2@sha256:da6e0dc5651df159e45686fd663c4dbe1624a52c44d7280eeac1551d8f865532
+    restart: unless-stopped
+    networks: [internal]
+    environment:
+      OLLAMA_NO_CLOUD: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: 10m
+      OLLAMA_HOST: 0.0.0.0:11434
+      DO_NOT_TRACK: "1"
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+networks:
+  # internal: true — без выхода наружу. Единственный публикуемый сервис (web) дополнительно подключён к edge.
+  # Подсеть не фиксируется: несколько проектов (restore drill, тестовый стенд) могут работать одновременно.
+  internal:
+    internal: true
+  edge: {}
+
+volumes:
+  pgdata:
+  qdrant:
+  qdrant_snapshots:
+  data:
+  models:
+  ollama:
+  caddy_data:
+  caddy_config:

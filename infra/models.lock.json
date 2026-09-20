@@ -1,0 +1,43 @@
+{
+  "_comment": "Закреплённые версии локальных моделей. HF-ревизии проверены 20.09.2026 через API huggingface.co; digest Ollama-модели фиксируется при prepare (ollama show) и попадает в manifest backup и trace каждого ответа.",
+  "huggingface": [
+    {
+      "name": "bge-m3",
+      "repo": "BAAI/bge-m3",
+      "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+      "license": "MIT",
+      "allow_patterns": ["*.json", "sentencepiece.bpe.model", "pytorch_model.bin", "colbert_linear.pt", "sparse_linear.pt", "1_Pooling/*", "tokenizer*"],
+      "ignore_patterns": ["onnx/*"]
+    },
+    {
+      "name": "mmarco-mMiniLMv2-L12-H384-v1",
+      "repo": "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
+      "revision": "1427fd652930e4ba29e8149678df786c240d8825",
+      "license": "Apache-2.0",
+      "allow_patterns": ["*.json", "sentencepiece.bpe.model", "pytorch_model.bin", "tokenizer*"],
+      "ignore_patterns": ["*.safetensors"]
+    }
+  ],
+  "ollama": [
+    {
+      "tag": "qwen3:4b-instruct-2507-q4_K_M",
+      "role": "основной кандидат профиля laptop-16gb-6gb",
+      "license": "Apache-2.0 (проверить по карточке модели перед загрузкой)",
+      "digest": null
+    },
+    {
+      "tag": "qwen3:4b-q4_K_M",
+      "role": "запасной кандидат (think:false)",
+      "license": "Apache-2.0 (проверить)",
+      "digest": null
+    }
+  ],
+  "images": {
+    "postgres": "postgres:17@sha256:f4c66b820c6f974249089d3d16d86a3698eae11e8746eb6644b2271031e91232",
+    "qdrant": "qdrant/qdrant:v1.19.1@sha256:12364fe851b9f17356fc88189fc06d1b521262e04659ec7345975b00c9246a10",
+    "ollama": "ollama/ollama:0.34.2@sha256:da6e0dc5651df159e45686fd663c4dbe1624a52c44d7280eeac1551d8f865532",
+    "caddy": "caddy:2-alpine@sha256:de23def33b17fb5d1290b0f6c2add1d70780e52341896c00a4c8a2a2fe9d355e",
+    "node": "node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1",
+    "python": "python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e"
+  }
+}

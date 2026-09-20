@@ -1,0 +1,11 @@
+# GPU-профиль: NVIDIA для Ollama (Docker Desktop + WSL2 или Docker Engine + NVIDIA Container Toolkit).
+# Проверяйте реальный inference (scripts/doorain doctor), а не только nvidia-smi.
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

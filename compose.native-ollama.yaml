@@ -1,0 +1,17 @@
+# Запасной вариант: Ollama на хосте (не в контейнере). Включайте только при необходимости.
+# Внимание: worker получает сеть с выходом на host; убедитесь, что Ollama слушает 127.0.0.1/интерфейс Docker,
+# а не всю LAN (OLLAMA_HOST), и что брандмауэр не открывает 11434 наружу. Проверка: scripts/doorain doctor.
+services:
+  ollama:
+    profiles: ["disabled"]
+  worker:
+    depends_on: !override
+      migrate: { condition: service_completed_successfully }
+      qdrant: { condition: service_healthy }
+    environment:
+      DOORAIN_OLLAMA_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks: [internal, hostaccess]
+networks:
+  hostaccess: {}

@@ -1,0 +1,19 @@
+# Стенд проверки стека и restore drill БЕЗ языковых моделей: TEST-провайдеры (заглушки), реальные PostgreSQL/Qdrant/Caddy/worker.
+# Это проверка развёртывания, backup/restore и изоляции сети — НЕ проверка качества RAG.
+# Использование: WITH_ML=0 DOORAIN_EXTRA_COMPOSE=tests/docker/compose.drill.yaml scripts/doorain.ps1 ...
+x-test-env: &test-env
+  DOORAIN_PROVIDER_MODE: test
+  DOORAIN_MIN_RERANK_SCORE: "0.15"
+
+services:
+  ollama:
+    profiles: ["disabled"]
+  api:
+    environment: *test-env
+  migrate:
+    environment: *test-env
+  worker:
+    environment: *test-env
+    depends_on: !override
+      migrate: { condition: service_completed_successfully }
+      qdrant: { condition: service_healthy }

@@ -1,0 +1,23 @@
+# Интернет-режим: HTTPS и вход. Только web (Caddy) принимает внешние соединения (80/443).
+# Требует реальный домен: DOORAIN_DOMAIN в .env. Placeholder-домен и слабые секреты отклоняются при старте.
+# Использование: docker compose -f compose.yaml -f compose.internet.yaml [-f compose.nvidia.yaml] up -d
+x-prod-env: &prod-env
+  DOORAIN_ENV: production
+  DOORAIN_COOKIE_SECURE: "true"
+  DOORAIN_PROVIDER_MODE: ollama
+  DOORAIN_ALLOWED_HOSTS: '["${DOORAIN_DOMAIN:?Укажите DOORAIN_DOMAIN в .env}"]'
+
+services:
+  web:
+    ports: !override
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOORAIN_SITE_ADDRESS: ${DOORAIN_DOMAIN:?Укажите DOORAIN_DOMAIN в .env}
+  api:
+    environment: *prod-env
+  worker:
+    environment: *prod-env
+  migrate:
+    environment: *prod-env
