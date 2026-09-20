@@ -1416,6 +1416,128 @@
     }
    }
   },
+  "/api/v1/corpus/documents/{document_id}": {
+   "patch": {
+    "tags": [
+     "corpus"
+    ],
+    "summary": "Patch Document",
+    "description": "Исключить документ из корпуса или вернуть. Состав меняется после переиндексации; цитаты прежних ответов не затрагиваются.",
+    "operationId": "patch_document_api_v1_corpus_documents__document_id__patch",
+    "parameters": [
+     {
+      "name": "document_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Document Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DocumentPatch"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DocumentOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "corpus"
+    ],
+    "summary": "Delete Document",
+    "description": "Безвозвратное удаление документа и переиндексация. Отклоняется, если на него ссылаются сохранённые ответы.",
+    "operationId": "delete_document_api_v1_corpus_documents__document_id__delete",
+    "parameters": [
+     {
+      "name": "document_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Document Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true,
+         "title": "Response Delete Document Api V1 Corpus Documents  Document Id  Delete"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/corpus/documents/demo/remove": {
+   "post": {
+    "tags": [
+     "corpus"
+    ],
+    "summary": "Remove Demo",
+    "description": "Убрать демонстрационные акты: без ссылок — удалить, со ссылками — исключить из корпуса.",
+    "operationId": "remove_demo_api_v1_corpus_documents_demo_remove_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "type": "object",
+         "title": "Response Remove Demo Api V1 Corpus Documents Demo Remove Post"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/corpus/revisions/{revision_id}/chunks": {
    "get": {
     "tags": [
@@ -3433,6 +3555,16 @@
       "type": "boolean",
       "title": "Is Demo"
      },
+     "excluded": {
+      "type": "boolean",
+      "title": "Excluded",
+      "default": false
+     },
+     "cited_in_sessions": {
+      "type": "integer",
+      "title": "Cited In Sessions",
+      "default": 0
+     },
      "revisions": {
       "items": {
        "$ref": "#/components/schemas/RevisionOut"
@@ -3455,6 +3587,19 @@
      "revisions"
     ],
     "title": "DocumentOut"
+   },
+   "DocumentPatch": {
+    "properties": {
+     "excluded": {
+      "type": "boolean",
+      "title": "Excluded"
+     }
+    },
+    "type": "object",
+    "required": [
+     "excluded"
+    ],
+    "title": "DocumentPatch"
    },
    "DraftOut": {
     "properties": {

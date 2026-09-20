@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import random
+import shutil
 import uuid
 from datetime import date
 from pathlib import Path
@@ -13,13 +14,21 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 import yaml
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ...core.config import Settings
 from ...core.errors import ApiError
-from ...core.util import norm_ws, safe_filename
-from ...db.models import Chunk, CorpusGeneration, Document, DocumentRevision
+from ...core.util import norm_ws, now, safe_filename
+from ...db.models import (
+    Chunk,
+    ChunkIndex,
+    Citation,
+    CorpusGeneration,
+    Document,
+    DocumentRevision,
+    GenerationRevision,
+)
 from ...providers.registry import Providers
 from ..rag.retrieval import retrieve
 from . import importer
@@ -155,6 +164,73 @@ def _license_key(note: str | None) -> str | None:
         key = note.rsplit("[", 1)[1][:-1]
         return key if key in LICENSES else None
     return None
+
+
+def set_excluded(db: Session, doc_id: uuid.UUID, excluded: bool) -> Document:
+    """Исключить документ из корпуса (или вернуть). Данные и прежние цитаты остаются целыми; состав меняется после переиндексации."""
+    doc = db.get(Document, doc_id)
+    if not doc:
+        raise ApiError(404, "not_found", "Документ не найден")
+    doc.excluded_at = now() if excluded else None
+    db.commit()
+    return doc
+
+
+def citing_sessions(db: Session, doc_id: uuid.UUID) -> list[uuid.UUID]:
+    """Сессии, в ответах которых есть цитаты этого документа: пока они существуют, документ удалять нельзя."""
+    return list(db.scalars(select(Citation.session_id).where(Citation.document_id == doc_id).distinct()))
+
+
+def remove(db: Session, s: Settings, p: Providers, doc_id: uuid.UUID, *, rebuild: bool = True) -> dict[str, Any]:
+    """Безвозвратное удаление документа: фрагменты, векторы, файлы и редакции.
+
+    Отклоняется, если на документ ссылаются сохранённые ответы: иначе цитата перестала бы открывать свой фрагмент.
+    """
+    doc = db.get(Document, doc_id)
+    if not doc:
+        raise ApiError(404, "not_found", "Документ не найден")
+    used = citing_sessions(db, doc_id)
+    if used:
+        raise ApiError(409, "document_in_use", f"На документ ссылаются ответы в {len(used)} сессиях. Удалите эти сессии (и очистите их в разделе «Администрирование»), либо исключите документ из корпуса вместо удаления")
+    revs = list(db.scalars(select(DocumentRevision).where(DocumentRevision.document_id == doc_id)))
+    chunk_ids = list(db.scalars(select(Chunk.id).where(Chunk.revision_id.in_([r.id for r in revs])))) if revs else []
+    for coll in db.scalars(select(CorpusGeneration.collection_name).distinct()):
+        p.vs.delete_points(coll, chunk_ids)
+    if chunk_ids:
+        db.execute(delete(ChunkIndex).where(ChunkIndex.chunk_id.in_(chunk_ids)))
+        db.execute(delete(Chunk).where(Chunk.id.in_(chunk_ids)))
+    removed_files = 0
+    for r in revs:
+        folder = Path(r.normalized_path).parent if r.normalized_path else None
+        if folder and folder.is_dir() and folder.parent == s.documents_dir:
+            shutil.rmtree(folder, ignore_errors=True)
+            removed_files += 1
+        db.execute(delete(GenerationRevision).where(GenerationRevision.revision_id == r.id))
+    db.execute(delete(DocumentRevision).where(DocumentRevision.document_id == doc_id))
+    db.delete(doc)
+    db.commit()
+    out = {"document": doc.title, "revisions": len(revs), "chunks": len(chunk_ids), "files": removed_files, "rebuilt": False}
+    if rebuild and db.scalar(select(DocumentRevision.id).limit(1)):
+        gen = build_generation(db, p, s, None, f"kb remove {doc.title[:50]}")
+        out["rebuilt"] = True
+        out["generation"] = {"seq": gen.seq, "control_search": gen.control_search}
+    return out
+
+
+def remove_demo(db: Session, s: Settings, p: Providers) -> dict[str, Any]:
+    """Убрать демонстрационные акты: сначала исключаются из корпуса, затем удаляются те, на которые нет ссылок в ответах."""
+    out: list[dict[str, Any]] = []
+    for doc in list(db.scalars(select(Document).where(Document.is_demo.is_(True)))):
+        used = citing_sessions(db, doc.id)
+        if used:
+            set_excluded(db, doc.id, True)
+            out.append({"document": doc.title, "action": "excluded", "cited_in_sessions": len(used)})
+        else:
+            out.append({"document": doc.title, "action": "removed", **remove(db, s, p, doc.id, rebuild=False)})
+    if out and db.scalar(select(DocumentRevision.id).join(Document, Document.id == DocumentRevision.document_id).where(Document.excluded_at.is_(None)).limit(1)):
+        gen = build_generation(db, p, s, None, "kb remove-demo")
+        return {"items": out, "generation": {"seq": gen.seq, "control_search": gen.control_search}}
+    return {"items": out, "generation": None, "note": "Корпус пуст: загрузите документы и выполните переиндексацию"}
 
 
 def documents(db: Session) -> list[dict[str, Any]]:

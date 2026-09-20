@@ -520,6 +520,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/corpus/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Document
+         * @description Безвозвратное удаление документа и переиндексация. Отклоняется, если на него ссылаются сохранённые ответы.
+         */
+        delete: operations["delete_document_api_v1_corpus_documents__document_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Document
+         * @description Исключить документ из корпуса или вернуть. Состав меняется после переиндексации; цитаты прежних ответов не затрагиваются.
+         */
+        patch: operations["patch_document_api_v1_corpus_documents__document_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/corpus/documents/demo/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove Demo
+         * @description Убрать демонстрационные акты: без ссылок — удалить, со ссылками — исключить из корпуса.
+         */
+        post: operations["remove_demo_api_v1_corpus_documents_demo_remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/corpus/revisions/{revision_id}/chunks": {
         parameters: {
             query?: never;
@@ -1327,8 +1371,23 @@ export interface components {
             source_url: string | null;
             /** Is Demo */
             is_demo: boolean;
+            /**
+             * Excluded
+             * @default false
+             */
+            excluded: boolean;
+            /**
+             * Cited In Sessions
+             * @default 0
+             */
+            cited_in_sessions: number;
             /** Revisions */
             revisions: components["schemas"]["RevisionOut"][];
+        };
+        /** DocumentPatch */
+        DocumentPatch: {
+            /** Excluded */
+            excluded: boolean;
         };
         /** DraftOut */
         DraftOut: {
@@ -3306,6 +3365,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentOut"][];
+                };
+            };
+        };
+    };
+    delete_document_api_v1_corpus_documents__document_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_document_api_v1_corpus_documents__document_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_demo_api_v1_corpus_documents_demo_remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

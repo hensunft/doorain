@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileUp, GitCompare, RefreshCw, Search } from 'lucide-react'
+import { EyeOff, FileUp, GitCompare, RefreshCw, Search, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Banner, EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import { Button, Field, Spinner } from '../../components/ui'
 import { MapArt } from '../../components/art'
 import type { ConfirmImport, Doc, Draft, SearchHit } from '../../lib/api'
-import { ApiError, errorText, get, patch, post } from '../../lib/api'
+import { ApiError, del, errorText, get, patch, post } from '../../lib/api'
 import { keys, useCorpus, useDocuments, useJobs, useManifest } from '../../lib/queries'
 
 const STATE_RU: Record<string, string> = { missing: 'Нет', imported: 'Импортирован', indexed: 'Проиндексирован', verified: 'Проверен' }
@@ -111,6 +111,35 @@ function Compare({ docs }: { docs: Doc[] }) {
   )
 }
 
+/** Исключение и удаление документа. Удаление отклоняется, пока на документ ссылаются сохранённые ответы — иначе цитата перестала бы открываться. */
+function DocActions({ doc }: { doc: Doc }) {
+  const qc = useQueryClient()
+  const [confirm, setConfirm] = useState(false)
+  const refresh = () => { void qc.invalidateQueries({ queryKey: keys.documents }); void qc.invalidateQueries({ queryKey: keys.corpus }); void qc.invalidateQueries({ queryKey: keys.manifest }); void qc.invalidateQueries({ queryKey: keys.jobs }) }
+  const exclude = useMutation({ mutationFn: () => patch<Doc>(`/corpus/documents/${doc.id}`, { excluded: !doc.excluded }), onSuccess: refresh })
+  const remove = useMutation({ mutationFn: () => del<{ chunks: number }>(`/corpus/documents/${doc.id}`), onSuccess: () => { setConfirm(false); refresh() } })
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <Button onClick={() => exclude.mutate()} disabled={exclude.isPending}>
+        <EyeOff className="size-4" aria-hidden />{doc.excluded ? 'Вернуть в корпус' : 'Исключить из корпуса'}
+      </Button>
+      {doc.cited_in_sessions > 0 ? (
+        <span className="hint">Удаление недоступно: на документ ссылаются ответы в {doc.cited_in_sessions} сессиях. Удалите эти сессии и очистите их в разделе «Администрирование», либо исключите документ.</span>
+      ) : confirm ? (
+        <>
+          <span className="text-small">Удалить безвозвратно вместе с фрагментами и файлами?</span>
+          <Button variant="danger" onClick={() => remove.mutate()} disabled={remove.isPending}>{remove.isPending ? 'Удаляем…' : 'Да, удалить'}</Button>
+          <Button onClick={() => setConfirm(false)}>Отмена</Button>
+        </>
+      ) : (
+        <Button onClick={() => setConfirm(true)}><Trash2 className="size-4" aria-hidden />Удалить</Button>
+      )}
+      {exclude.error && <ErrorNote error={exclude.error} />}
+      {remove.error && <ErrorNote error={remove.error} />}
+    </div>
+  )
+}
+
 export function KnowledgeBasePage() {
   document.title = 'База знаний — DoorAIn'
   const qc = useQueryClient()
@@ -123,6 +152,10 @@ export function KnowledgeBasePage() {
   const build = useMutation({ mutationFn: () => post('/corpus/generations/build'), onSuccess: () => qc.invalidateQueries({ queryKey: keys.jobs }) })
   const verify = useMutation({ mutationFn: (v: { id: string; date: string }) => patch(`/corpus/revisions/${v.id}`, { verified_at: v.date }), onSuccess: () => { void qc.invalidateQueries({ queryKey: keys.documents }); void qc.invalidateQueries({ queryKey: keys.corpus }) } })
   const search = useMutation({ mutationFn: () => get<SearchHit[]>(`/corpus/search?q=${encodeURIComponent(q)}`), onSuccess: setHits })
+  const removeDemo = useMutation({
+    mutationFn: () => post<{ items: { document: string; action: string }[] }>('/corpus/documents/demo/remove'),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: keys.documents }); void qc.invalidateQueries({ queryKey: keys.corpus }); void qc.invalidateQueries({ queryKey: keys.manifest }) },
+  })
   const c = corpus.data
   const running = jobs.data?.filter((j) => j.status === 'queued' || j.status === 'running') ?? []
   return (
@@ -134,7 +167,12 @@ export function KnowledgeBasePage() {
       {c && !c.empty && (
         <p className="text-small text-muted tnum">Документов: {c.documents} · редакций: {c.revisions} · фрагментов: {c.chunks} · активная generation: {c.active_generation ? `№${c.active_generation.seq}, контрольный поиск ${c.active_generation.control_search['passed'] as number}/${c.active_generation.control_search['checked'] as number}` : 'нет (индекс не построен)'}</p>
       )}
-      {c?.has_demo && <Banner tone="warn">В корпусе есть демонстрационные данные — не нормативная база. Не используйте их для реальных выводов.</Banner>}
+      {c?.has_demo && (
+        <Banner tone="warn" action={<Button onClick={() => removeDemo.mutate()} disabled={removeDemo.isPending}>{removeDemo.isPending ? 'Убираем…' : 'Убрать демонстрационные данные'}</Button>}>
+          В корпусе есть демонстрационные данные — не нормативная база. Не используйте их для реальных выводов. Документы без ссылок в ответах будут удалены, остальные — исключены из корпуса.
+        </Banner>
+      )}
+      {removeDemo.error && <ErrorNote error={removeDemo.error} />}
       {running.length > 0 && <Banner><Spinner label={`Выполняется: ${running.map((j) => (j.type === 'build_generation' ? `индексация${j.progress['total'] ? ` ${j.progress['done']}/${j.progress['total']}` : ''}` : 'разбор документа')).join(', ')}`} /></Banner>}
       {jobs.data?.find((j) => j.status === 'failed') && <Banner tone="error">Последнее задание завершилось ошибкой: {jobs.data.find((j) => j.status === 'failed')?.error}</Banner>}
       <ImportWizard />
@@ -154,7 +192,7 @@ export function KnowledgeBasePage() {
         {docs.data?.length === 0 && <p className="hint">Документов пока нет.</p>}
         {docs.data?.map((d) => (
           <div key={d.id} className="rounded-lg border border-line p-3 text-small">
-            <p className="font-medium">{d.title} <span className="chip ml-1">{DOC_RU[d.doc_type]}</span>{d.is_demo && <span className="chip risk-medium ml-1">демо</span>}</p>
+            <p className="font-medium">{d.title} <span className="chip ml-1">{DOC_RU[d.doc_type]}</span>{d.is_demo && <span className="chip risk-medium ml-1">демо</span>}{d.excluded && <span className="chip risk-high ml-1">исключён из корпуса</span>}</p>
             <ul className="mt-2 space-y-1">
               {d.revisions.map((r) => (
                 <li key={r.id} className="flex flex-wrap items-center gap-2 tnum">
@@ -169,6 +207,7 @@ export function KnowledgeBasePage() {
                 </li>
               ))}
             </ul>
+            <DocActions doc={d} />
           </div>
         ))}
         {verify.error && <ErrorNote error={verify.error} />}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Query, UploadFile
 from sqlalchemy import func, or_, select
@@ -16,12 +16,14 @@ from ..core.errors import not_found
 from ..core.util import norm_ws
 from ..db.models import AuditEvent, Chunk, CorpusGeneration, Document, DocumentRevision, ImportDraft, Job
 from ..db.session import get_db
+from ..providers.registry import get_providers
 from ..schemas.api import (
     ChunkOut,
     ConfirmImportIn,
     ConfirmImportOut,
     CorpusOverview,
     DocumentOut,
+    DocumentPatch,
     DraftOut,
     GenerationOut,
     JobOut,
@@ -48,7 +50,7 @@ def overview(ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_d
     return CorpusOverview(
         documents=db.scalar(select(func.count()).select_from(Document)) or 0, revisions=n_rev, chunks=db.scalar(select(func.count()).select_from(Chunk)) or 0,
         active_generation=GenerationOut.model_validate(act) if act else None, generations=[GenerationOut.model_validate(g) for g in gens], empty=n_rev == 0,
-        has_demo=bool(db.scalar(select(Document.id).where(Document.is_demo.is_(True)).limit(1))), index_ready=act is not None,
+        has_demo=bool(db.scalar(select(Document.id).where(Document.is_demo.is_(True), Document.excluded_at.is_(None)).limit(1))), index_ready=act is not None,
     )
 
 
@@ -110,7 +112,47 @@ def documents(ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_
     out = []
     for d in db.scalars(select(Document).order_by(Document.title)):
         revs = db.scalars(select(DocumentRevision).where(DocumentRevision.document_id == d.id).order_by(DocumentRevision.revision_date.desc().nullslast(), DocumentRevision.uploaded_at.desc()))
-        out.append(DocumentOut(id=d.id, doc_type=d.doc_type, title=d.title, short_name=d.short_name, act_number=d.act_number, act_date=d.act_date, license_note=d.license_note, source_url=d.source_url, is_demo=d.is_demo, revisions=[RevisionOut.model_validate(r) for r in revs]))
+        out.append(DocumentOut(
+            id=d.id, doc_type=d.doc_type, title=d.title, short_name=d.short_name, act_number=d.act_number, act_date=d.act_date,
+            license_note=d.license_note, source_url=d.source_url, is_demo=d.is_demo, excluded=d.excluded_at is not None,
+            cited_in_sessions=len(kb.citing_sessions(db, d.id)), revisions=[RevisionOut.model_validate(r) for r in revs],
+        ))
+    return out
+
+
+@router.patch("/documents/{document_id}", response_model=DocumentOut)
+def patch_document(document_id: uuid.UUID, body: DocumentPatch, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> DocumentOut:
+    """Исключить документ из корпуса или вернуть. Состав меняется после переиндексации; цитаты прежних ответов не затрагиваются."""
+    require_writable(db)
+    d = kb.set_excluded(db, document_id, body.excluded)
+    db.add(AuditEvent(actor=ctx.user.username, action="corpus.document_excluded" if body.excluded else "corpus.document_included", object_type="document", object_id=str(d.id), details={"title": d.title}))
+    db.commit()
+    revs = db.scalars(select(DocumentRevision).where(DocumentRevision.document_id == d.id).order_by(DocumentRevision.revision_date.desc().nullslast()))
+    return DocumentOut(
+        id=d.id, doc_type=d.doc_type, title=d.title, short_name=d.short_name, act_number=d.act_number, act_date=d.act_date,
+        license_note=d.license_note, source_url=d.source_url, is_demo=d.is_demo, excluded=d.excluded_at is not None,
+        cited_in_sessions=len(kb.citing_sessions(db, d.id)), revisions=[RevisionOut.model_validate(r) for r in revs],
+    )
+
+
+@router.delete("/documents/{document_id}", response_model=dict[str, Any])
+def delete_document(document_id: uuid.UUID, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db), s: Settings = Depends(get_settings)) -> dict[str, Any]:
+    """Безвозвратное удаление документа и переиндексация. Отклоняется, если на него ссылаются сохранённые ответы."""
+    require_writable(db)
+    title = (db.get(Document, document_id) or Document()).title
+    out = kb.remove(db, s, get_providers(), document_id)
+    db.add(AuditEvent(actor=ctx.user.username, action="corpus.document_removed", object_type="document", object_id=str(document_id), details={"title": title, "chunks": out["chunks"]}))
+    db.commit()
+    return out
+
+
+@router.post("/documents/demo/remove", response_model=dict[str, Any])
+def remove_demo(ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db), s: Settings = Depends(get_settings)) -> dict[str, Any]:
+    """Убрать демонстрационные акты: без ссылок — удалить, со ссылками — исключить из корпуса."""
+    require_writable(db)
+    out = kb.remove_demo(db, s, get_providers())
+    db.add(AuditEvent(actor=ctx.user.username, action="corpus.demo_removed", details={"items": len(out["items"])}))
+    db.commit()
     return out
 
 

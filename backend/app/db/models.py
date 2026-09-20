@@ -192,6 +192,7 @@ class Document(Base):
     manifest_id: Mapped[str | None] = mapped_column(String(60))
     topics: Mapped[list[Any]] = mapped_column(J, default=list)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    excluded_at: Mapped[datetime | None]  # исключён из корпуса: не попадает в новые generation, прежние цитаты остаются целыми
     created_at: Mapped[datetime] = _ts()
 
 

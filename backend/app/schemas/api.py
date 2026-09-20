@@ -408,7 +408,13 @@ class DocumentOut(BaseModel):
     license_note: str | None
     source_url: str | None
     is_demo: bool
+    excluded: bool = False  # исключён из корпуса: не попадает в новые generation
+    cited_in_sessions: int = 0  # сколько сессий ссылается на документ: пока > 0, удаление отклоняется
     revisions: list[RevisionOut]
+
+
+class DocumentPatch(BaseModel):
+    excluded: bool
 
 
 class RevisionPatch(BaseModel):

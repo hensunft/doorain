@@ -272,3 +272,39 @@ def test_golden_set_covers_roles_and_traps(owner: Api, demo: dict) -> None:
     assert any("демонстрационные" in c for c in rep["caveats"])  # демо-корпус помечается
     assert Path(rep["report_path"]).is_file() and env_out.is_dir()
     db.close()
+
+
+def test_document_can_be_excluded_and_removed(owner: Api, demo: dict) -> None:
+    """Исключение убирает документ из поиска, но не трогает данные; удаление запрещено, пока на документ ссылаются ответы."""
+    from tests.conftest import ask, new_session
+
+    docs = owner.get("/corpus/documents").json()
+    ads = next(d for d in docs if d["short_name"] == "ДЕМО-2-ФЗ")
+    assert ads["excluded"] is False and ads["cited_in_sessions"] == 0
+
+    sid = new_session(owner)
+    assert ask(owner, sid, "Нужно ли маркировать рекламу в интернете?")["answer_status"] == "validated"
+    used = next(d for d in owner.get("/corpus/documents").json() if d["id"] == ads["id"])
+    assert used["cited_in_sessions"] == 1
+    r = owner.delete(f"/corpus/documents/{ads['id']}")
+    assert r.status_code == 409 and r.json()["code"] == "document_in_use"  # цитата обязана оставаться рабочей
+
+    assert owner.patch(f"/corpus/documents/{ads['id']}", json={"excluded": True}).json()["excluded"] is True
+    run_jobs()
+    assert owner.post("/corpus/generations/build").status_code in (200, 202)
+    run_jobs()
+    assert not [h for h in owner.get("/corpus/search", params={"q": "реклама"}).json() if h["applicable"] and "ДЕМО-2" in h["document_title"]]
+    cid = owner.get(f"/sessions/{sid}/messages").json()[-1]["citations"][0]["id"]
+    assert owner.get(f"/citations/{cid}").status_code == 200  # прежняя цитата открывается
+
+    other = next(d for d in docs if d["short_name"] == "ДЕМО-3-К")
+    out = owner.delete(f"/corpus/documents/{other['id']}").json()
+    assert out["chunks"] > 0 and out["revisions"] == 1
+    assert other["id"] not in [d["id"] for d in owner.get("/corpus/documents").json()]
+
+
+def test_remove_demo_clears_corpus_of_fictional_acts(owner: Api, demo: dict) -> None:
+    out = owner.post("/corpus/documents/demo/remove").json()
+    assert {i["action"] for i in out["items"]} == {"removed"} and len(out["items"]) == 3
+    assert owner.get("/corpus/documents").json() == []
+    assert owner.get("/corpus/overview").json()["has_demo"] is False

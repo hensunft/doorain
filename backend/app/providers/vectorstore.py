@@ -53,6 +53,12 @@ class VectorStore:
         s = self.client.query_points(name, query=sp, using="sparse", query_filter=flt, limit=limit, with_payload=False).points if e.sparse else []
         return [uuid.UUID(str(p.id)) for p in d], [uuid.UUID(str(p.id)) for p in s]
 
+    def delete_points(self, name: str, chunk_ids: list[uuid.UUID]) -> None:
+        """Убрать векторы удалённых фрагментов; коллекция остаётся для остальных документов."""
+        if not chunk_ids or not self.client.collection_exists(name):
+            return
+        self.client.delete(name, points_selector=models.PointIdsList(points=[str(c) for c in chunk_ids]), wait=True)
+
     def info(self, name: str) -> dict[str, Any]:
         """Фактические параметры коллекции — для чек-листа исправности поиска."""
         if not self.client.collection_exists(name):

@@ -12,7 +12,15 @@ from sqlalchemy.orm import Session
 
 from ...core.config import Settings
 from ...core.util import now
-from ...db.models import AppState, Chunk, ChunkIndex, CorpusGeneration, DocumentRevision, GenerationRevision
+from ...db.models import (
+    AppState,
+    Chunk,
+    ChunkIndex,
+    CorpusGeneration,
+    Document,
+    DocumentRevision,
+    GenerationRevision,
+)
 from ...providers.base import Embedded
 from ...providers.registry import Providers
 from ...providers.vectorstore import rrf
@@ -77,7 +85,8 @@ def _manifest(db: Session, revs: list[DocumentRevision]) -> list[tuple[uuid.UUID
 
 
 def build_generation(db: Session, p: Providers, s: Settings, job: jobs.Job | None = None, note: str | None = None) -> CorpusGeneration:
-    revs = list(db.scalars(select(DocumentRevision).where(DocumentRevision.status == "ready")).all())
+    # Исключённые документы в новую generation не попадают; их редакции и прежние цитаты остаются в базе.
+    revs = list(db.scalars(select(DocumentRevision).join(Document, Document.id == DocumentRevision.document_id).where(DocumentRevision.status == "ready", Document.excluded_at.is_(None))).all())
     if not revs:
         raise CorpusEmpty("Корпус пуст: загрузите документы")
     fp = p.embedder.fingerprint()

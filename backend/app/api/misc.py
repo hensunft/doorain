@@ -160,7 +160,7 @@ def status(ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(
     alive, _ = _worker_alive(db)
     return SystemStatus(
         model=ModelStatus(state=state, name=h.info.get("name") if h.ok else s.ollama_model, detail=h.detail), corpus_empty=gen is None, corpus_as_of=date.today() if gen else None, generation_seq=gen.seq if gen else None,
-        has_demo=bool(db.scalar(select(Document.id).where(Document.is_demo.is_(True)).limit(1))), worker_alive=alive or s.env == "test", maintenance=bool(get_state(db, "maintenance").get("on")), provider_mode=s.provider_mode, disclaimer=DISCLAIMER, version=__version__,
+        has_demo=bool(db.scalar(select(Document.id).where(Document.is_demo.is_(True), Document.excluded_at.is_(None)).limit(1))), worker_alive=alive or s.env == "test", maintenance=bool(get_state(db, "maintenance").get("on")), provider_mode=s.provider_mode, disclaimer=DISCLAIMER, version=__version__,
     )
 
 

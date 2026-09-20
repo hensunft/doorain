@@ -45,6 +45,12 @@ def _kb_parser(sub: argparse._SubParsersAction) -> None:
     se.add_argument("query")
     se.add_argument("--debug", action="store_true", help="показать скоры, источники и метаданные")
     se.add_argument("--limit", type=int, default=10)
+    rm = kb.add_parser("remove", help="удалить документ из базы знаний (отклоняется, если на него ссылаются ответы)")
+    rm.add_argument("doc_id")
+    ex = kb.add_parser("exclude", help="исключить документ из корпуса или вернуть обратно (данные сохраняются)")
+    ex.add_argument("doc_id")
+    ex.add_argument("--undo", action="store_true", help="вернуть документ в корпус")
+    kb.add_parser("remove-demo", help="убрать демонстрационные акты: без ссылок — удалить, со ссылками — исключить")
     kb.add_parser("doctor", help="чек-лист исправности поиска")
     ev = kb.add_parser("eval", help="прогон эталонного набора вопросов")
     ev.add_argument("--set", dest="golden", default="tests/eval/golden_set.yaml")
@@ -66,6 +72,13 @@ def _kb_run(db: Any, a: argparse.Namespace) -> None:
         out = kb.documents(db)
     elif a.kb_cmd == "update":
         out = kb.update_revision(db, s, p, a.doc_id, a.source, a.revision_date, a.verified_at)
+    elif a.kb_cmd == "remove":
+        out = kb.remove(db, s, p, __import__("uuid").UUID(a.doc_id))
+    elif a.kb_cmd == "exclude":
+        d = kb.set_excluded(db, __import__("uuid").UUID(a.doc_id), not a.undo)
+        out = {"document": d.title, "excluded": d.excluded_at is not None, "note": "состав корпуса изменится после doorain kb reindex"}
+    elif a.kb_cmd == "remove-demo":
+        out = kb.remove_demo(db, s, p)
     elif a.kb_cmd == "reindex":
         out = kb.reindex(db, s, p, a.only)
     elif a.kb_cmd == "search":

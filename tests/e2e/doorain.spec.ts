@@ -292,3 +292,24 @@ test('слепок: бейдж риска вместо отдельного уз
     if (fmt === 'SVG') expect(fs.readFileSync(p, 'utf8')).toContain('<svg')
   }
 })
+
+test('база знаний: исключение документа и удаление демонстрационных актов', async ({ page }) => {
+  await login(page)
+  await page.goto('/kb')
+  await expect(page.getByText('В корпусе есть демонстрационные данные')).toBeVisible()
+
+  // исключение документа помечается и обратимо
+  const card = page.locator('section').filter({ hasText: 'Документы и редакции' })
+  const first = card.locator('div.rounded-lg').first()
+  await first.getByRole('button', { name: 'Исключить из корпуса' }).click()
+  await expect(first.getByText('исключён из корпуса')).toBeVisible()
+  await first.getByRole('button', { name: 'Вернуть в корпус' }).click()
+  await expect(first.getByText('исключён из корпуса')).toHaveCount(0)
+
+  // демо-акты убираются из корпуса: без ссылок — удаляются, со ссылками — исключаются; предупреждение снимается в обоих случаях
+  await page.getByRole('button', { name: 'Убрать демонстрационные данные' }).click()
+  await expect(page.getByText('В корпусе есть демонстрационные данные')).toHaveCount(0)
+  const excluded = await card.getByText('исключён из корпуса').count()
+  const empty = await page.getByRole('heading', { name: 'Корпус пуст' }).count()
+  expect(excluded + empty).toBeGreaterThan(0)
+})
