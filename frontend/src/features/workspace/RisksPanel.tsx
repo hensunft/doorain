@@ -38,7 +38,7 @@ function RisksTable({ rows, highlight, selected, onSelect }: { rows: Risk[]; hig
                 const dir = h.column.getIsSorted()
                 return (
                   <th key={h.id} scope="col" aria-sort={dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none'} className="px-2 py-2 font-medium">
-                    {h.column.getCanSort() ? <button type="button" className="font-medium hover:underline" onClick={h.column.getToggleSortingHandler()}>{flexRender(h.column.columnDef.header, h.getContext())}{dir === 'asc' ? ' ↑' : dir === 'desc' ? ' ↓' : ''}</button> : flexRender(h.column.columnDef.header, h.getContext())}
+                    {h.column.getCanSort() ? <button type="button" className="btn btn-tertiary !px-0" onClick={h.column.getToggleSortingHandler()}>{flexRender(h.column.columnDef.header, h.getContext())}{dir === 'asc' ? ' ↑' : dir === 'desc' ? ' ↓' : ''}</button> : flexRender(h.column.columnDef.header, h.getContext())}
                   </th>
                 )
               })}
@@ -119,14 +119,14 @@ export function RisksPanel({ session }: { session: Session }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
-        <h2 className="display-s">{learning ? 'Ошибки понимания' : 'Риски'} <span className="caption font-normal">P × S, по убыванию</span></h2>
+        <h2 className="display-s">{learning ? 'Ошибки понимания' : 'Риски'}</h2>
         <span className="flex items-center gap-1">
           {!learning && <Button className="btn-icon" aria-label="Добавить свой риск" title="Добавить свой риск" onClick={() => setAdding(true)}><Plus className="size-4" aria-hidden /></Button>}
           <details className="relative">
             <summary className="btn btn-icon list-none" aria-label="Выгрузить риски" title="Выгрузить"><Download className="size-4" aria-hidden /></summary>
             <div className="zone absolute right-0 z-20 mt-1 w-56 space-y-1 !p-2 shadow-[var(--shadow-hover)]">
-              <a className="btn btn-quiet w-full !justify-start no-underline" href={`/api/v1/sessions/${session.id}/risks/export?format=csv`} download>Таблица рисков (CSV)</a>
-              <a className="btn btn-quiet w-full !justify-start no-underline" href={`/api/v1/sessions/${session.id}/risks/export?format=md`} download>Чек-лист плана (Markdown)</a>
+              <a className="btn btn-tertiary w-full !justify-start no-underline" href={`/api/v1/sessions/${session.id}/risks/export?format=csv`} download>Таблица рисков (CSV)</a>
+              <a className="btn btn-tertiary w-full !justify-start no-underline" href={`/api/v1/sessions/${session.id}/risks/export?format=md`} download>Чек-лист плана (Markdown)</a>
             </div>
           </details>
           <Button className="btn-icon" aria-label="Развернуть таблицу на всю ширину" onClick={() => setWide(true)}><Maximize2 className="size-4" aria-hidden /></Button>

@@ -13,6 +13,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { ArrowLeft, Download, Maximize2, RotateCcw, Search, SlidersHorizontal } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { HelpPopover } from '../../components/ui'
 import type { Graph, GraphNode, Level } from '../../lib/api'
 import { put } from '../../lib/api'
 import { useMessages, useRisks } from '../../lib/queries'
@@ -77,7 +78,7 @@ function HoverCard({ graph, hover, sessionId, nums }: { graph: Graph; hover: Hov
         <p className="overline">{head}</p>
         <p className="body-l mt-1 font-semibold">{short(body, 120)}</p>
         {conclusion && <p className="body-s mt-1 text-muted">{n.kind === 'question' ? `Вывод: ${conclusion}` : conclusion}</p>}
-        <p className="mono-m mt-2" style={{ color: `var(--risk-${n.risk_level === 'medium' ? 'mid' : (n.risk_level ?? 'none')})` }}>{levelLine}</p>
+        <p className="mono-m mt-2 text-[var(--level-ink)]">{levelLine}</p>
       </div>
     </div>
   )
@@ -85,14 +86,16 @@ function HoverCard({ graph, hover, sessionId, nums }: { graph: Graph; hover: Hov
 
 function Legend({ questions }: { questions: number }) {
   return (
-    <ul className="caption pointer-events-none absolute bottom-2 left-2 flex max-w-[92%] flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-canvas/90 px-3 py-1.5" aria-label="Легенда">
+    <ul className="caption space-y-1.5" aria-label="Легенда">
       <li className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-full bg-brand" />тема</li>
       <li className="flex items-center gap-1.5"><span className="inline-block h-3 w-5 rounded border-2 border-risk-high bg-alt" />вопрос</li>
       <li className="flex items-center gap-1.5"><svg width="16" height="14" viewBox="0 0 46 40" aria-hidden><polygon points="12,2 34,2 44,20 34,38 12,38 2,20" fill="none" stroke="var(--gold)" strokeWidth="4" /></svg>норма</li>
       <li className="flex items-center gap-1.5"><span className="inline-block size-2.5 rotate-45 rounded-[2px] bg-risk-high" />риск</li>
       {questions > 1 && <li className="flex items-center gap-1.5"><svg width="24" height="4" aria-hidden><line x1="0" y1="2" x2="24" y2="2" stroke="var(--gold)" strokeWidth="2" strokeDasharray="5 3" /></svg>нить диалога 1 → {questions}</li>}
       <li className="flex items-center gap-1.5"><svg width="24" height="4" aria-hidden><line x1="0" y1="2" x2="24" y2="2" stroke="var(--line-strong)" strokeWidth="2" strokeDasharray="1 3" /></svg>основание ответа</li>
-      {LEVEL_ORDER.map((l) => <li key={l} className="flex items-center gap-1"><span className="inline-block size-2 rounded-full" style={{ background: `var(--risk-${l === 'medium' ? 'mid' : l})` }} />{LEVEL_RU[l].toLowerCase()}</li>)}
+      <li className="flex items-center gap-1.5"><svg width="24" height="4" aria-hidden><line x1="0" y1="2" x2="24" y2="2" stroke="var(--line-strong)" strokeWidth="2" strokeDasharray="4 4" /></svg>уточняющий вопрос</li>
+      <li className="flex flex-wrap items-center gap-x-3 gap-y-1">цвет — наивысший уровень открытых рисков:{LEVEL_ORDER.map((l) => <span key={l} className="flex items-center gap-1" data-level={l}><span className="mx-swatch" aria-hidden />{LEVEL_RU[l].toLowerCase()}</span>)}</li>
+      <li>серый — рисков нет или данных мало; бледный узел с обводкой — риск закрыт</li>
     </ul>
   )
 }
@@ -288,18 +291,19 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
             <fieldset className="body-s flex flex-wrap gap-x-4 gap-y-1">
               <legend className="label">Показывать</legend>
               {(['question', 'norm', 'risk'] as const).map((k) => (
-                <label key={k} className="flex items-center gap-1.5"><input type="checkbox" checked={filters.kinds[k]} onChange={(e) => setF({ ...filters, kinds: { ...filters.kinds, [k]: e.target.checked } })} />{k === 'question' ? 'Вопросы' : k === 'norm' ? 'Нормы' : 'Риски'}</label>
+                <label key={k} className="flex min-h-11 items-center gap-1.5"><input type="checkbox" checked={filters.kinds[k]} onChange={(e) => setF({ ...filters, kinds: { ...filters.kinds, [k]: e.target.checked } })} />{k === 'question' ? 'Вопросы' : k === 'norm' ? 'Нормы' : 'Риски'}</label>
               ))}
-              <label className="flex items-center gap-1.5"><input type="checkbox" checked={filters.showResolved} onChange={(e) => setF({ ...filters, showResolved: e.target.checked })} />Снятые</label>
+              <label className="flex min-h-11 items-center gap-1.5"><input type="checkbox" checked={filters.showResolved} onChange={(e) => setF({ ...filters, showResolved: e.target.checked })} />Снятые</label>
             </fieldset>
             <div className="flex flex-wrap gap-2 border-t border-line-soft pt-3">
               <button className="btn" onClick={() => void exportGraph('svg')}><Download className="size-4" aria-hidden />SVG</button>
               <button className="btn" onClick={() => void exportGraph('png')}>PNG</button>
-              <button className="btn btn-quiet" onClick={relayout}><RotateCcw className="size-4" aria-hidden />Разложить заново</button>
+              <button className="btn btn-tertiary" onClick={relayout}><RotateCcw className="size-4" aria-hidden />Разложить заново</button>
             </div>
           </div>
         </details>
-        {(sel.riskId || sel.nodeId || sel.messageId) && <button className="btn btn-quiet" onClick={clear}>Снять выделение</button>}
+        {(sel.riskId || sel.nodeId || sel.messageId) && <button className="btn btn-tertiary" onClick={clear}>Снять выделение</button>}
+        <span className="ml-auto"><HelpPopover label="Условные обозначения карты"><Legend questions={nums.size} /></HelpPopover></span>
       </div>
       <div ref={box} className="relative min-h-0 flex-1 bg-panel" onKeyDown={onKey}>
         <ReactFlow
@@ -322,7 +326,6 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
           <MiniMap pannable zoomable ariaLabel="Мини-карта слепка" nodeColor={minimapColor} maskColor="transparent" style={{ width: 120, height: 84 }} />
         </ReactFlow>
         {hover && <HoverCard graph={graph} hover={hover} sessionId={sessionId} nums={nums} />}
-        <Legend questions={nums.size} />
       </div>
       <ReasoningDrawer sessionId={sessionId} nodeId={drawer} onClose={() => setDrawer(null)} />
     </div>

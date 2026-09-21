@@ -96,7 +96,7 @@ export function ExportDialog({ session, open, onClose }: { session: Session; ope
           <div className="space-y-2">
             {ex.incomplete && <Banner tone="warn">Это неполный снимок: он помечен в документе.</Banner>}
             <a className="btn btn-primary no-underline" href={`/api/v1/exports/${ex.id}/download`}><Download className="size-4" aria-hidden />Скачать PDF ({Math.round((ex.size ?? 0) / 1024)} КБ)</a>
-            <Button variant="quiet" onClick={() => setExportId(null)}>Сформировать ещё раз</Button>
+            <Button variant="tertiary" onClick={() => setExportId(null)}>Сформировать ещё раз</Button>
           </div>
         )}
         {past.data && past.data.length > 0 && (

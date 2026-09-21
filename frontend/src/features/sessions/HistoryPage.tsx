@@ -57,11 +57,11 @@ export function HistoryPage() {
             <div className="flex items-start justify-between gap-2">
               <Link to={`/s/${s.id}`} className="display-s min-w-0 text-ink no-underline hover:underline">{s.title}</Link>
               <details className="relative shrink-0">
-                <summary className="btn btn-quiet btn-icon list-none" aria-label={`Действия с «${s.title}»`}><MoreHorizontal className="size-4" aria-hidden /></summary>
+                <summary className="btn btn-tertiary btn-icon list-none" aria-label={`Действия с «${s.title}»`}><MoreHorizontal className="size-4" aria-hidden /></summary>
                 <div className="zone absolute right-0 z-20 mt-1 w-48 space-y-1 !p-2 shadow-[var(--shadow-hover)]">
-                  <Button variant="quiet" className="w-full !justify-start" onClick={() => { setRename(s); setName(s.title) }}>Переименовать</Button>
-                  <Button variant="quiet" className="w-full !justify-start" onClick={() => upd.mutate({ id: s.id, body: { status: s.status === 'active' ? 'archived' : 'active' } })}>{s.status === 'active' ? 'В архив' : 'Вернуть из архива'}</Button>
-                  <Button variant="quiet" className="w-full !justify-start text-risk-high" onClick={() => { setRemove(s); setConfirm('') }}>Удалить</Button>
+                  <Button variant="tertiary" className="w-full !justify-start" onClick={() => { setRename(s); setName(s.title) }}>Переименовать</Button>
+                  <Button variant="tertiary" className="w-full !justify-start" onClick={() => upd.mutate({ id: s.id, body: { status: s.status === 'active' ? 'archived' : 'active' } })}>{s.status === 'active' ? 'В архив' : 'Вернуть из архива'}</Button>
+                  <Button variant="tertiary" className="w-full !justify-start text-risk-high" onClick={() => { setRemove(s); setConfirm('') }}>Удалить</Button>
                 </div>
               </details>
             </div>
@@ -76,7 +76,7 @@ export function HistoryPage() {
         <input id="rn" className="input" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && rename && name.trim()) upd.mutate({ id: rename.id, body: { title: name } }) }} autoFocus />
         {upd.error && <p className="mt-2 text-small text-risk-high">{errorText(upd.error)}</p>}
       </Dialog>
-      <Dialog open={!!remove} onClose={() => setRemove(null)} title="Удалить сессию?" footer={<><Button onClick={() => setRemove(null)}>Отмена</Button><Button variant="danger" disabled={!remove || confirm.trim() !== remove.title.trim() || rm.isPending} onClick={() => remove && rm.mutate(remove)}>Удалить безвозвратно</Button></>}>
+      <Dialog open={!!remove} onClose={() => setRemove(null)} title="Удалить сессию?" footer={<><Button onClick={() => setRemove(null)}>Отмена</Button><Button variant="danger-solid" disabled={!remove || confirm.trim() !== remove.title.trim() || rm.isPending} onClick={() => remove && rm.mutate(remove)}>Удалить безвозвратно</Button></>}>
         <div className="space-y-3 text-small">
           <p>Будут удалены сообщения, персональные факты, риски, слепок, источники ответов и PDF-выгрузки этой сессии. Общий корпус НПА не затрагивается.</p>
           <p className="text-muted">Данные, уже выгруженные вами в файлы, и прежние резервные копии сервером не изменяются.</p>

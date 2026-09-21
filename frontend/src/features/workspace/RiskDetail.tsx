@@ -67,7 +67,7 @@ export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: s
               <label className="block"><span className="label">P</span><select className="input !w-20" value={ps.p} onChange={(e) => setPs({ ...ps, p: Number(e.target.value) })}>{[1, 2, 3, 4, 5].map((x) => <option key={x}>{x}</option>)}</select></label>
               <label className="block"><span className="label">S</span><select className="input !w-20" value={ps.s} onChange={(e) => setPs({ ...ps, s: Number(e.target.value) })}>{[1, 2, 3, 4, 5].map((x) => <option key={x}>{x}</option>)}</select></label>
               <label className="block min-w-40 flex-1"><span className="label">Почему</span><input className="input" required maxLength={1000} value={ps.reason} onChange={(e) => setPs({ ...ps, reason: e.target.value })} /></label>
-              <button className="btn btn-primary" type="submit" disabled={!ps.reason.trim() || rescore.isPending}>Сохранить</button>
+              <button className="btn" type="submit" disabled={!ps.reason.trim() || rescore.isPending}>Сохранить</button>
               <button className="btn" type="button" onClick={() => setPs(null)}>Отмена</button>
             </form>
           )}
@@ -83,7 +83,7 @@ export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: s
       <section><h4 className="font-semibold">Рекомендация</h4><p>{r.recommendation || '—'}</p></section>
       <section><h4 className="font-semibold">Подтверждённые факты и вопросы</h4>
         <ul className="list-disc pl-5">{facts.map((f) => <li key={f.ref_id}>{f.label} <span className="text-muted">({f.role === 'bonus' ? 'бонус' : 'основа'})</span></li>)}</ul>
-        <ul className="mt-1 flex flex-col gap-1">{msgs.map((m) => <li key={m.ref_id}><button type="button" className="text-left text-muted underline" onClick={() => m.message_id && selectMessage(m.message_id)}>Вопрос: {m.label}</button></li>)}</ul>
+        <ul className="mt-1 flex flex-col gap-1">{msgs.map((m) => <li key={m.ref_id}><button type="button" className="btn btn-tertiary h-auto !justify-start whitespace-normal !px-0 text-left" onClick={() => m.message_id && selectMessage(m.message_id)}>Вопрос: {m.label}</button></li>)}</ul>
       </section>
       <section><h4 className="font-semibold">История</h4>
         <ol className="space-y-1">{events.map((e) => <li key={e.id} className="tnum"><span className="text-muted">{new Date(e.at).toLocaleString('ru-RU')}</span> · {EVENT_KIND[e.kind] ?? e.kind}{e.from_value || e.to_value ? `: ${e.from_value ?? '—'} → ${e.to_value ?? '—'}` : ''} · {e.reason} <span className="text-muted">({AUTHOR[e.author] ?? e.author})</span></li>)}</ol>

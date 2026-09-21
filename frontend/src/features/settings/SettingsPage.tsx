@@ -3,7 +3,8 @@ import { LogOut } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Banner, ErrorNote, Skeleton } from '../../components/States'
-import { Field, Spinner } from '../../components/ui'
+import { Field } from '../../components/ui'
+import { useLocalState } from '../../lib/hooks'
 import { errorText, post, setCsrf } from '../../lib/api'
 import type { components } from '../../lib/api-types'
 import { useDiagnostics } from '../../lib/queries'
@@ -28,11 +29,13 @@ export function SettingsPage() {
   const logout = useMutation({ mutationFn: () => post('/auth/logout'), onSuccess: () => { qc.clear(); nav('/login', { replace: true }) } })
   const submit = (e: FormEvent) => { e.preventDefault(); setDone(false); change.mutate() }
   const x = d.data
+  const [dev, setDev] = useLocalState('doorain.dev', false)
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-6">
       <h1>Настройки</h1>
       <section aria-labelledby="diag" className="space-y-2">
-        <h2 id="diag" className="text-h3">Диагностика системы</h2>
+        <h2 id="diag" className="text-h3">О программе</h2>
+        <label className="flex min-h-11 items-center gap-2 text-small"><input type="checkbox" className="size-4 accent-[var(--brand)]" checked={dev} onChange={(e) => setDev(e.target.checked)} />Режим разработчика — служебные метки (номер generation корпуса) в рабочем пространстве</label>
         {d.isLoading && <Skeleton lines={6} />}
         {d.isError && <ErrorNote error={d.error} onRetry={() => d.refetch()} />}
         {x && (
@@ -59,7 +62,7 @@ export function SettingsPage() {
           <Field id="new" label="Новый пароль" hint="Не короче 12 символов. После смены все остальные сессии входа будут завершены."><input id="new" className="input" type="password" autoComplete="new-password" minLength={12} value={next} onChange={(e) => setNext(e.target.value)} required /></Field>
           {change.error && <Banner tone="error">{errorText(change.error)}</Banner>}
           {done && <Banner>Пароль изменён. Остальные сессии входа отозваны.</Banner>}
-          <button className="btn btn-primary" type="submit" disabled={change.isPending}>{change.isPending ? <Spinner label="Сохраняем…" /> : 'Сменить пароль'}</button>
+          <button className="btn btn-primary" type="submit" disabled={change.isPending} aria-busy={change.isPending || undefined}>Сменить пароль</button>
         </form>
       </section>
       <section className="space-y-2">

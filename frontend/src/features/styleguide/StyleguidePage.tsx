@@ -19,6 +19,9 @@ function Row({ title, hint, children }: { title: string; hint?: string; children
   )
 }
 
+const BUTTONS = [['primary', 'Первичная'], ['secondary', 'Вторичная'], ['tertiary', 'Третичная'], ['icon', 'Иконочная'], ['danger', 'Опасная'], ['danger-solid', 'Опасная в подтверждении']] as const
+const STATES = [['', 'покой'], ['is-hover', 'наведение'], ['is-active', 'нажатие'], ['is-focus', 'фокус'], ['disabled', 'заблокирована'], ['loading', 'загрузка']] as const
+
 const SURFACES: [string, string][] = [
   ['--bg', 'холст страницы'], ['--surface', 'панели и зоны'], ['--surface-2', 'полотно графа'],
   ['--surface-3', 'выделенные блоки'], ['--surface-alt', 'карточки'],
@@ -80,15 +83,31 @@ export function StyleguidePage() {
         </div>
       </Row>
 
-      <Row title="Кнопки" hint="Состояния: обычное, наведение, фокус (Tab), отключённое.">
-        <Button variant="primary">Первичная</Button>
-        <Button>Вторичная</Button>
-        <Button variant="quiet">Тихая</Button>
-        <Button variant="danger">Опасная</Button>
-        <Button variant="primary" disabled>Отключена</Button>
-        <button className="btn btn-icon" aria-label="Скачать"><Download className="size-4" aria-hidden /></button>
+      <section className="zone space-y-3" aria-labelledby="sg-btn">
+        <h2 id="sg-btn" className="display-s">Кнопки</h2>
+        <p className="hint">Первичная — одно главное действие экрана; вторичная — частые действия; третичная — вспомогательные; иконочная — действия в панелях (всегда с aria-label); опасная — обводка, заливка только в подтверждении. Высота 36 px (первичная на ключевых экранах — 44), зона нажатия ≥ 44 × 44. Текст — глагол, до трёх слов, без точки.</p>
+        <div className="overflow-x-auto">
+          <table className="w-full border-separate border-spacing-x-2 border-spacing-y-3 text-left">
+            <thead><tr className="caption"><th scope="col">Тип</th>{STATES.map(([, t]) => <th key={t} scope="col">{t}</th>)}</tr></thead>
+            <tbody>
+              {BUTTONS.map(([variant, name]) => (
+                <tr key={variant}>
+                  <th scope="row" className="caption pr-2 font-normal">{name}</th>
+                  {STATES.map(([state, t]) => (
+                    <td key={t}>
+                      {variant === 'icon'
+                        ? <button type="button" className={`btn btn-icon ${state}`} aria-label={`Скачать — ${t}`} disabled={state === 'disabled'} aria-busy={state === 'loading' || undefined}><Download className="size-4" aria-hidden /></button>
+                        : <Button variant={variant} className={state} disabled={state === 'disabled'} loading={state === 'loading'}>{variant === 'danger-solid' ? 'Удалить навсегда' : variant === 'danger' ? 'Удалить' : 'Сохранить'}</Button>}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <Button variant="primary" size="lg">Начать сессию</Button>
         <Spinner label="Загружаем…" />
-      </Row>
+      </section>
 
       <Row title="Переключатель режимов">
         <div className="seg" role="tablist" aria-label="Режим портрета">

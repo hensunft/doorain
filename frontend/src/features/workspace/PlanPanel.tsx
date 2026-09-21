@@ -32,14 +32,14 @@ function Step({ risk, sessionId }: { risk: Risk; sessionId: string }) {
     <li>
       <article className={`card card-risk ${closed ? 'opacity-[0.78]' : ''}`} data-level={risk.level ?? 'none'}>
         <div className="flex items-start gap-3">
-          <input
+          <label className="-m-3 flex shrink-0 cursor-pointer p-3"><input
             type="checkbox"
-            className="mt-0.5 size-5 shrink-0 accent-[var(--brand)]"
+            className="size-5 accent-[var(--brand)]"
             checked={closed}
             disabled={closed || close.isPending}
             aria-label={`Отметить шаг выполненным: ${risk.recommendation || risk.title}`}
             onChange={() => setAsking(true)}
-          />
+          /></label>
           <div className="min-w-0 flex-1">
             <h3 className={`body-l font-semibold ${closed ? 'text-muted line-through' : ''}`}>{risk.recommendation || risk.title}</h3>
             {risk.scenario && <p className="body-s mt-1 text-muted">{risk.scenario}</p>}
@@ -53,7 +53,7 @@ function Step({ risk, sessionId }: { risk: Risk; sessionId: string }) {
               <form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); close.mutate() }}>
                 <label className="sr-only" htmlFor={`pl-${risk.id}`}>Что сделано</label>
                 <input id={`pl-${risk.id}`} className="input min-w-40 flex-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Что сделано (обязательно)" required maxLength={1000} autoFocus />
-                <button className="btn btn-primary" type="submit" disabled={!reason.trim() || close.isPending}>Закрыть риск</button>
+                <button className="btn" type="submit" disabled={!reason.trim() || close.isPending}>Закрыть риск</button>
                 <button className="btn" type="button" onClick={() => setAsking(false)}>Отмена</button>
               </form>
             )}
@@ -83,12 +83,12 @@ function OwnSteps({ sessionId }: { sessionId: string }) {
       <ul className="space-y-2">
         {(q.data ?? []).map((s) => (
           <li key={s.id} className="card flex items-start gap-3 border-dashed">
-            <input type="checkbox" className="mt-0.5 size-5 shrink-0 accent-[var(--brand)]" checked={s.done} disabled={toggle.isPending} onChange={() => toggle.mutate(s)} aria-label={`Выполнено: ${s.title}`} />
+            <label className="-m-3 flex shrink-0 cursor-pointer p-3"><input type="checkbox" className="size-5 accent-[var(--brand)]" checked={s.done} disabled={toggle.isPending} onChange={() => toggle.mutate(s)} aria-label={`Выполнено: ${s.title}`} /></label>
             <div className="min-w-0 flex-1">
               <p className={`body-l font-semibold ${s.done ? 'text-muted line-through' : ''}`}>{s.title}</p>
               <p className="caption">шаг добавлен вами{s.due ? ` · до ${new Date(s.due).toLocaleDateString('ru-RU')}` : ''}</p>
             </div>
-            <button type="button" className="btn btn-quiet !min-h-7 !px-2" onClick={() => drop.mutate(s)} aria-label={`Удалить шаг: ${s.title}`}>Удалить</button>
+            <button type="button" className="btn btn-tertiary" onClick={() => drop.mutate(s)} aria-label={`Удалить шаг: ${s.title}`}>Удалить</button>
           </li>
         ))}
       </ul>
@@ -126,7 +126,6 @@ export function PlanPanel({ session }: { session: Session }) {
           <h2 className="display-s">План-схема</h2>
           <a className="btn no-underline" href={`/api/v1/sessions/${session.id}/risks/export?format=md`} download>Выгрузить чек-лист</a>
         </div>
-        <p className="hint mt-1">Рекомендации по открытым рискам превращены в шаги. Закрытие шага высветляет узлы в других режимах.</p>
       </header>
       <div className="card">
         <div className="flex items-baseline justify-between gap-3">

@@ -1,5 +1,5 @@
-import { CircleDot, Loader2, OctagonAlert, ShieldAlert, TriangleAlert } from 'lucide-react'
-import type { ComponentProps, ReactNode } from 'react'
+import { CircleDot, HelpCircle, Loader2, OctagonAlert, ShieldAlert, TriangleAlert } from 'lucide-react'
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import type { Level } from '../lib/api'
 import { LEVEL_RU } from '../lib/risk'
 
@@ -37,9 +37,32 @@ export function Field({ label, hint, children, id }: { label: string; hint?: str
   )
 }
 
-export function Button({ variant = 'default', className = '', ...p }: ComponentProps<'button'> & { variant?: 'default' | 'primary' | 'quiet' | 'danger' }) {
-  const v = variant === 'primary' ? 'btn-primary' : variant === 'quiet' ? 'btn-quiet' : variant === 'danger' ? 'btn-danger' : ''
-  return <button type="button" {...p} className={`btn ${v} ${className}`} />
+const VARIANT = { secondary: '', primary: 'btn-primary', tertiary: 'btn-tertiary', danger: 'btn-danger', 'danger-solid': 'btn-danger-solid' } as const
+
+/** Кнопка системы: первичная — одна на экран; danger-solid — только в диалоге подтверждения. loading — текст остаётся, ширина не меняется. */
+export function Button({ variant = 'secondary', size, loading = false, className = '', disabled, ...p }: ComponentProps<'button'> & { variant?: keyof typeof VARIANT; size?: 'lg'; loading?: boolean }) {
+  return <button type="button" {...p} disabled={disabled || loading} aria-busy={loading || undefined} className={`btn ${VARIANT[variant]} ${size === 'lg' ? 'btn-lg' : ''} ${className}`} />
+}
+
+/** Кнопка «?» и поповер по требованию: пояснения не занимают постоянного места и рендерятся только открытыми. */
+export function HelpPopover({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: Event) => {
+      if (e.type === 'keydown' ? (e as globalThis.KeyboardEvent).key === 'Escape' : !box.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('keydown', close)
+    document.addEventListener('pointerdown', close)
+    return () => { document.removeEventListener('keydown', close); document.removeEventListener('pointerdown', close) }
+  }, [open])
+  return (
+    <div ref={box} className="relative">
+      <button type="button" className="btn btn-icon btn-tertiary" aria-label={label} aria-expanded={open} onClick={() => setOpen(!open)}><HelpCircle className="size-4" aria-hidden /></button>
+      {open && <div role="dialog" aria-label={label} className="zone absolute right-0 z-30 mt-1 w-80 border border-line shadow-[var(--shadow-hover)]">{children}</div>}
+    </div>
+  )
 }
 
 export function Kbd({ children }: { children: ReactNode }) {

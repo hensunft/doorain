@@ -37,7 +37,7 @@ export function Dialog({ open, onClose, title, children, variant = 'modal', foot
               {overline && <p className="overline mb-1">{overline}</p>}
               <h2 id={titleId} className={variant === 'drawer' ? 'body-l font-semibold' : 'text-h3'}>{title}</h2>
             </div>
-            <button type="button" className="btn btn-quiet btn-icon" aria-label="Закрыть" onClick={onClose}><X className="size-4" aria-hidden /></button>
+            <button type="button" className="btn btn-tertiary btn-icon" aria-label="Закрыть" onClick={onClose}><X className="size-4" aria-hidden /></button>
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
           {footer && <footer className="flex flex-wrap justify-end gap-2 border-t border-line px-5 py-3">{footer}</footer>}

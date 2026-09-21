@@ -131,7 +131,7 @@ test('экспорт PDF из сессии: файл — валидный PDF', 
   await ask(page, NO_POLICY)
   await expect(page.getByText('Источники и редакции:')).toBeVisible()
   await expect(page.getByRole('button', { name: /Нет опубликованной политики/ }).first()).toBeVisible()
-  await page.getByRole('button', { name: 'Экспорт портрета' }).click()
+  await page.getByRole('button', { name: 'Выгрузить PDF' }).click()
   await page.getByRole('button', { name: 'Сформировать PDF' }).click()
   const link = page.getByRole('link', { name: /Скачать PDF/ })
   await expect(link).toBeVisible({ timeout: 30_000 })
@@ -199,7 +199,7 @@ test('снимки страниц для визуального контроля
   await expect(page.getByRole('heading', { name: 'Мои сессии' })).toBeVisible()
   await page.screenshot({ path: path.join(SHOTS, 'history-1440.png') })
   await page.getByRole('link', { name: 'Настройки' }).click()
-  await expect(page.getByText('Диагностика системы')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'О программе' })).toBeVisible()
   await expect(page.getByText('ТЕСТОВЫЙ (заглушки, не модель)')).toBeVisible()
   await page.screenshot({ path: path.join(SHOTS, 'settings-1440.png') })
   await page.setViewportSize({ width: 390, height: 844 })
@@ -275,7 +275,12 @@ test('слепок: бейдж риска вместо отдельного уз
   // риск показан окраской и бейджем на связанных узлах, отдельного узла риска по умолчанию нет
   await expect(page.getByLabel('Сводка по уровням риска')).toBeVisible()
   await expect(page.getByLabel('Мини-карта слепка')).toBeVisible()
-  await expect(page.getByText('основание ответа')).toBeVisible() // легенда форм и связей
+  // легенда не занимает места постоянно — открывается по кнопке «?»
+  await expect(page.getByText('основание ответа')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Условные обозначения карты' }).click()
+  await expect(page.getByText('основание ответа')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByText('основание ответа')).toHaveCount(0)
   await page.getByText('Фильтры', { exact: true }).click()
   const riskFilter = page.getByRole('checkbox', { name: 'Риски' })
   await expect(riskFilter).not.toBeChecked()
@@ -319,4 +324,43 @@ test('база знаний: исключение документа и удал
   const excluded = await card.getByText('исключён из корпуса').count()
   const empty = await page.getByRole('heading', { name: 'Корпус пуст' }).count()
   expect(excluded + empty).toBeGreaterThan(0)
+})
+
+/** Интерактивные элементы, у которых зона нажатия (с учётом невидимого ::after или метки поля) меньше 44 × 44. */
+async function smallTargets(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const out: string[] = []
+    for (const el of document.querySelectorAll<HTMLElement>('button, a.btn, summary, [role="tab"], select, input:not([type="hidden"]), textarea')) {
+      const r = el.getBoundingClientRect()
+      if (r.width < 2 || r.height < 2 || el.closest('.react-flow__minimap, .react-flow__attribution')) continue
+      const target = el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio') ? (el.closest('label') ?? el) : el
+      const tr = target.getBoundingClientRect()
+      const a = getComputedStyle(target, '::after')
+      const ext = (v: string) => (a.content !== 'none' && a.position === 'absolute' ? Math.max(0, -parseFloat(v) || 0) : 0)
+      const h = tr.height + ext(a.top) + ext(a.bottom)
+      const w = tr.width + ext(a.left) + ext(a.right)
+      if (h < 43.5 || w < 43.5) out.push(`${el.tagName.toLowerCase()} «${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 40)}» ${Math.round(w)}×${Math.round(h)}`)
+    }
+    return out
+  })
+}
+
+test('минимализм: нет названия модели, одна первичная кнопка, зоны нажатия ≥ 44 × 44', async ({ page }) => {
+  await login(page)
+  await expect(page.locator('.btn-primary:visible')).toHaveCount(1) // экран роли: «Начать как …»
+  expect(await smallTargets(page)).toEqual([])
+  await startSession(page, 'Предприниматель')
+  await ask(page, NO_POLICY)
+  await expect(page.getByText(/Модель:|test-template|generation №/)).toHaveCount(0)
+  await expect(page.locator('.btn-primary:visible')).toHaveCount(1) // рабочее пространство: «Отправить»
+  expect(await smallTargets(page)).toEqual([])
+  await page.getByRole('link', { name: 'Мои сессии' }).click()
+  await expect(page.getByRole('heading', { name: 'Мои сессии' })).toBeVisible()
+  expect(await page.locator('.btn-primary:visible').count()).toBeLessThanOrEqual(1)
+  expect(await smallTargets(page)).toEqual([])
+  // фокус с клавиатуры виден всегда: у кнопки в фокусе есть кольцо
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Tab')
+  const ring = await page.evaluate(() => getComputedStyle(document.activeElement as Element).boxShadow)
+  expect(ring).not.toBe('none')
 })

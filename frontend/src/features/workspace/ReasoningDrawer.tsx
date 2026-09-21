@@ -28,7 +28,7 @@ function Step({ n, block, chips }: { n: number; block: Block; chips: CitationChi
           {found.map((c) => (
             <span key={c.id} className="flex flex-wrap items-center gap-2">
               <span className="chip-norm">{c.label}, {c.locator} · {c.revision_label}</span>
-              <button type="button" className="btn !min-h-7 !px-2 !py-0.5 body-s" aria-expanded={open === c.id} onClick={() => setOpen(open === c.id ? null : c.id)}>
+              <button type="button" className="btn body-s" aria-expanded={open === c.id} onClick={() => setOpen(open === c.id ? null : c.id)}>
                 {open === c.id ? 'скрыть цитату' : 'показать цитату'}
               </button>
             </span>

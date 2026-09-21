@@ -57,7 +57,7 @@ export function RiskCard({ risk, sessionId, questions, expanded, selected, highl
       onMouseLeave={() => onHover?.(false)}
       aria-label={`Риск: ${risk.title}`}
     >
-      <button type="button" className="flex w-full items-start justify-between gap-3 text-left" aria-expanded={expanded} onClick={onToggle}>
+      <button type="button" className="flex min-h-11 w-full items-start justify-between gap-3 text-left" aria-expanded={expanded} onClick={onToggle}>
         <span className="min-w-0">
           <h3 className={`body-l font-semibold ${closed ? 'text-muted line-through' : ''}`}>{risk.title}</h3>
           {/* Уровень дублируется словом и числом: цвет не единственный носитель смысла. */}
@@ -79,8 +79,8 @@ export function RiskCard({ risk, sessionId, questions, expanded, selected, highl
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-gold-tint px-2 py-1.5">
           <span className="chip border-gold">есть уточнение</span>
           <span className="body-s">Агент оценил P{sug.p} × S{sug.s}{sug.reason ? `: ${sug.reason}` : ''}. Ваша оценка сохранена.</span>
-          <button type="button" className="btn !min-h-7 !px-2" disabled={decide.isPending} onClick={() => decide.mutate('accept')}>Принять</button>
-          <button type="button" className="btn btn-quiet !min-h-7 !px-2" disabled={decide.isPending} onClick={() => decide.mutate('reject')}>Отклонить</button>
+          <button type="button" className="btn" disabled={decide.isPending} onClick={() => decide.mutate('accept')}>Принять</button>
+          <button type="button" className="btn btn-tertiary" disabled={decide.isPending} onClick={() => decide.mutate('reject')}>Отклонить</button>
         </div>
       )}
       {expanded && (
@@ -92,13 +92,13 @@ export function RiskCard({ risk, sessionId, questions, expanded, selected, highl
                 <button key={s.id} type="button" className="seg-item" aria-pressed={risk.status === s.id} disabled={change.isPending} onClick={() => (risk.status === s.id ? undefined : setAsk(s.id))}>{s.label}</button>
               ))}
             </div>
-            {risk.status !== 'not_applicable' && <button type="button" className="btn btn-quiet !min-h-8 !px-2 body-s" onClick={() => setAsk('dismissed')}>Неприменимо ко мне</button>}
+            {risk.status !== 'not_applicable' && <button type="button" className="btn btn-tertiary body-s" onClick={() => setAsk('dismissed')}>Неприменимо ко мне</button>}
           </div>
           {ask && (
             <form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); change.mutate({ status: ask, reason }) }}>
               <label className="sr-only" htmlFor={`rs-${risk.id}`}>Причина изменения статуса</label>
               <input id={`rs-${risk.id}`} className="input min-w-40 flex-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={ask === 'dismissed' ? 'Почему неприменимо (обязательно)' : 'Причина (обязательно)'} required maxLength={1000} autoFocus />
-              <button className="btn btn-primary" type="submit" disabled={!reason.trim() || change.isPending}>Сохранить</button>
+              <button className="btn" type="submit" disabled={!reason.trim() || change.isPending}>Сохранить</button>
               <button className="btn" type="button" onClick={() => setAsk(null)}>Отмена</button>
             </form>
           )}

@@ -32,6 +32,7 @@ function TopBar({ session, mode, setMode, onExport, onQuiz }: { session: Session
   const changeRole = useMutation({ mutationFn: (role: Role) => post<Session>(`/sessions/${session.id}/change-role`, { role }), onSuccess: (s) => { setRoleOpen(false); void qc.invalidateQueries({ queryKey: ['sessions'] }); nav(`/s/${s.id}`) } })
   const st = status.data
   const model = st?.model
+  const [dev] = useLocalState('doorain.dev', false)
   const anySel = !!(sel.riskId || sel.nodeId || sel.messageId)
   return (
     <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-canvas px-4 py-2">
@@ -40,16 +41,17 @@ function TopBar({ session, mode, setMode, onExport, onQuiz }: { session: Session
           <form onSubmit={(e) => { e.preventDefault(); if (title.trim()) rename.mutate(title) }} className="flex gap-2">
             <label className="sr-only" htmlFor="ttl">Название сессии</label>
             <input id="ttl" className="input !min-h-8" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e: KeyboardEvent) => { if (e.key === 'Escape') setEditing(false) }} autoFocus />
-            <Button type="submit" variant="primary">Сохранить</Button>
+            <Button type="submit">Сохранить</Button>
           </form>
         ) : (
-          <button type="button" className="display-s max-w-full truncate rounded-md px-1 text-left hover:bg-hover" onClick={() => { setTitle(session.title); setEditing(true) }} title="Переименовать сессию">{session.title}</button>
+          <button type="button" className="display-s min-h-11 max-w-full truncate rounded-md px-1 text-left hover:bg-hover" onClick={() => { setTitle(session.title); setEditing(true) }} title="Переименовать сессию">{session.title}</button>
         )}
         <p className="caption flex flex-wrap items-center gap-x-3 gap-y-0.5">
           <span className="chip">{ROLE_RU[session.role]}</span>
           <span className="tnum">Срез на {session.as_of_date}</span>
-          <span>{st ? (st.corpus_empty ? 'Корпус пуст' : `Корпус: generation №${st.generation_seq}`) : '…'}</span>
-          {model && <span className={`chip ${model.state === 'ready' ? 'risk-low' : model.state === 'unavailable' ? 'risk-high' : 'risk-medium'}`}>{model.state === 'ready' ? `Модель: ${model.name ?? 'готова'}` : model.state === 'unavailable' ? 'Модель недоступна' : 'Тестовый режим: не языковая модель'}</span>}
+          {st?.corpus_empty && <span>Корпус пуст</span>}
+          {dev && st && !st.corpus_empty && <span className="mono-m">generation №{st.generation_seq}</span>}
+          {model && model.state !== 'ready' && <span className={`chip ${model.state === 'unavailable' ? 'risk-high' : 'risk-medium'}`}>{model.state === 'unavailable' ? 'Модель недоступна' : 'Тестовый режим: не языковая модель'}</span>}
           {st?.has_demo && <span className="chip risk-medium">Демонстрационные данные — не нормативная база</span>}
           {session.status === 'archived' && <span className="chip">В архиве</span>}
         </p>
@@ -61,10 +63,10 @@ function TopBar({ session, mode, setMode, onExport, onQuiz }: { session: Session
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {anySel && <Button variant="quiet" onClick={clear}><X className="size-4" aria-hidden />Снять выделение</Button>}
-        {session.role === 'student' && <Button onClick={onQuiz}><GraduationCap className="size-4" aria-hidden />Самопроверка</Button>}
+        {anySel && <Button variant="tertiary" onClick={clear}><X className="size-4" aria-hidden />Снять выделение</Button>}
+        {session.role === 'student' && <Button onClick={onQuiz}><GraduationCap className="size-4" aria-hidden />Проверить себя</Button>}
         <Button onClick={() => setRoleOpen(true)}><Repeat className="size-4" aria-hidden />Сменить роль</Button>
-        <Button variant="primary" onClick={onExport}><FileDown className="size-4" aria-hidden />Экспорт портрета</Button>
+        <Button onClick={onExport}><FileDown className="size-4" aria-hidden />Выгрузить PDF</Button>
       </div>
       <Dialog open={roleOpen} onClose={() => setRoleOpen(false)} title="Сменить роль">
         <p className="mb-3 text-small text-muted">Смена роли создаёт новую сессию со своим слепком и рисками. Текущая сессия и её данные сохранятся; сведения между сессиями не переносятся.</p>
@@ -96,10 +98,10 @@ function ThreePanels({ chat, portrait, risks }: { chat: React.ReactNode; portrai
     setW(i === 0 ? [clamp(w[0] + step), w[1]] : [w[0], clamp(w[1] + step)])
   }
   const Handle = ({ i }: { i: 0 | 1 }) => (
-    <div role="separator" aria-orientation="vertical" aria-label={i === 0 ? 'Изменить ширину диалога' : 'Изменить ширину рисков'} tabIndex={0} onPointerDown={down(i)} onPointerMove={move} onPointerUp={() => { drag.current = null }} onKeyDown={key(i)} className="w-1.5 cursor-col-resize bg-page hover:bg-line focus-visible:bg-gold" />
+    <div role="separator" aria-orientation="vertical" aria-label={i === 0 ? 'Изменить ширину диалога' : 'Изменить ширину рисков'} tabIndex={0} onPointerDown={down(i)} onPointerMove={move} onPointerUp={() => { drag.current = null }} onKeyDown={key(i)} className="group flex w-8 cursor-col-resize justify-center bg-page focus-visible:shadow-none"><span className="h-full w-0.5 rounded-full group-hover:bg-line group-focus-visible:bg-gold" /></div>
   )
   return (
-    <div className="grid min-h-0 flex-1 gap-0 bg-page p-3" style={{ gridTemplateColumns: `${w[0]}px 6px minmax(360px, 1fr) 6px ${w[1]}px` }}>
+    <div className="grid min-h-0 flex-1 gap-0 bg-page p-3" style={{ gridTemplateColumns: `${w[0]}px 32px minmax(360px, 1fr) 32px ${w[1]}px` }}>
       <section aria-label="Диалог" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{chat}</section>
       <Handle i={0} />
       <section aria-label="Цифровой слепок" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{portrait}</section>
@@ -124,7 +126,7 @@ function Inner({ session }: { session: Session }) {
   const portrait = <PortraitPanel session={session} mode={pmode} />
   const risks = <RisksPanel session={session} />
   const tabBtn = (id: string, label: string, on: boolean, set: () => void) => (
-    <button key={id} role="tab" aria-selected={on} className={`btn ${on ? 'btn-primary' : 'btn-quiet'} flex-1`} onClick={set}>{label}</button>
+    <button key={id} role="tab" aria-selected={on} className={`btn ${on ? 'btn-primary' : 'btn-tertiary'} flex-1`} onClick={set}>{label}</button>
   )
   return (
     <div className="flex h-full min-h-0 flex-col">

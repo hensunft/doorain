@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Banner } from '../../components/States'
-import { Field, Spinner } from '../../components/ui'
+import { Field } from '../../components/ui'
 import { ApiError, errorText, post, setCsrf } from '../../lib/api'
 import type { components } from '../../lib/api-types'
 import { keys } from '../../lib/queries'
@@ -46,7 +46,7 @@ export function LoginPage() {
         <Field id="u" label="Имя пользователя"><input id="u" className="input" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required /></Field>
         <Field id="p" label="Пароль"><input id="p" className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required aria-invalid={!!err} /></Field>
         {err && <Banner tone="error">{err instanceof ApiError && err.status === 429 ? 'Слишком много попыток входа. Повторите позже.' : errorText(err)}</Banner>}
-        <button className="btn btn-primary w-full" type="submit" disabled={login.isPending}>{login.isPending ? <Spinner label="Входим…" /> : 'Войти'}</button>
+        <button className="btn btn-primary btn-lg w-full" type="submit" disabled={login.isPending} aria-busy={login.isPending || undefined}>Войти</button>
         <p className="hint">Нет учётной записи? <Link to="/register">Зарегистрироваться по коду приглашения</Link>. Код выдаёт владелец; публичной регистрации нет.</p>
       </form>
     </AuthFrame>

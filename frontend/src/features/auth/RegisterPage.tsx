@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Banner } from '../../components/States'
-import { Field, Spinner } from '../../components/ui'
+import { Field } from '../../components/ui'
 import { ApiError, errorText, post, setCsrf } from '../../lib/api'
 import type { components } from '../../lib/api-types'
 import { keys } from '../../lib/queries'
@@ -33,7 +33,7 @@ export function RegisterPage() {
         <Field id="ru" label="Имя пользователя" hint="3–64 символа: латиница, цифры, точка, дефис или подчёркивание"><input id="ru" className="input" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required /></Field>
         <Field id="rp" label="Пароль" hint="Не короче 12 символов"><input id="rp" className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={12} /></Field>
         {err && <Banner tone="error">{err instanceof ApiError && err.status === 429 ? 'Слишком много попыток. Повторите позже.' : errorText(err)}</Banner>}
-        <button className="btn btn-primary w-full" type="submit" disabled={reg.isPending}>{reg.isPending ? <Spinner label="Создаём учётную запись…" /> : 'Создать учётную запись'}</button>
+        <button className="btn btn-primary btn-lg w-full" type="submit" disabled={reg.isPending} aria-busy={reg.isPending || undefined}>Создать учётную запись</button>
         <p className="hint">Уже есть доступ? <Link to="/login">Войти</Link></p>
       </form>
     </AuthFrame>

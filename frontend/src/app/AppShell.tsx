@@ -21,11 +21,11 @@ function SidebarNav({ compact, onNavigate }: { compact: boolean; onNavigate?: ()
   const sessions = useSessions('active')
   const isOwner = useMe().data?.user.access_level === 'owner'
   const { id } = useParams()
-  const item = 'flex items-center gap-2 rounded-md px-2 py-1.5 text-small no-underline text-ink hover:bg-hover'
+  const item = 'flex min-h-11 items-center gap-2 rounded-md px-2 py-1.5 text-small no-underline text-ink hover:bg-hover'
   const active = 'bg-selected font-medium'
   return (
     <nav aria-label="Основная навигация" className="flex min-h-0 flex-1 flex-col gap-1 px-2">
-      <Link to="/" onClick={onNavigate} className="btn btn-primary mb-2 no-underline"><Plus className="size-4" aria-hidden />{!compact && 'Новая сессия'}{compact && <span className="sr-only">Новая сессия</span>}</Link>
+      <Link to="/" onClick={onNavigate} className={`btn mb-2 no-underline ${compact ? "btn-icon self-center" : ""}`}><Plus className="size-4" aria-hidden />{!compact && 'Новая сессия'}{compact && <span className="sr-only">Новая сессия</span>}</Link>
       <NavLink to="/history" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><History className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Мои сессии</span> : 'Мои сессии'}</NavLink>
       {isOwner && <NavLink to="/kb" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><BookOpenText className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">База знаний</span> : 'База знаний'}</NavLink>}
       {isOwner && <NavLink to="/styleguide" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><Palette className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Библиотека компонентов</span> : 'Компоненты'}</NavLink>}
@@ -69,16 +69,16 @@ export function AppShell() {
           <aside className={`flex shrink-0 flex-col gap-2 border-r border-line bg-sidebar py-2 transition-[width] duration-150 ${compact ? 'w-14' : 'w-60'}`}>
             <div className="flex items-center justify-between px-1">
               <Brand compact={compact} />
-              {!compact && <button className="btn btn-quiet btn-icon" aria-label="Свернуть панель" onClick={() => setCollapsed(true)}><PanelLeftClose className="size-4" aria-hidden /></button>}
+              {!compact && <button className="btn btn-tertiary btn-icon" aria-label="Свернуть панель" onClick={() => setCollapsed(true)}><PanelLeftClose className="size-4" aria-hidden /></button>}
             </div>
-            {compact && !inWorkspace && <button className="btn btn-quiet btn-icon mx-auto" aria-label="Развернуть панель" onClick={() => setCollapsed(false)}><PanelLeftOpen className="size-4" aria-hidden /></button>}
+            {compact && !inWorkspace && <button className="btn btn-tertiary btn-icon mx-auto" aria-label="Развернуть панель" onClick={() => setCollapsed(false)}><PanelLeftOpen className="size-4" aria-hidden /></button>}
             <SidebarNav compact={compact} />
           </aside>
         )}
         <div className="flex min-w-0 flex-1 flex-col">
           {mode === 'narrow' && (
             <div className="flex items-center gap-2 border-b border-line bg-sidebar px-2 py-1.5">
-              <button className="btn btn-quiet btn-icon" aria-label="Открыть меню" onClick={() => setMenu(true)}><Menu className="size-5" aria-hidden /></button>
+              <button className="btn btn-tertiary btn-icon" aria-label="Открыть меню" onClick={() => setMenu(true)}><Menu className="size-5" aria-hidden /></button>
               <Brand />
             </div>
           )}

@@ -6,7 +6,7 @@
 
 ```bash
 # backend (uv, Python 3.12)
-cd backend && uv sync && uv run pytest                 # 110 тестов, SQLite; на PostgreSQL: DOORAIN_TEST_DATABASE_URL=postgresql+psycopg://…  uv run pytest
+cd backend && uv sync && uv run pytest                 # 123 теста, SQLite; на PostgreSQL: DOORAIN_TEST_DATABASE_URL=postgresql+psycopg://…  uv run pytest
 uv run ruff check app tests && uv run mypy app
 uv run alembic revision --autogenerate -m "…"          # только против PostgreSQL 17; затем alembic check
 uv run python -m app.cli export-openapi --out ../frontend/openapi.json
@@ -45,5 +45,7 @@ python evals/run_eval.py --user owner --split holdout   # DOORAIN_EVAL_PASSWORD 
 * Пороги отказа (`DOORAIN_MIN_RERANK_SCORE`) не откалиброваны, пока не выполнена калибровка на `split=calibration` (docs/evaluation.md).
 * Вердикт классификатора «вне области» — мягкий: снимается нормами со скором ≥ порог + `DOORAIN_SCOPE_OVERRIDE_MIN_SCORE`. Жёсткий отказ остаётся ниже `порог − DOORAIN_PARTIAL_ANSWER_MARGIN`; между ними ответ идёт с явной оговоркой о неполноте оснований.
 * Манифест корпуса — `knowledge_base/manifest.yaml`; документ без `license` не индексируется.
+* Пороги уровней и лимит рисков — `backend/app/config/risk.yaml` (уровни в БД пересчитываются при старте API); цвета PDF — `backend/app/config/print.yaml`, тест сверяет их с `tokens.css`. Уровень во frontend — только `data-level`, без инлайновых цветов.
+* В PDF не должно быть реплик диалога: вопросы подписываются номерами (`test_export_pdf_content_snapshot_and_auth`).
 
 Подробности — `docs/` (architecture, decisions, security, risk-methodology, knowledge-base, deployment, internet-access, backup-restore, evaluation, design-system, progress).

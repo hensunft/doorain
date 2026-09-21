@@ -3,7 +3,7 @@ import { ArrowDown, Loader2, Send, Square } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Banner, EmptyState, ErrorNote, Skeleton } from '../../components/States'
-import { Button, Kbd } from '../../components/ui'
+import { Button } from '../../components/ui'
 import type { Message, Session } from '../../lib/api'
 import { ApiError, newRequestId, post } from '../../lib/api'
 import { useOnline } from '../../lib/hooks'
@@ -199,14 +199,14 @@ export function ChatPanel({ session, draft, setDraft }: { session: Session; draf
         {!online && <p className="mb-2 text-small text-risk-medium">Нет интернета — отправка отключена, введённый текст сохранён.</p>}
         <div className="flex items-end gap-2">
           <label className="sr-only" htmlFor="composer">Ваш вопрос</label>
-          <textarea id="composer" className="input max-h-40 min-h-[44px] resize-none" rows={2} maxLength={4000} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={onKey} placeholder="Задайте вопрос по IT-праву…" disabled={session.status !== 'active'} />
+          <textarea id="composer" className="input max-h-40 min-h-[44px] resize-none" rows={2} maxLength={4000} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={onKey} placeholder="Задайте вопрос по IT-праву…" title="Enter — отправить, Shift+Enter — перенос строки" disabled={session.status !== 'active'} />
           {running ? (
             <Button variant="primary" className="h-11" onClick={() => cancel.mutate()} disabled={cancel.isPending} aria-label="Остановить генерацию"><Square className="size-4" aria-hidden />Стоп</Button>
           ) : (
             <Button variant="primary" className="h-11" onClick={submit} disabled={!draft.trim() || send.isPending || !online || session.status !== 'active'} aria-label="Отправить"><Send className="size-4" aria-hidden />Отправить</Button>
           )}
         </div>
-        <p className="mt-1 text-xs text-muted"><Kbd>Enter</Kbd> — отправить, <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> — новая строка{session.status !== 'active' ? ' · сессия в архиве' : ''} · {draft.length}/4000</p>
+        {(session.status !== 'active' || draft.length > 3500) && <p className="mt-1 text-xs text-muted">{session.status !== 'active' ? 'Сессия в архиве' : `${draft.length}/4000`}</p>}
       </div>
     </div>
   )

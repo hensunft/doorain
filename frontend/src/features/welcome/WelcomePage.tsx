@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Banner } from '../../components/States'
-import { Field, Spinner } from '../../components/ui'
+import { Field } from '../../components/ui'
 import type { Role, Session } from '../../lib/api'
 import { errorText, post } from '../../lib/api'
 import { useSessions } from '../../lib/queries'
@@ -78,7 +78,7 @@ export function WelcomePage() {
         </div>
         {create.error && <Banner tone="error">{errorText(create.error)}</Banner>}
         <div className="flex items-center gap-3">
-          <button className="btn btn-primary" type="submit" disabled={create.isPending}>{create.isPending ? <Spinner label="Создаём…" /> : `Начать как «${ROLE_RU[role]}»`}</button>
+          <button className="btn btn-primary btn-lg" type="submit" disabled={create.isPending} aria-busy={create.isPending || undefined}>{`Начать как «${ROLE_RU[role]}»`}</button>
           <span className="hint">Смена роли позже создаст новую сессию; прежняя сохранится.</span>
         </div>
       </form>

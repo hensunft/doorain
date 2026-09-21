@@ -3,6 +3,7 @@ import type { Level, Message, TimelineItem } from '../../lib/api'
 import { useMessages, useTimeline } from '../../lib/queries'
 import { LEVEL_RU, STATUS_RU } from '../../lib/risk'
 import { useSelection } from '../../lib/selection'
+import { HelpPopover } from '../../components/ui'
 import { short } from './graphModel'
 
 interface TRisk { node_id: string; label: string; risk_id: string | null; level: Level | null; score: number | null; p: number | null; s: number | null; status: string | null; recommendation: string; closed_at: string | null }
@@ -96,7 +97,15 @@ export function TimelineFlow({ sessionId }: { sessionId: string }) {
   const hasBranches = main.some((it) => branches(it).length > 0)
   return (
     <div className="h-full overflow-y-auto bg-panel p-4" aria-label="Хронология вопросов">
-      <p className="caption mb-3">как разворачивалась консультация: вопрос → нормы → вывод → риск</p>
+      <div className="mb-2 flex justify-end">
+        <HelpPopover label="Как читать хронологию">
+          <div className="caption space-y-2">
+            <p>Основная колонка — вопросы по порядку: вопрос → нормы → вывод → риск. Уточняющие вопросы уходят вправо ветвлением.</p>
+            <p className="flex items-center gap-2"><svg width="28" height="4" aria-hidden><line x1="0" y1="2" x2="28" y2="2" stroke="var(--gold)" strokeWidth="2" /></svg>следующий вопрос</p>
+            <p className="flex items-center gap-2"><svg width="28" height="4" aria-hidden><line x1="0" y1="2" x2="28" y2="2" stroke="var(--line-strong)" strokeWidth="2" strokeDasharray="4 3" /></svg>уточнение</p>
+          </div>
+        </HelpPopover>
+      </div>
       <ol className="space-y-0">
         {main.map((it, i) => {
           const side = branches(it)
@@ -123,10 +132,6 @@ export function TimelineFlow({ sessionId }: { sessionId: string }) {
           )
         })}
       </ol>
-      <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line pt-3">
-        <span className="caption flex items-center gap-2"><svg width="28" height="4" aria-hidden><line x1="0" y1="2" x2="28" y2="2" stroke="var(--gold)" strokeWidth="2" /></svg>asked_next — следующий вопрос</span>
-        <span className="caption flex items-center gap-2"><svg width="28" height="4" aria-hidden><line x1="0" y1="2" x2="28" y2="2" stroke="var(--line-strong)" strokeWidth="2" strokeDasharray="4 3" /></svg>refines — уточнение</span>
-      </div>
     </div>
   )
 }

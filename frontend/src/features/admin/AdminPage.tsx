@@ -29,7 +29,7 @@ function NewInvite() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
         <Field id="note" label="Для кого код"><input id="note" className="input w-56" value={note} onChange={(e) => setNote(e.target.value)} placeholder="например: Иван, отдел продаж" /></Field>
-        <button className="btn btn-primary" onClick={() => create.mutate()} disabled={create.isPending}>{create.isPending ? <Spinner label="Создаём…" /> : 'Выпустить код'}</button>
+        <button className="btn btn-primary" onClick={() => create.mutate()} disabled={create.isPending} aria-busy={create.isPending || undefined}>Выпустить код</button>
       </div>
       {code && (
         <Banner tone="warn">
@@ -114,7 +114,7 @@ export function AdminPage() {
                   <td>{i.note ?? '—'}</td>
                   <td>{STATE_RU[i.state]}{i.used_by ? ` (${i.used_by})` : ''}</td>
                   <td>{dt(i.expires_at)}</td>
-                  <td className="text-right">{i.state === 'active' && <button className="btn btn-quiet" onClick={() => revoke.mutate(i.id)}>Отозвать</button>}</td>
+                  <td className="text-right">{i.state === 'active' && <button className="btn btn-tertiary" onClick={() => revoke.mutate(i.id)}>Отозвать</button>}</td>
                 </tr>
               ))}
             </tbody>
