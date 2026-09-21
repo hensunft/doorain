@@ -34,6 +34,7 @@ from .. import jobs
 from ..ingestion.indexer import Cancelled, applicable_revisions, fp_hash
 from ..portrait import graph
 from ..risks import engine
+from ..risks import scales as risk_scales
 from ..risks.methodology import DEMO_NOTICE, RISK_TYPES
 from . import prompts, verify
 from .retrieval import retrieve
@@ -420,6 +421,7 @@ def run_analysis(db: Session, job: Job | None, p: Providers, s: Settings, run: G
         "history": _history(db, session, msg.seq, 4),
         "profile": _profile_text(db, session),
         "risk_types": {k: v[0] for k, v in RISK_TYPES.items()},  # ключ → описание: модель выбирает тип по смыслу
+        "risk_scales": risk_scales.load(session.role),  # формулировки P и S для роли диалога
     }
     pr = prompts.render("analysis/analyze")
     base = [{"role": "system", "content": pr.text}, {"role": "user", "content": f"<context>{json.dumps(ctx, ensure_ascii=False)}</context>"}]
@@ -435,12 +437,19 @@ def run_analysis(db: Session, job: Job | None, p: Providers, s: Settings, run: G
             raw = p.llm.json(msgs, AnalysisResult.model_json_schema(), num_predict=900)
             raw_dump = json.dumps(raw, ensure_ascii=False)[:8000]
             r = AnalysisResult.model_validate(raw)
-            allowed = set(cites)
-            used = set(r.citation_ids) | {m for rc in r.risk_candidates for m in (*rc.obligation_citation_ids, *rc.consequence_citation_ids)}
             if r.message_id != str(msg.id):
                 raise ValueError("message_id не совпадает")
+            # Основание — только фрагменты, реально переданные модели: неизвестные id вычёркиваются,
+            # риск без оставшихся оснований отбрасывается движком (становится вопросом для уточнения).
+            allowed = set(cites)
+            used = set(r.citation_ids) | {m for rc in r.risk_candidates for m in (*rc.obligation_citation_ids, *rc.consequence_citation_ids)}
             if used - allowed:
-                raise ValueError(f"неизвестные citation_ids: {sorted(used - allowed)}")
+                trace["analysis_stripped_ids"] = sorted(used - allowed)
+                log.info("analysis run=%s: unknown citation ids stripped %s", run.id, sorted(used - allowed))
+                r.citation_ids = [m for m in r.citation_ids if m in allowed]
+                for rc in r.risk_candidates:
+                    rc.obligation_citation_ids = [m for m in rc.obligation_citation_ids if m in allowed]
+                    rc.consequence_citation_ids = [m for m in rc.consequence_citation_ids if m in allowed]
             result = r
         except ProviderError as e:
             err = f"{e.kind}: {e}"

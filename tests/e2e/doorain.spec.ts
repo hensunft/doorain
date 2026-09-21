@@ -100,7 +100,7 @@ test('вертикальный сценарий: вопрос → ответ с 
   // перезагрузка: сессия, риск и слепок восстановлены с сервера
   await page.reload()
   await expect(page.getByRole('button', { name: /Нет опубликованной политики обработки ПДн/ }).first()).toBeVisible()
-  await expect(page.getByText(NO_POLICY)).toBeVisible()
+  await expect(page.getByRole('log', { name: 'Диалог' }).getByText(NO_POLICY)).toBeVisible()
 })
 
 test('отказ вне области; Shift+Enter не отправляет; риски не создаются', async ({ page }) => {
@@ -259,7 +259,7 @@ test('пользователь по приглашению: регистраци
   await page.getByLabel('Пароль').fill(PASSWORD)
   await page.getByRole('button', { name: 'Войти' }).click()
   await expect(page).toHaveURL(url)  // вход возвращает на запрошенную страницу
-  await expect(page.getByText(NO_POLICY)).toBeVisible()  // сессия открыта в том же состоянии
+  await expect(page.getByRole('log', { name: 'Диалог' }).getByText(NO_POLICY)).toBeVisible()  // сессия открыта в том же состоянии
   await expect(page.getByRole('table', { name: 'Риски сессии' }).getByRole('row')).not.toHaveCount(1)
   await expect(page.getByRole('heading', { name: 'Прежде чем начать' })).toHaveCount(0)  // дисклеймер уже принят
 })
@@ -273,6 +273,8 @@ test('слепок: бейдж риска вместо отдельного уз
   // риск показан окраской и бейджем на связанных узлах, отдельного узла риска по умолчанию нет
   await expect(page.getByLabel('Сводка по уровням риска')).toBeVisible()
   await expect(page.getByLabel('Мини-карта слепка')).toBeVisible()
+  await expect(page.getByText('основание ответа')).toBeVisible() // легенда форм и связей
+  await page.getByText('Фильтры', { exact: true }).click()
   const riskFilter = page.getByRole('checkbox', { name: 'Риски' })
   await expect(riskFilter).not.toBeChecked()
   await expect(page.locator('.react-flow__node').filter({ hasText: 'Нет опубликованной политики' })).toHaveCount(0)

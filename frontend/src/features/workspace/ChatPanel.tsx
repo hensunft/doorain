@@ -76,7 +76,13 @@ export function ChatPanel({ session, draft, setDraft }: { session: Session; draf
   const status = useStatus()
   const graph = useGraph(session.id)
   const online = useOnline()
-  const { sel, selectMessage, openCitation, selectNode } = useSelection()
+  const { sel, selectMessage, openCitation, selectNode, prefill, requestPrefill } = useSelection()
+  useEffect(() => {
+    if (prefill == null) return
+    setDraft(prefill)
+    requestPrefill(null)
+    document.getElementById('composer')?.focus()
+  }, [prefill, requestPrefill, setDraft])
   const [runId, setRunId] = useState<string | null>(null)
   const [retryNonce, setRetryNonce] = useState(0)
   const [sendError, setSendError] = useState<unknown>(null)

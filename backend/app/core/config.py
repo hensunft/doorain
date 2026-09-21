@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     threshold_source: str = "uncalibrated"
     partial_answer_margin: float = 1.5  # ниже порога, но выше (порог − margin) → ответ с оговоркой о неполноте оснований
     scope_override_min_score: float = 2.0  # насколько сильными должны быть найденные нормы, чтобы перевесить вердикт «вне области»
+    # Риски: верхние границы уровней «низкий / средний / высокий» по P × S (выше — критический). Владелец может сдвинуть.
+    risk_thresholds: tuple[int, int, int] = (4, 9, 15)
+    max_new_risks_per_answer: int = 3  # защита от размывания внимания: лишние кандидаты с меньшим P × S пишутся в лог
     chunk_target_tokens: int = 700
     chunk_overlap_tokens: int = 60
     chunking_version: str = "npa-v1"
@@ -80,6 +83,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _production_guards(self) -> Settings:
+        low, mid, high = self.risk_thresholds
+        if not 1 <= low < mid < high < 25:
+            raise ValueError("DOORAIN_RISK_THRESHOLDS: три возрастающие границы в диапазоне 1–24, например [4, 9, 15]")
         if self.env == "production":
             if self.secret_key.get_secret_value() in ("", PLACEHOLDER_SECRET) or len(self.secret_key.get_secret_value()) < 32:
                 raise ValueError("DOORAIN_SECRET_KEY: задайте случайную строку не короче 32 символов")

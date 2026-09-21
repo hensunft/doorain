@@ -14,15 +14,20 @@ def score(p: int, s: int) -> int:
     return p * s
 
 
-def level(sc: int) -> str:
-    """1–4 низкий, 5–9 средний, 10–15 высокий, 16–25 критический."""
+def level(sc: int, thresholds: tuple[int, int, int] | None = None) -> str:
+    """По умолчанию 1–4 низкий, 5–9 средний, 10–15 высокий, 16–25 критический; границы — DOORAIN_RISK_THRESHOLDS."""
     if not 1 <= sc <= 25:
         raise ValueError("score вне диапазона 1–25")
-    if sc <= 4:
+    if thresholds is None:
+        from ...core.config import get_settings  # noqa: PLC0415
+
+        thresholds = get_settings().risk_thresholds
+    low, mid, high = thresholds
+    if sc <= low:
         return "low"
-    if sc <= 9:
+    if sc <= mid:
         return "medium"
-    if sc <= 15:
+    if sc <= high:
         return "high"
     return "critical"
 

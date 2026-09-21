@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import { RiskBadge } from '../../components/ui'
 import type { Graph, Risk, Session } from '../../lib/api'
-import { useGraph, useRisks, useTimeline } from '../../lib/queries'
+import { useGraph, useRisks } from '../../lib/queries'
 import { NODE_KIND_RU, RESULT_RU } from '../../lib/risk'
 import { riskIdsForNode, useSelection } from '../../lib/selection'
 import { GraphView } from './GraphView'
 
 import type { PortraitMode } from './WorkspacePage'
 import { PlanPanel } from './PlanPanel'
+import { TimelineFlow } from './TimelineFlow'
 
 /** Текстовая альтернатива графа: те же узлы и связи, доступные с клавиатуры и для чтения с экрана. */
 function NodeList({ graph, risks }: { graph: Graph; risks: Risk[] }) {
@@ -53,35 +54,6 @@ function NodeList({ graph, risks }: { graph: Graph; risks: Risk[] }) {
   )
 }
 
-function Timeline({ sessionId }: { sessionId: string }) {
-  const tl = useTimeline(sessionId)
-  const { selectMessage, sel } = useSelection()
-  if (tl.isLoading) return <div className="p-3"><Skeleton lines={4} /></div>
-  if (tl.isError) return <div className="p-3"><ErrorNote error={tl.error} onRetry={() => tl.refetch()} /></div>
-  if (!tl.data?.length) return <EmptyState title="Хронология пуста">Здесь появятся вопросы сессии по порядку, уточнения и связанные нормы и риски.</EmptyState>
-  return (
-    <ol className="space-y-2 overflow-y-auto p-3" aria-label="Хронология вопросов">
-      {tl.data.map((it, i) => {
-        const parent = it.follow_up_of ? tl.data.findIndex((x) => x.message_id === it.follow_up_of) + 1 : 0
-        return (
-          <li key={it.node_id} className={`rounded-md border p-2 ${sel.messageId === it.message_id ? 'border-graphite bg-sidebar' : 'border-line'}`}>
-            <button type="button" className="w-full text-left" onClick={() => it.message_id && selectMessage(it.message_id)}>
-              <span className="text-small font-medium">{i + 1}. {it.text}</span>
-            </button>
-            <div className="mt-1 flex flex-wrap gap-1.5 text-xs">
-              {it.result && it.result !== 'answered' && <span className="chip">{RESULT_RU[it.result] ?? it.result}</span>}
-              {it.topics.map((t) => <span key={t} className="chip">{t}</span>)}
-              {it.norms.map((n) => <span key={n} className="chip">{n}</span>)}
-              {it.risks.map((r) => <span key={r.node_id} className="chip risk-none">Риск: {r.label}</span>)}
-            </div>
-            {parent > 0 && <p className="hint mt-1">{it.condition ? `Ветка «если ${it.condition}» → к вопросу ${parent}` : `Уточнение к вопросу ${parent}`}</p>}
-          </li>
-        )
-      })}
-    </ol>
-  )
-}
-
 export function PortraitPanel({ session, mode }: { session: Session; mode: PortraitMode }) {
   const [text, setText] = useState(false)  // текстовая альтернатива карты: доступна с клавиатуры и для чтения с экрана
   const graph = useGraph(session.id)
@@ -98,7 +70,7 @@ export function PortraitPanel({ session, mode }: { session: Session; mode: Portr
         {graph.isError && <div className="p-3"><ErrorNote error={graph.error} onRetry={() => graph.refetch()} /></div>}
         {graph.data && mode === 'map' && !text && (questions === 0 ? <EmptyState title="Портрет пока пуст">После первого вопроса здесь появятся темы, вопросы, нормы и связи. Цвет узла показывает максимальный активный риск.</EmptyState> : <GraphView sessionId={session.id} graph={graph.data} />)}
         {graph.data && mode === 'map' && text && <NodeList graph={graph.data} risks={risks.data?.active ?? []} />}
-        {mode === 'timeline' && <Timeline sessionId={session.id} />}
+        {mode === 'timeline' && <TimelineFlow sessionId={session.id} />}
         {mode === 'plan' && <PlanPanel session={session} />}
       </div>
     </div>

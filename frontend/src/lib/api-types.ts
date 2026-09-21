@@ -339,7 +339,11 @@ export interface paths {
         /** List Risks */
         get: operations["list_risks_api_v1_sessions__session_id__risks_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Risk
+         * @description Риск, добавленный пользователем: помечается как пользовательский и не участвует в метриках качества извлечения.
+         */
+        post: operations["create_risk_api_v1_sessions__session_id__risks_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -362,6 +366,99 @@ export interface paths {
         head?: never;
         /** Patch Risk */
         patch: operations["patch_risk_api_v1_risks__risk_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/risks/{risk_id}/suggestion/{decision}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide Suggestion */
+        post: operations["decide_suggestion_api_v1_risks__risk_id__suggestion__decision__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/risks/matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Risk Matrix */
+        get: operations["risk_matrix_api_v1_sessions__session_id__risks_matrix_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/risks/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Risks
+         * @description CSV — таблица рисков; Markdown — чек-лист плана (рекомендации по срочности + шаги пользователя).
+         */
+        get: operations["export_risks_api_v1_sessions__session_id__risks_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/plan/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Steps */
+        get: operations["list_steps_api_v1_sessions__session_id__plan_steps_get"];
+        put?: never;
+        /**
+         * Add Step
+         * @description Шаг, добавленный пользователем: агент его не перезаписывает и не удаляет при достраивании графа.
+         */
+        post: operations["add_step_api_v1_sessions__session_id__plan_steps_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/plan/steps/{step_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Step */
+        delete: operations["delete_step_api_v1_sessions__session_id__plan_steps__step_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Step */
+        patch: operations["patch_step_api_v1_sessions__session_id__plan_steps__step_id__patch"];
         trace?: never;
     };
     "/api/v1/citations/{citation_id}": {
@@ -1716,6 +1813,24 @@ export interface components {
              */
             revisions: number;
         };
+        /** MatrixCell */
+        MatrixCell: {
+            /** P */
+            p: number;
+            /** S */
+            s: number;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "low" | "medium" | "high" | "critical";
+            /** Count */
+            count: number;
+            /** Risks */
+            risks: {
+                [key: string]: string;
+            }[];
+        };
         /** MessageIn */
         MessageIn: {
             /** Text */
@@ -1779,6 +1894,37 @@ export interface components {
              * @default
              */
             detail: string;
+        };
+        /** PlanStep */
+        PlanStep: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Done
+             * @default false
+             */
+            done: boolean;
+            /** Due */
+            due?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** PlanStepIn */
+        PlanStepIn: {
+            /** Title */
+            title: string;
+            /** Due */
+            due?: string | null;
+        };
+        /** PlanStepPatch */
+        PlanStepPatch: {
+            /** Done */
+            done: boolean;
         };
         /** QuizAttemptIn */
         QuizAttemptIn: {
@@ -1889,6 +2035,30 @@ export interface components {
              */
             clear_effective_to: boolean;
         };
+        /** RiskCreate */
+        RiskCreate: {
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** P */
+            p: number;
+            /** S */
+            s: number;
+            /**
+             * Consequences
+             * @default
+             */
+            consequences: string;
+            /**
+             * Recommendation
+             * @default
+             */
+            recommendation: string;
+        };
         /** RiskDetail */
         RiskDetail: {
             risk: components["schemas"]["RiskOut"];
@@ -1992,6 +2162,33 @@ export interface components {
             resolved_by: string | null;
             /** Resolution Pending */
             resolution_pending: string | null;
+            /**
+             * Origin
+             * @default agent
+             * @enum {string}
+             */
+            origin: "agent" | "user";
+            /**
+             * Manual Ps
+             * @default false
+             */
+            manual_ps: boolean;
+            /** Pending Suggestion */
+            pending_suggestion?: {
+                [key: string]: unknown;
+            } | null;
+            /** Closed At */
+            closed_at?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Rationale
+             * @default
+             */
+            rationale: string;
             /** Methodology Version */
             methodology_version: string;
             /** Version */
@@ -2017,13 +2214,17 @@ export interface components {
              */
             question_ids: string[];
         };
-        /** RiskPatch */
+        /**
+         * RiskPatch
+         * @description Смена статуса и/или ручная оценка P и S. dismissed — синоним not_applicable («неприменимо ко мне»).
+         */
         RiskPatch: {
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "open" | "in_progress" | "resolved";
+            /** Status */
+            status?: ("open" | "in_progress" | "resolved" | "not_applicable" | "dismissed") | null;
+            /** P */
+            p?: number | null;
+            /** S */
+            s?: number | null;
             /** Reason */
             reason: string;
             /** Version */
@@ -2041,6 +2242,22 @@ export interface components {
             clarifications: string[];
             /** Methodology */
             methodology: string;
+            /**
+             * Summary
+             * @default {}
+             */
+            summary: {
+                [key: string]: unknown;
+            };
+            /**
+             * Thresholds
+             * @default [
+             *       4,
+             *       9,
+             *       15
+             *     ]
+             */
+            thresholds: number[];
         };
         /** RoleChangeIn */
         RoleChangeIn: {
@@ -2216,6 +2433,13 @@ export interface components {
              */
             active_risks: number;
             /**
+             * Risks By Level
+             * @default {}
+             */
+            risks_by_level: {
+                [key: string]: number;
+            };
+            /**
              * Busy
              * @default false
              */
@@ -2256,6 +2480,13 @@ export interface components {
             node_id: string;
             /** Message Id */
             message_id: string | null;
+            /**
+             * Seq
+             * @default 0
+             */
+            seq: number;
+            /** At */
+            at?: string | null;
             /** Text */
             text: string;
             /** Result */
@@ -2266,7 +2497,7 @@ export interface components {
             norms: string[];
             /** Risks */
             risks: {
-                [key: string]: string;
+                [key: string]: unknown;
             }[];
             /** Follow Up Of */
             follow_up_of?: string | null;
@@ -3051,6 +3282,41 @@ export interface operations {
             };
         };
     };
+    create_risk_api_v1_sessions__session_id__risks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     risk_detail_api_v1_risks__risk_id__get: {
         parameters: {
             query?: never;
@@ -3104,6 +3370,234 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RiskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_suggestion_api_v1_risks__risk_id__suggestion__decision__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                risk_id: string;
+                decision: "accept" | "reject";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    risk_matrix_api_v1_sessions__session_id__risks_matrix_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatrixCell"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_risks_api_v1_sessions__session_id__risks_export_get: {
+        parameters: {
+            query?: {
+                format?: "csv" | "md";
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_steps_api_v1_sessions__session_id__plan_steps_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanStep"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_step_api_v1_sessions__session_id__plan_steps_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanStepIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanStep"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_step_api_v1_sessions__session_id__plan_steps__step_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                step_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_step_api_v1_sessions__session_id__plan_steps__step_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                step_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanStepPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanStep"];
                 };
             };
             /** @description Validation Error */

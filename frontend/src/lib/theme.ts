@@ -28,3 +28,9 @@ export function useTheme(): [Theme, (t: Theme) => void] {
   }, [])
   return [theme, set]
 }
+
+/** Фактическое значение токена (для SVG-атрибутов и экспорта, где CSS-переменные не работают). */
+export function cssVar(name: string): string {
+  if (typeof document === 'undefined') return 'currentColor'
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || 'currentColor'
+}

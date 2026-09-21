@@ -60,6 +60,7 @@
   /* Глубина */
   --shadow-hover: 0 6px 16px rgba(58, 47, 42, 0.16);
   --focus-ring: 0 0 0 3px var(--gold);
+  --backdrop: rgba(36, 28, 26, 0.32);
 
   /* Движение */
   --t-fast: 120ms;

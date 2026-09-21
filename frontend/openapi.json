@@ -984,6 +984,58 @@
       }
      }
     }
+   },
+   "post": {
+    "tags": [
+     "portrait"
+    ],
+    "summary": "Create Risk",
+    "description": "Риск, добавленный пользователем: помечается как пользовательский и не участвует в метриках качества извлечения.",
+    "operationId": "create_risk_api_v1_sessions__session_id__risks_post",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RiskCreate"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RiskOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
    }
   },
   "/api/v1/risks/{risk_id}": {
@@ -1066,6 +1118,369 @@
         }
        }
       }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/risks/{risk_id}/suggestion/{decision}": {
+   "post": {
+    "tags": [
+     "portrait"
+    ],
+    "summary": "Decide Suggestion",
+    "operationId": "decide_suggestion_api_v1_risks__risk_id__suggestion__decision__post",
+    "parameters": [
+     {
+      "name": "risk_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Risk Id"
+      }
+     },
+     {
+      "name": "decision",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "enum": [
+        "accept",
+        "reject"
+       ],
+       "type": "string",
+       "title": "Decision"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RiskOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/sessions/{session_id}/risks/matrix": {
+   "get": {
+    "tags": [
+     "portrait"
+    ],
+    "summary": "Risk Matrix",
+    "operationId": "risk_matrix_api_v1_sessions__session_id__risks_matrix_get",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/MatrixCell"
+         },
+         "title": "Response Risk Matrix Api V1 Sessions  Session Id  Risks Matrix Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/sessions/{session_id}/risks/export": {
+   "get": {
+    "tags": [
+     "portrait"
+    ],
+    "summary": "Export Risks",
+    "description": "CSV — таблица рисков; Markdown — чек-лист плана (рекомендации по срочности + шаги пользователя).",
+    "operationId": "export_risks_api_v1_sessions__session_id__risks_export_get",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Session Id"
+      }
+     },
+     {
+      "name": "format",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "enum": [
+        "csv",
+        "md"
+       ],
+       "type": "string",
+       "default": "csv",
+       "title": "Format"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/sessions/{session_id}/plan/steps": {
+   "get": {
+    "tags": [
+     "portrait"
+    ],
+    "summary": "List Steps",
+    "operationId": "list_steps_api_v1_sessions__session_id__plan_steps_get",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/PlanStep"
+         },
+         "title": "Response List Steps Api V1 Sessions  Session Id  Plan Steps Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "portrait"
+    ],
+    "summary": "Add Step",
+    "description": "Шаг, добавленный пользователем: агент его не перезаписывает и не удаляет при достраивании графа.",
+    "operationId": "add_step_api_v1_sessions__session_id__plan_steps_post",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlanStepIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlanStep"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/sessions/{session_id}/plan/steps/{step_id}": {
+   "patch": {
+    "tags": [
+     "portrait"
+    ],
+    "summary": "Patch Step",
+    "operationId": "patch_step_api_v1_sessions__session_id__plan_steps__step_id__patch",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Session Id"
+      }
+     },
+     {
+      "name": "step_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Step Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlanStepPatch"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlanStep"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "portrait"
+    ],
+    "summary": "Delete Step",
+    "operationId": "delete_step_api_v1_sessions__session_id__plan_steps__step_id__delete",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Session Id"
+      }
+     },
+     {
+      "name": "step_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Step Id"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
      },
      "422": {
       "description": "Validation Error",
@@ -4375,6 +4790,51 @@
     ],
     "title": "ManifestItem"
    },
+   "MatrixCell": {
+    "properties": {
+     "p": {
+      "type": "integer",
+      "title": "P"
+     },
+     "s": {
+      "type": "integer",
+      "title": "S"
+     },
+     "level": {
+      "type": "string",
+      "enum": [
+       "low",
+       "medium",
+       "high",
+       "critical"
+      ],
+      "title": "Level"
+     },
+     "count": {
+      "type": "integer",
+      "title": "Count"
+     },
+     "risks": {
+      "items": {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Risks"
+     }
+    },
+    "type": "object",
+    "required": [
+     "p",
+     "s",
+     "level",
+     "count",
+     "risks"
+    ],
+    "title": "MatrixCell"
+   },
    "MessageIn": {
     "properties": {
      "text": {
@@ -4545,6 +5005,87 @@
      "state"
     ],
     "title": "ModelStatus"
+   },
+   "PlanStep": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "done": {
+      "type": "boolean",
+      "title": "Done",
+      "default": false
+     },
+     "due": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Due"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "title",
+     "created_at"
+    ],
+    "title": "PlanStep"
+   },
+   "PlanStepIn": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "maxLength": 300,
+      "minLength": 2,
+      "title": "Title"
+     },
+     "due": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Due"
+     }
+    },
+    "type": "object",
+    "required": [
+     "title"
+    ],
+    "title": "PlanStepIn"
+   },
+   "PlanStepPatch": {
+    "properties": {
+     "done": {
+      "type": "boolean",
+      "title": "Done"
+     }
+    },
+    "type": "object",
+    "required": [
+     "done"
+    ],
+    "title": "PlanStepPatch"
    },
    "QuizAttemptIn": {
     "properties": {
@@ -4862,6 +5403,53 @@
     },
     "type": "object",
     "title": "RevisionPatch"
+   },
+   "RiskCreate": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "maxLength": 300,
+      "minLength": 3,
+      "title": "Title"
+     },
+     "description": {
+      "type": "string",
+      "maxLength": 500,
+      "title": "Description",
+      "default": ""
+     },
+     "p": {
+      "type": "integer",
+      "maximum": 5.0,
+      "minimum": 1.0,
+      "title": "P"
+     },
+     "s": {
+      "type": "integer",
+      "maximum": 5.0,
+      "minimum": 1.0,
+      "title": "S"
+     },
+     "consequences": {
+      "type": "string",
+      "maxLength": 1000,
+      "title": "Consequences",
+      "default": ""
+     },
+     "recommendation": {
+      "type": "string",
+      "maxLength": 1000,
+      "title": "Recommendation",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "p",
+     "s"
+    ],
+    "title": "RiskCreate"
    },
    "RiskDetail": {
     "properties": {
@@ -5187,6 +5775,54 @@
       ],
       "title": "Resolution Pending"
      },
+     "origin": {
+      "type": "string",
+      "enum": [
+       "agent",
+       "user"
+      ],
+      "title": "Origin",
+      "default": "agent"
+     },
+     "manual_ps": {
+      "type": "boolean",
+      "title": "Manual Ps",
+      "default": false
+     },
+     "pending_suggestion": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pending Suggestion"
+     },
+     "closed_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Closed At"
+     },
+     "description": {
+      "type": "string",
+      "title": "Description",
+      "default": ""
+     },
+     "rationale": {
+      "type": "string",
+      "title": "Rationale",
+      "default": ""
+     },
      "methodology_version": {
       "type": "string",
       "title": "Methodology Version"
@@ -5256,13 +5892,48 @@
    "RiskPatch": {
     "properties": {
      "status": {
-      "type": "string",
-      "enum": [
-       "open",
-       "in_progress",
-       "resolved"
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "open",
+         "in_progress",
+         "resolved",
+         "not_applicable",
+         "dismissed"
+        ]
+       },
+       {
+        "type": "null"
+       }
       ],
       "title": "Status"
+     },
+     "p": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 5.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "P"
+     },
+     "s": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 5.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "S"
      },
      "reason": {
       "type": "string",
@@ -5277,11 +5948,11 @@
     },
     "type": "object",
     "required": [
-     "status",
      "reason",
      "version"
     ],
-    "title": "RiskPatch"
+    "title": "RiskPatch",
+    "description": "Смена статуса и/или ручная оценка P и S. dismissed — синоним not_applicable («неприменимо ко мне»)."
    },
    "RisksOut": {
     "properties": {
@@ -5316,6 +5987,24 @@
      "methodology": {
       "type": "string",
       "title": "Methodology"
+     },
+     "summary": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Summary",
+      "default": {}
+     },
+     "thresholds": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "title": "Thresholds",
+      "default": [
+       4,
+       9,
+       15
+      ]
      }
     },
     "type": "object",
@@ -5684,6 +6373,14 @@
       "title": "Active Risks",
       "default": 0
      },
+     "risks_by_level": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Risks By Level",
+      "default": {}
+     },
      "busy": {
       "type": "boolean",
       "title": "Busy",
@@ -5826,6 +6523,23 @@
       ],
       "title": "Message Id"
      },
+     "seq": {
+      "type": "integer",
+      "title": "Seq",
+      "default": 0
+     },
+     "at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "At"
+     },
      "text": {
       "type": "string",
       "title": "Text"
@@ -5857,9 +6571,7 @@
      },
      "risks": {
       "items": {
-       "additionalProperties": {
-        "type": "string"
-       },
+       "additionalProperties": true,
        "type": "object"
       },
       "type": "array",

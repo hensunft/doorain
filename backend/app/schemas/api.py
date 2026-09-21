@@ -144,6 +144,7 @@ class SessionOut(Out):
     profile: dict[str, Any] | None = None
     messages_count: int = 0
     active_risks: int = 0
+    risks_by_level: dict[str, int] = {}  # для полосы распределения рисков в «Моих сессиях»
     busy: bool = False
 
 
@@ -248,11 +249,13 @@ class LayoutIn(BaseModel):
 class TimelineItem(BaseModel):
     node_id: str
     message_id: str | None
+    seq: int = 0
+    at: datetime | None = None
     text: str
     result: str | None
     topics: list[str]
     norms: list[str]
-    risks: list[dict[str, str]]
+    risks: list[dict[str, Any]]
     follow_up_of: str | None = None
     condition: str | None = None
 
@@ -280,6 +283,12 @@ class RiskOut(Out):
     resolution_reason: str | None
     resolved_by: str | None
     resolution_pending: str | None
+    origin: Literal["agent", "user"] = "agent"
+    manual_ps: bool = False
+    pending_suggestion: dict[str, Any] | None = None
+    closed_at: datetime | None = None
+    description: str = ""  # суть риска (для агентских — сценарий)
+    rationale: str = ""  # почему такие P и S
     methodology_version: str
     version: int
     created_at: datetime
@@ -294,6 +303,42 @@ class RisksOut(BaseModel):
     needs_clarification: list[RiskOut]
     clarifications: list[str]
     methodology: str
+    summary: dict[str, Any] = {}
+    thresholds: list[int] = [4, 9, 15]
+
+
+class MatrixCell(BaseModel):
+    p: int
+    s: int
+    level: Literal["low", "medium", "high", "critical"]
+    count: int
+    risks: list[dict[str, str]]
+
+
+class RiskCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=300)
+    description: str = Field(default="", max_length=500)
+    p: int = Field(ge=1, le=5)
+    s: int = Field(ge=1, le=5)
+    consequences: str = Field(default="", max_length=1000)
+    recommendation: str = Field(default="", max_length=1000)
+
+
+class PlanStepIn(BaseModel):
+    title: str = Field(min_length=2, max_length=300)
+    due: date | None = None
+
+
+class PlanStepPatch(BaseModel):
+    done: bool
+
+
+class PlanStep(BaseModel):
+    id: str
+    title: str
+    done: bool = False
+    due: date | None = None
+    created_at: datetime
 
 
 class RiskEventOut(Out):
@@ -323,7 +368,11 @@ class RiskDetail(BaseModel):
 
 
 class RiskPatch(BaseModel):
-    status: Literal["open", "in_progress", "resolved"]
+    """Смена статуса и/или ручная оценка P и S. dismissed — синоним not_applicable («неприменимо ко мне»)."""
+
+    status: Literal["open", "in_progress", "resolved", "not_applicable", "dismissed"] | None = None
+    p: int | None = Field(default=None, ge=1, le=5)
+    s: int | None = Field(default=None, ge=1, le=5)
     reason: str = Field(min_length=1, max_length=1000)
     version: int
 

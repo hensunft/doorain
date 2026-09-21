@@ -59,7 +59,7 @@ export function AppShell() {
   const status = useStatus()
   const loc = useLocation()
   const inWorkspace = loc.pathname.startsWith('/s/')
-  const compact = collapsed && mode !== 'narrow'
+  const compact = (collapsed || inWorkspace) && mode !== 'narrow'
   return (
     <div className="flex h-dvh min-h-0 flex-col">
       {!online && <OfflineBanner />}
@@ -71,7 +71,7 @@ export function AppShell() {
               <Brand compact={compact} />
               {!compact && <button className="btn btn-quiet btn-icon" aria-label="Свернуть панель" onClick={() => setCollapsed(true)}><PanelLeftClose className="size-4" aria-hidden /></button>}
             </div>
-            {compact && <button className="btn btn-quiet btn-icon mx-auto" aria-label="Развернуть панель" onClick={() => setCollapsed(false)}><PanelLeftOpen className="size-4" aria-hidden /></button>}
+            {compact && !inWorkspace && <button className="btn btn-quiet btn-icon mx-auto" aria-label="Развернуть панель" onClick={() => setCollapsed(false)}><PanelLeftOpen className="size-4" aria-hidden /></button>}
             <SidebarNav compact={compact} />
           </aside>
         )}

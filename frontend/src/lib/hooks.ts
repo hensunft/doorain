@@ -31,7 +31,7 @@ export function useMedia(query: string): boolean {
 /** wide ≥1280, mid 768–1279, narrow <768 */
 export function useLayoutMode(): 'wide' | 'mid' | 'narrow' {
   const wide = useMedia('(min-width: 1280px)')
-  const mid = useMedia('(min-width: 768px)')
+  const mid = useMedia('(min-width: 900px)')
   return wide ? 'wide' : mid ? 'mid' : 'narrow'
 }
 

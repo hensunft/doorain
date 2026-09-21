@@ -134,12 +134,14 @@ def view(db: Session, s: ConsultationSession) -> dict[str, Any]:
 
 
 def timeline(db: Session, s: ConsultationSession) -> list[dict[str, Any]]:
+    """Хронология: вопросы по порядку, их основания, риски (с уровнем и статусом) и ветвления-уточнения."""
     qs = list(db.scalars(select(GraphNode).where(GraphNode.session_id == s.id, GraphNode.kind == "question").order_by(GraphNode.created_at, GraphNode.id)))
     edges = list(db.scalars(select(GraphEdge).where(GraphEdge.session_id == s.id)))
     nodes = {n.id: n for n in db.scalars(select(GraphNode).where(GraphNode.session_id == s.id))}
+    risks = {r.id: r for r in db.scalars(select(Risk).where(Risk.session_id == s.id))}
     out = []
-    for q in qs:
-        topics, norms, risks, follow, cond = [], [], [], None, None
+    for i, q in enumerate(qs, 1):
+        topics, norms, rlist, follow, cond = [], [], [], None, None
         for e in edges:
             if e.src_id == q.id:
                 d = nodes.get(e.dst_id)
@@ -150,8 +152,16 @@ def timeline(db: Session, s: ConsultationSession) -> list[dict[str, Any]]:
                 elif e.kind == "cites":
                     norms.append(d.label)
                 elif e.kind == "evidences":
-                    risks.append({"node_id": str(d.id), "label": d.label})
+                    r = risks.get(uuid.UUID(d.data["risk_id"])) if d.data.get("risk_id") else None
+                    rlist.append({
+                        "node_id": str(d.id), "label": d.label, "risk_id": str(r.id) if r else None,
+                        "level": r.level if r else None, "score": r.score if r else None, "p": r.p if r else None, "s": r.s if r else None,
+                        "status": r.status if r else None, "recommendation": r.recommendation if r else "", "closed_at": r.closed_at.isoformat() if r and r.closed_at else None,
+                    })
                 elif e.kind == "follow_up_of":
                     follow, cond = d.data.get("message_id"), e.data.get("condition")
-        out.append({"node_id": str(q.id), "message_id": q.data.get("message_id"), "text": q.label, "result": q.data.get("result"), "topics": topics, "norms": norms, "risks": risks, "follow_up_of": follow, "condition": cond})
+        out.append({
+            "node_id": str(q.id), "message_id": q.data.get("message_id"), "seq": i, "at": q.created_at, "text": q.label, "result": q.data.get("result"),
+            "topics": topics, "norms": norms, "risks": rlist, "follow_up_of": follow, "condition": cond,
+        })
     return out

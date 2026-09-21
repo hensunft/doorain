@@ -387,6 +387,10 @@ class Risk(Base):
     resolved_by: Mapped[str | None] = mapped_column(String(20))  # user_message | owner
     resolution_pending: Mapped[str | None] = mapped_column(Text)  # неоднозначное «снято» — ждёт подтверждения
     methodology_version: Mapped[str] = mapped_column(String(20))
+    origin: Mapped[str] = mapped_column(String(8), default="agent")  # agent | user (добавлен пользователем, может быть без основания)
+    manual_ps: Mapped[bool] = mapped_column(Boolean, default=False)  # P и S заданы пользователем: агент их не перезаписывает
+    pending_suggestion: Mapped[dict[str, Any] | None] = mapped_column(J, nullable=True)  # расхождение агента с ручной оценкой
+    closed_at: Mapped[datetime | None]
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = _ts()
     updated_at: Mapped[datetime] = _ts()

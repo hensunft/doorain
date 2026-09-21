@@ -77,41 +77,34 @@ function TopBar({ session, mode, setMode, onExport, onQuiz }: { session: Session
   )
 }
 
-const MIN = [320, 300, 260]
-
+/** Три зоны по макету: чат 300 px, слепок — гибкая ширина, риски 360 px. Боковые зоны тянутся мышью или стрелками. */
 function ThreePanels({ chat, portrait, risks }: { chat: React.ReactNode; portrait: React.ReactNode; risks: React.ReactNode }) {
-  const [sizes, setSizes] = useLocalState<number[]>('doorain.panels', [38, 34, 28])
-  const box = useRef<HTMLDivElement>(null)
-  const drag = useRef<{ i: number; x: number; start: number[] } | null>(null)
-  const down = (i: number) => (e: PointerEvent) => { drag.current = { i, x: e.clientX, start: sizes.slice() }; (e.target as HTMLElement).setPointerCapture(e.pointerId) }
+  const [w, setW] = useLocalState<[number, number]>('doorain.zones', [300, 360])
+  const drag = useRef<{ i: 0 | 1; x: number; start: [number, number] } | null>(null)
+  const clamp = (v: number) => Math.max(260, Math.min(560, v))
+  const down = (i: 0 | 1) => (e: PointerEvent) => { drag.current = { i, x: e.clientX, start: [w[0], w[1]] }; (e.target as HTMLElement).setPointerCapture(e.pointerId) }
   const move = (e: PointerEvent) => {
     const d = drag.current
-    if (!d || !box.current) return
-    const w = box.current.clientWidth
-    const dx = ((e.clientX - d.x) / w) * 100
-    const minPct = (k: number) => (MIN[k] ?? 200) / w * 100
-    const a = (d.start[d.i] ?? 0) + dx, b = (d.start[d.i + 1] ?? 0) - dx
-    if (a < minPct(d.i) || b < minPct(d.i + 1)) return
-    const n = d.start.slice(); n[d.i] = a; n[d.i + 1] = b
-    setSizes(n)
+    if (!d) return
+    const dx = e.clientX - d.x
+    setW(d.i === 0 ? [clamp(d.start[0] + dx), d.start[1]] : [d.start[0], clamp(d.start[1] - dx)])
   }
-  const key = (i: number) => (e: KeyboardEvent) => {
+  const key = (i: 0 | 1) => (e: KeyboardEvent) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
     e.preventDefault()
-    const step = e.key === 'ArrowRight' ? 2 : -2
-    const n = sizes.slice(); n[i] = (n[i] ?? 0) + step; n[i + 1] = (n[i + 1] ?? 0) - step
-    if (n.every((v, k) => v * (box.current?.clientWidth ?? 1200) / 100 >= (MIN[k] ?? 200))) setSizes(n)
+    const step = (e.key === 'ArrowRight' ? 20 : -20) * (i === 0 ? 1 : -1)
+    setW(i === 0 ? [clamp(w[0] + step), w[1]] : [w[0], clamp(w[1] + step)])
   }
-  const Handle = ({ i }: { i: number }) => (
-    <div role="separator" aria-orientation="vertical" aria-label={i === 0 ? 'Изменить ширину диалога и портрета' : 'Изменить ширину портрета и рисков'} tabIndex={0} onPointerDown={down(i)} onPointerMove={move} onPointerUp={() => { drag.current = null }} onKeyDown={key(i)} className="w-1.5 cursor-col-resize bg-line hover:bg-neutral-node focus-visible:bg-graphite" />
+  const Handle = ({ i }: { i: 0 | 1 }) => (
+    <div role="separator" aria-orientation="vertical" aria-label={i === 0 ? 'Изменить ширину диалога' : 'Изменить ширину рисков'} tabIndex={0} onPointerDown={down(i)} onPointerMove={move} onPointerUp={() => { drag.current = null }} onKeyDown={key(i)} className="w-1.5 cursor-col-resize bg-page hover:bg-line focus-visible:bg-gold" />
   )
   return (
-    <div ref={box} className="grid min-h-0 flex-1" style={{ gridTemplateColumns: `minmax(${MIN[0]}px, ${sizes[0]}fr) 6px minmax(${MIN[1]}px, ${sizes[1]}fr) 6px minmax(${MIN[2]}px, ${sizes[2]}fr)` }}>
-      <section aria-label="Диалог" className="min-h-0 min-w-0">{chat}</section>
+    <div className="grid min-h-0 flex-1 gap-0 bg-page p-3" style={{ gridTemplateColumns: `${w[0]}px 6px minmax(360px, 1fr) 6px ${w[1]}px` }}>
+      <section aria-label="Диалог" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{chat}</section>
       <Handle i={0} />
-      <section aria-label="Цифровой слепок" className="min-h-0 min-w-0">{portrait}</section>
+      <section aria-label="Цифровой слепок" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{portrait}</section>
       <Handle i={1} />
-      <section aria-label="Риски" className="min-h-0 min-w-0">{risks}</section>
+      <section aria-label="Риски" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{risks}</section>
     </div>
   )
 }

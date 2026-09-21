@@ -61,6 +61,8 @@ def session_out(db: Session, obj: ConsultationSession) -> SessionOut:
     out = SessionOut.model_validate(obj)
     out.profile = prof.data if prof else None
     out.messages_count = db.scalar(select(func.count()).select_from(Message).where(Message.session_id == obj.id)) or 0
+    active = select(Risk.level, func.count()).where(Risk.session_id == obj.id, Risk.status.in_(("open", "in_progress")))
+    out.risks_by_level = {str(k): int(v) for k, v in db.execute(active.where(Risk.level.is_not(None)).group_by(Risk.level)).all()}
     out.active_risks = db.scalar(select(func.count()).select_from(Risk).where(Risk.session_id == obj.id, Risk.status.in_(("open", "in_progress")))) or 0
     out.busy = is_busy(db, obj.id)
     return out
