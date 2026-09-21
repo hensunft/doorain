@@ -25,3 +25,7 @@ export const levelOf = (score: number | null | undefined): Level | null =>
   score == null ? null : score <= 4 ? 'low' : score <= 9 ? 'medium' : score <= 15 ? 'high' : 'critical'
 
 export const scoreLabel = (p: number | null, s: number | null, score: number | null) => (score == null ? 'не оценён' : `${p}×${s}=${score}`)
+
+/** Цвет уровня как CSS-переменная токенов: в компонентах не должно быть литеральных цветов. */
+export const levelVar = (level: Level | null | undefined): string =>
+  `var(--risk-${level === 'medium' ? 'mid' : (level ?? 'none')})`

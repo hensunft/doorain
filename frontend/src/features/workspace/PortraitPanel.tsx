@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { MapArt } from '../../components/art'
 import { EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import { RiskBadge } from '../../components/ui'
 import type { Graph, Risk, Session } from '../../lib/api'
@@ -8,8 +7,8 @@ import { NODE_KIND_RU, RESULT_RU } from '../../lib/risk'
 import { riskIdsForNode, useSelection } from '../../lib/selection'
 import { GraphView } from './GraphView'
 
-const TABS = [['map', 'Карта'], ['timeline', 'Хронология'], ['list', 'Список']] as const
-type Tab = (typeof TABS)[number][0]
+import type { PortraitMode } from './WorkspacePage'
+import { PlanPanel } from './PlanPanel'
 
 /** Текстовая альтернатива графа: те же узлы и связи, доступные с клавиатуры и для чтения с экрана. */
 function NodeList({ graph, risks }: { graph: Graph; risks: Risk[] }) {
@@ -83,22 +82,24 @@ function Timeline({ sessionId }: { sessionId: string }) {
   )
 }
 
-export function PortraitPanel({ session }: { session: Session }) {
-  const [tab, setTab] = useState<Tab>('map')
+export function PortraitPanel({ session, mode }: { session: Session; mode: PortraitMode }) {
+  const [text, setText] = useState(false)  // текстовая альтернатива карты: доступна с клавиатуры и для чтения с экрана
   const graph = useGraph(session.id)
   const risks = useRisks(session.id)
   const questions = graph.data?.nodes.filter((n) => n.kind === 'question').length ?? 0
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div role="tablist" aria-label="Вид портрета" className="flex gap-1 border-b border-line px-3 py-2">
-        {TABS.map(([id, label]) => <button key={id} role="tab" id={`pt-${id}`} aria-selected={tab === id} aria-controls={`pp-${id}`} className={`btn ${tab === id ? 'btn-primary' : 'btn-quiet'}`} onClick={() => setTab(id)}>{label}</button>)}
+      <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
+        <h2 className="display-s">Цифровой слепок <span className="caption font-normal">{graph.data ? `${graph.data.nodes.filter((n) => n.kind === 'topic').length} тем · ${questions} вопросов · ${graph.data.nodes.filter((n) => n.kind === 'norm').length} норм` : ''}</span></h2>
+        {mode === 'map' && <button className="btn btn-quiet" aria-pressed={text} onClick={() => setText(!text)}>{text ? 'Показать карту' : 'Текстом'}</button>}
       </div>
-      <div role="tabpanel" id={`pp-${tab}`} aria-labelledby={`pt-${tab}`} className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1" aria-label="Портрет сессии">
         {graph.isLoading && <div className="p-3"><Skeleton lines={5} /></div>}
         {graph.isError && <div className="p-3"><ErrorNote error={graph.error} onRetry={() => graph.refetch()} /></div>}
-        {graph.data && tab === 'map' && (questions === 0 ? <EmptyState art={MapArt} title="Портрет пока пуст">После первого вопроса здесь появятся темы, вопросы, нормы и связи. Цвет узла показывает максимальный активный риск.</EmptyState> : <GraphView sessionId={session.id} graph={graph.data} />)}
-        {graph.data && tab === 'list' && <NodeList graph={graph.data} risks={risks.data?.active ?? []} />}
-        {tab === 'timeline' && <Timeline sessionId={session.id} />}
+        {graph.data && mode === 'map' && !text && (questions === 0 ? <EmptyState title="Портрет пока пуст">После первого вопроса здесь появятся темы, вопросы, нормы и связи. Цвет узла показывает максимальный активный риск.</EmptyState> : <GraphView sessionId={session.id} graph={graph.data} />)}
+        {graph.data && mode === 'map' && text && <NodeList graph={graph.data} risks={risks.data?.active ?? []} />}
+        {mode === 'timeline' && <Timeline sessionId={session.id} />}
+        {mode === 'plan' && <PlanPanel session={session} />}
       </div>
     </div>
   )

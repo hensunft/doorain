@@ -4,11 +4,11 @@ import { useMemo, useState } from 'react'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import { Button, RiskBadge } from '../../components/ui'
-import { FrameArt } from '../../components/art'
-import type { Risk, Session } from '../../lib/api'
+import type { Level, Risk, Session } from '../../lib/api'
 import { useGraph, useRisks } from '../../lib/queries'
-import { LEVEL_HEX, LEVEL_ORDER, LEVEL_RU, STATUS_RU } from '../../lib/risk'
+import { LEVEL_ORDER, levelVar, STATUS_RU } from '../../lib/risk'
 import { riskIdsForNode, useSelection } from '../../lib/selection'
+import { RiskCard } from './RiskCard'
 import { RiskDetail } from './RiskDetail'
 
 const col = createColumnHelper<Risk>()
@@ -57,16 +57,26 @@ function RisksTable({ rows, highlight, selected, onSelect }: { rows: Risk[]; hig
 
 const FILTERS = [['active', 'Активные'], ['needs_clarification', 'Уточнения'], ['resolved', 'Снятые']] as const
 
-/** Сводка над таблицей: сколько активных рисков каждого уровня. Цвет не единственный носитель смысла — рядом подпись. */
-function LevelSummary({ rows }: { rows: Risk[] }) {
+const SHORT: Record<Level, string> = { low: 'низк.', medium: 'средн.', high: 'высок.', critical: 'критич.' }
+
+/** Сводка: пилюля на каждый уровень с числом. Клик фильтрует список; цвет дублируется подписью. */
+function LevelSummary({ rows, only, onOnly }: { rows: Risk[]; only: Level | null; onOnly: (l: Level | null) => void }) {
   const counts = LEVEL_ORDER.map((l) => [l, rows.filter((r) => r.level === l).length] as const).filter(([, n]) => n > 0)
   if (!counts.length) return null
   return (
     <ul className="flex flex-wrap gap-1.5 px-3 pb-2" aria-label="Сводка по уровням риска">
-      {counts.map(([l, n]) => (
-        <li key={l} className="chip" style={{ borderColor: LEVEL_HEX[l] }}>
-          <span className="inline-block size-2 rounded-full" style={{ background: LEVEL_HEX[l] }} aria-hidden />
-          {LEVEL_RU[l]}: <span className="tnum font-medium">{n}</span>
+      {counts.reverse().map(([l, n]) => (
+        <li key={l}>
+          <button
+            type="button"
+            aria-pressed={only === l}
+            onClick={() => onOnly(only === l ? null : l)}
+            className="badge-level gap-1.5 px-3"
+            style={{ ['--level' as string]: levelVar(l) }}
+            data-level={l}
+          >
+            <span className="tnum">{n}</span> {SHORT[l]}
+          </button>
         </li>
       ))}
     </ul>
@@ -79,38 +89,65 @@ export function RisksPanel({ session }: { session: Session }) {
   const { sel, selectRisk } = useSelection()
   const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>('active')
   const [wide, setWide] = useState(false)
+  const [only, setOnly] = useState<Level | null>(null)
+  const [open, setOpen] = useState<Record<string, boolean>>({})
   const data = risks.data
-  const list = data ? (filter === 'active' ? data.active : filter === 'resolved' ? data.resolved : data.needs_clarification) : []
+  const base = data ? (filter === 'active' ? data.active : filter === 'resolved' ? data.resolved : data.needs_clarification) : []
+  const list = only ? base.filter((r) => r.level === only) : base
+  const qNum = new Map<string, number>()
+  graph.data?.nodes.filter((n) => n.kind === 'question').forEach((n, i) => qNum.set(n.id, i + 1))
+  const questionsOf = (riskId: string) => {
+    const riskNode = graph.data?.nodes.find((n) => n.kind === 'risk' && n.data['risk_id'] === riskId)
+    if (!riskNode) return []
+    const out = new Set<number>()
+    for (const e of graph.data?.edges ?? []) {
+      if (e.kind !== 'evidences') continue
+      const other = e.source === riskNode.id ? e.target : e.target === riskNode.id ? e.source : null
+      const n = other ? qNum.get(other) : undefined
+      if (n) out.add(n)
+    }
+    return [...out].sort((a, b) => a - b)
+  }
   const highlight = useMemo(() => riskIdsForNode(graph.data, data?.active ?? [], sel.nodeId), [graph.data, data, sel.nodeId])
   const selected = sel.riskId
   const learning = session.role === 'student'
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
-        <h2 className="text-h3">{learning ? 'Ошибки понимания' : 'Риски'} <span className="text-small font-normal text-muted tnum">{data?.active.length ?? 0}</span></h2>
+        <h2 className="display-s">{learning ? 'Ошибки понимания' : 'Риски'} <span className="caption font-normal">P × S, по убыванию</span></h2>
         <Button className="btn-icon" aria-label="Развернуть таблицу на всю ширину" onClick={() => setWide(true)}><Maximize2 className="size-4" aria-hidden /></Button>
       </div>
       <div role="tablist" aria-label="Фильтр рисков" className="flex gap-1 px-3 py-2">
         {FILTERS.map(([id, label]) => <button key={id} role="tab" aria-selected={filter === id} className={`btn ${filter === id ? 'btn-primary' : 'btn-quiet'}`} onClick={() => setFilter(id)}>{label}{data ? ` ${id === 'active' ? data.active.length : id === 'resolved' ? data.resolved.length : data.needs_clarification.length}` : ''}</button>)}
       </div>
-      {filter === 'active' && data && <LevelSummary rows={data.active} />}
+      {filter === 'active' && data && <LevelSummary rows={data.active} only={only} onOnly={setOnly} />}
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3">
         {risks.isLoading && <Skeleton lines={5} />}
         {risks.isError && <ErrorNote error={risks.error} onRetry={() => risks.refetch()} />}
         {data && list.length === 0 && (
-          filter === 'active' ? <EmptyState art={FrameArt} title={learning ? 'Ошибок понимания не выявлено' : 'Подтверждённых рисков нет'}>{learning ? 'Вопрос сам по себе не доказывает незнание. Пройдите самопроверку: подтверждённые ошибки появятся здесь.' : 'Риск создаётся только при нормативном основании и подтверждённых фактах. Отсутствие строк не означает безопасность.'}</EmptyState> : <p className="hint px-1">Здесь пока ничего нет.</p>
+          filter === 'active' ? <EmptyState title={learning ? 'Ошибок понимания не выявлено' : 'Подтверждённых рисков нет'}>{learning ? 'Вопрос сам по себе не доказывает незнание. Пройдите самопроверку: подтверждённые ошибки появятся здесь.' : 'Риск создаётся только при нормативном основании и подтверждённых фактах. Отсутствие строк не означает безопасность.'}</EmptyState> : <p className="hint px-1">Здесь пока ничего нет.</p>
         )}
         {filter === 'needs_clarification' && data?.clarifications.map((c) => <p key={c} className="rounded-md bg-risk-medium-soft px-3 py-2 text-small text-risk-medium">Вопрос для уточнения: {c}</p>)}
         <ul className="space-y-2">
-          {list.map((r) => (
-            <li key={r.id}>
-              <button type="button" aria-pressed={selected === r.id} onClick={() => selectRisk(selected === r.id ? null : r.id)} className={`w-full rounded-md border px-3 py-2 text-left hover:bg-sidebar ${selected === r.id ? 'border-graphite bg-sidebar' : highlight.has(r.id) ? 'border-risk-critical bg-risk-critical-soft/40' : 'border-line'}`}>
-                <span className="block font-medium">{r.title}</span>
-                <span className="mt-1 flex flex-wrap items-center gap-1.5"><RiskBadge level={r.level} score={r.score} /><span className="chip">{STATUS_RU[r.status] ?? r.status}</span>{r.category && <span className="chip">{r.category}</span>}</span>
-              </button>
-              {selected === r.id && <div className="mt-2 rounded-md border border-line p-3"><RiskDetail riskId={r.id} sessionId={session.id} /></div>}
-            </li>
-          ))}
+          {list.map((r, i) => {
+            const isSel = selected === r.id
+            const isOpen = open[r.id] ?? (isSel || (i < 2 && filter === 'active'))
+            return (
+              <li key={r.id}>
+                <RiskCard
+                  risk={r}
+                  sessionId={session.id}
+                  questions={questionsOf(r.id)}
+                  expanded={isOpen}
+                  selected={isSel}
+                  highlighted={highlight.has(r.id)}
+                  onToggle={() => { setOpen({ ...open, [r.id]: !isSel }); selectRisk(isSel ? null : r.id) }}
+                >
+                  {isSel && <div className="mt-3 border-t border-line-soft pt-3"><RiskDetail riskId={r.id} sessionId={session.id} /></div>}
+                </RiskCard>
+              </li>
+            )
+          })}
         </ul>
       </div>
       <Dialog open={wide} onClose={() => setWide(false)} title="Таблица рисков" variant="full">

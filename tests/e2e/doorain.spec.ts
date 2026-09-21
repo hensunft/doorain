@@ -72,8 +72,10 @@ test('вертикальный сценарий: вопрос → ответ с 
   await expect(drawer).toBeHidden()
   await expect(chip).toBeFocused()
 
+  // врезка в чате о появлении риска
+  await expect(page.getByRole('button', { name: /Добавлен риск: Нет опубликованной политики/ })).toBeVisible()
   // риск в правой панели: уровень дублирован текстом и числом
-  const risk = page.getByRole('button', { name: /Нет опубликованной политики обработки ПДн/ }).first()
+  const risk = page.getByRole('region', { name: 'Риски' }).getByRole('button', { name: /Нет опубликованной политики обработки ПДн/ }).first()
   await expect(risk).toBeVisible()
   await expect(risk).toContainText('Средний')
   await expect(risk).toContainText('8')
@@ -85,12 +87,13 @@ test('вертикальный сценарий: вопрос → ответ с 
   await expect(page.getByText('Почему такая оценка')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Снять выделение' }).first()).toBeVisible()
   // текстовая альтернатива графа
-  await page.getByRole('tab', { name: 'Список' }).click()
+  await page.getByRole('button', { name: 'Текстом' }).click()
   await expect(page.getByLabel('Список узлов слепка')).toContainText('Нет опубликованной политики')
+  await page.getByRole('button', { name: 'Показать карту' }).click()
   await page.getByRole('tab', { name: 'Хронология' }).click()
   await expect(page.getByLabel('Хронология вопросов')).toContainText(NO_POLICY.slice(0, 20))
   fs.mkdirSync(SHOTS, { recursive: true })
-  await page.getByRole('tab', { name: 'Карта' }).click()
+  await page.getByRole('tab', { name: 'Карта тем' }).click()
   await page.screenshot({ path: path.join(SHOTS, 'workspace-1440.png') })
 
   expect(violations, 'нарушения CSP или ошибки страницы').toEqual([])
@@ -128,7 +131,7 @@ test('экспорт PDF из сессии: файл — валидный PDF', 
   await ask(page, NO_POLICY)
   await expect(page.getByText('Источники и редакции:')).toBeVisible()
   await expect(page.getByRole('button', { name: /Нет опубликованной политики/ }).first()).toBeVisible()
-  await page.getByRole('button', { name: 'Экспорт PDF' }).click()
+  await page.getByRole('button', { name: 'Экспорт портрета' }).click()
   await page.getByRole('button', { name: 'Сформировать PDF' }).click()
   const link = page.getByRole('link', { name: /Скачать PDF/ })
   await expect(link).toBeVisible({ timeout: 30_000 })

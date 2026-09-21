@@ -17,7 +17,10 @@ import { PortraitPanel } from './PortraitPanel'
 import { RisksPanel } from './RisksPanel'
 import { SourceDrawer } from './SourceDrawer'
 
-function TopBar({ session, onExport, onQuiz }: { session: Session; onExport: () => void; onQuiz: () => void }) {
+export type PortraitMode = 'map' | 'timeline' | 'plan'
+const MODES: [PortraitMode, string][] = [['map', 'Карта тем'], ['timeline', 'Хронология'], ['plan', 'План-схема']]
+
+function TopBar({ session, mode, setMode, onExport, onQuiz }: { session: Session; mode: PortraitMode; setMode: (m: PortraitMode) => void; onExport: () => void; onQuiz: () => void }) {
   const status = useStatus()
   const qc = useQueryClient()
   const nav = useNavigate()
@@ -31,7 +34,7 @@ function TopBar({ session, onExport, onQuiz }: { session: Session; onExport: () 
   const model = st?.model
   const anySel = !!(sel.riskId || sel.nodeId || sel.messageId)
   return (
-    <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-4 py-2">
+    <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-canvas px-4 py-2">
       <div className="min-w-[min(100%,18rem)] flex-1">
         {editing ? (
           <form onSubmit={(e) => { e.preventDefault(); if (title.trim()) rename.mutate(title) }} className="flex gap-2">
@@ -40,9 +43,9 @@ function TopBar({ session, onExport, onQuiz }: { session: Session; onExport: () 
             <Button type="submit" variant="primary">Сохранить</Button>
           </form>
         ) : (
-          <button type="button" className="max-w-full truncate rounded-md px-1 text-left font-serif text-lg font-semibold hover:bg-hover" onClick={() => { setTitle(session.title); setEditing(true) }} title="Переименовать сессию">{session.title}</button>
+          <button type="button" className="display-s max-w-full truncate rounded-md px-1 text-left hover:bg-hover" onClick={() => { setTitle(session.title); setEditing(true) }} title="Переименовать сессию">{session.title}</button>
         )}
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-small text-muted">
+        <p className="caption flex flex-wrap items-center gap-x-3 gap-y-0.5">
           <span className="chip">{ROLE_RU[session.role]}</span>
           <span className="tnum">Срез на {session.as_of_date}</span>
           <span>{st ? (st.corpus_empty ? 'Корпус пуст' : `Корпус: generation №${st.generation_seq}`) : '…'}</span>
@@ -52,11 +55,16 @@ function TopBar({ session, onExport, onQuiz }: { session: Session; onExport: () 
         </p>
         {rename.error && <p role="alert" className="text-small text-risk-high">{errorText(rename.error)}</p>}
       </div>
+      <div className="seg" role="tablist" aria-label="Режим портрета">
+        {MODES.map(([id, label]) => (
+          <button key={id} role="tab" className="seg-item" aria-selected={mode === id} onClick={() => setMode(id)}>{label}</button>
+        ))}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         {anySel && <Button variant="quiet" onClick={clear}><X className="size-4" aria-hidden />Снять выделение</Button>}
         {session.role === 'student' && <Button onClick={onQuiz}><GraduationCap className="size-4" aria-hidden />Самопроверка</Button>}
         <Button onClick={() => setRoleOpen(true)}><Repeat className="size-4" aria-hidden />Сменить роль</Button>
-        <Button variant="primary" onClick={onExport}><FileDown className="size-4" aria-hidden />Экспорт PDF</Button>
+        <Button variant="primary" onClick={onExport}><FileDown className="size-4" aria-hidden />Экспорт портрета</Button>
       </div>
       <Dialog open={roleOpen} onClose={() => setRoleOpen(false)} title="Сменить роль">
         <p className="mb-3 text-small text-muted">Смена роли создаёт новую сессию со своим слепком и рисками. Текущая сессия и её данные сохранятся; сведения между сессиями не переносятся.</p>
@@ -112,6 +120,7 @@ function Inner({ session }: { session: Session }) {
   const mode = useLayoutMode()
   const [draft, setDraft] = useState('')
   const [tab, setTab] = useState<'chat' | 'portrait' | 'risks'>('chat')
+  const [pmode, setPmode] = useState<PortraitMode>('map')
   const [right, setRight] = useState<'portrait' | 'risks'>('portrait')
   const [exportOpen, setExportOpen] = useState(false)
   const [quizOpen, setQuizOpen] = useState(false)
@@ -119,14 +128,14 @@ function Inner({ session }: { session: Session }) {
   useEffect(() => { document.title = `${session.title} — DoorAIn` }, [session.title])
   // Выбор риска/узла на узком экране не должен ломать контекст: панели остаются смонтированными (ввод и прокрутка сохраняются).
   const chat = <ChatPanel session={session} draft={draft} setDraft={setDraft} />
-  const portrait = <PortraitPanel session={session} />
+  const portrait = <PortraitPanel session={session} mode={pmode} />
   const risks = <RisksPanel session={session} />
   const tabBtn = (id: string, label: string, on: boolean, set: () => void) => (
     <button key={id} role="tab" aria-selected={on} className={`btn ${on ? 'btn-primary' : 'btn-quiet'} flex-1`} onClick={set}>{label}</button>
   )
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <TopBar session={session} onExport={() => setExportOpen(true)} onQuiz={() => setQuizOpen(true)} />
+      <TopBar session={session} mode={pmode} setMode={setPmode} onExport={() => setExportOpen(true)} onQuiz={() => setQuizOpen(true)} />
       {mode === 'wide' && <ThreePanels chat={chat} portrait={portrait} risks={risks} />}
       {mode === 'mid' && (
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(320px,46fr)_minmax(320px,54fr)]">

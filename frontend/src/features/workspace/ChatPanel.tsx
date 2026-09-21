@@ -2,14 +2,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, Loader2, Send, Square } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { FrameArt } from '../../components/art'
 import { Banner, EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import { Button, Kbd } from '../../components/ui'
 import type { Message, Session } from '../../lib/api'
 import { ApiError, newRequestId, post } from '../../lib/api'
 import { useOnline } from '../../lib/hooks'
-import { keys, useGraph, useMessages, useStatus } from '../../lib/queries'
-import { nodesForRisk, useSelection } from '../../lib/selection'
+import { keys, useGraph, useMessages, useRisks, useStatus } from '../../lib/queries'
+import { nodesForRisk, riskIdsForNode, useSelection } from '../../lib/selection'
 import { useRunStream } from '../../lib/stream'
 import { Blocks } from './MessageView'
 
@@ -22,6 +21,27 @@ const EXAMPLES: Record<Session['role'], string[]> = {
 }
 
 const NO_CHIPS: never[] = []
+
+/** Системная врезка: какие риски выросли из этого ответа. Клик открывает риск в таблице. */
+function RiskNotes({ session, messageId }: { session: Session; messageId: string }) {
+  const risks = useRisks(session.id)
+  const graph = useGraph(session.id)
+  const { selectRisk } = useSelection()
+  const node = graph.data?.nodes.find((n) => n.kind === 'question' && n.data['message_id'] === messageId)
+  if (!node || !risks.data) return null
+  const ids = riskIdsForNode(graph.data, [...risks.data.active, ...risks.data.resolved], node.id)
+  const rows = [...risks.data.active, ...risks.data.resolved].filter((r) => ids.has(r.id))
+  if (!rows.length) return null
+  return (
+    <div className="space-y-1 pt-1">
+      {rows.map((r) => (
+        <button key={r.id} type="button" className="inline-note" style={{ ['--level' as string]: `var(--risk-${r.level === 'medium' ? 'mid' : (r.level ?? 'none')})` }} onClick={() => selectRisk(r.id)}>
+          Добавлен риск: {r.title}{r.score != null ? ` · ${r.score}` : ''}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 function RunStream({ runId, session, hideBlocks, onFinished }: { runId: string; session: Session; hideBlocks: boolean; onFinished: () => void }) {
   const qc = useQueryClient()
@@ -127,32 +147,35 @@ export function ChatPanel({ session, draft, setDraft }: { session: Session; draf
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <div ref={listRef} onScroll={onScroll} role="log" aria-label="Диалог" aria-live="polite" className="relative min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">
+      <p className="overline px-4 pt-3">Диалог</p>
+      <div ref={listRef} onScroll={onScroll} role="log" aria-label="Диалог" aria-live="polite" className="relative min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
         {msgs.isLoading && <Skeleton lines={5} />}
         {msgs.isError && <ErrorNote error={msgs.error} onRetry={() => msgs.refetch()} />}
         {msgs.data && rows.length === 0 && (
-          <EmptyState art={FrameArt} title="Задайте первый вопрос">
+          <EmptyState title="Задайте первый вопрос">
             {status.data?.corpus_empty ? <>База знаний пуста, поэтому ответить по источникам нельзя. <Link to="/kb">Загрузите документы</Link>, затем вернитесь к вопросу.</> : 'Ответ будет опираться на источники из базы знаний. Например:'}
             {!status.data?.corpus_empty && <div className="mt-3 flex flex-col gap-2">{EXAMPLES[session.role].map((t) => <button key={t} type="button" className="chip !h-auto justify-start whitespace-normal py-1 text-left" onClick={() => setDraft(t)}>{t}</button>)}</div>}
           </EmptyState>
         )}
-        {rows.map((m) => {
+        {rows.map((m, i) => {
           const qn = m.role === 'user' ? questionNodeOf(m.id) : undefined
+          const askedId = m.role === 'assistant' ? [...rows.slice(0, i)].reverse().find((x) => x.role === 'user')?.id : undefined
           const hl = highlightMsgs.has(m.id) || sel.messageId === m.id
           return (
-            <article key={m.id} data-message-id={m.id} className={`space-y-2 rounded-md ${hl ? 'bg-sidebar ring-1 ring-line' : ''}`} aria-label={m.role === 'user' ? 'Сообщение пользователя' : 'Ответ ассистента'}>
+            <article key={m.id} data-message-id={m.id} className={`space-y-2 rounded-lg ${hl ? 'bg-panel ring-1 ring-gold' : ''}`} aria-label={m.role === 'user' ? 'Сообщение пользователя' : 'Ответ ассистента'}>
               {m.role === 'user' ? (
-                <button type="button" onClick={() => { selectMessage(m.id); if (qn) selectNode(qn.id) }} className="block w-full cursor-pointer rounded-md bg-sidebar px-3 py-2 text-left" title="Показать вопрос на карте">
+                <button type="button" onClick={() => { selectMessage(m.id); if (qn) selectNode(qn.id) }} className="bubble-user block w-full cursor-pointer text-left" title="Показать вопрос на карте">
                   <span className="whitespace-pre-wrap break-words">{m.text}</span>
                   {qn?.data['result'] === 'refused' && <span className="chip ml-2">Отказ</span>}
                 </button>
               ) : m.blocks ? (
-                <>
+                <div className="bubble-agent space-y-2">
                   <Blocks blocks={m.blocks} chips={m.citations} onCite={openCitation} />
                   {m.answer_status === 'cancelled' && <p className="hint">Генерация остановлена: неполный ответ не используется в слепке и рисках.</p>}
                   {m.warnings.length > 0 && <ul className="hint list-disc pl-5">{m.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
-                </>
-              ) : <p>{m.text}</p>}
+                  {askedId && <RiskNotes session={session} messageId={askedId} />}
+                </div>
+              ) : <p className="bubble-agent">{m.text}</p>}
             </article>
           )
         })}
