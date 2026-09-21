@@ -39,6 +39,17 @@ def safe_filename(name: str, default: str = "file") -> str:
     return (base[:120] or default)
 
 
+_TR = str.maketrans({"а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e", "ж": "zh", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m",
+                     "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f", "х": "kh", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "shch",
+                     "ъ": "", "ы": "y", "ь": "", "э": "e", "ю": "yu", "я": "ya"})
+
+
+def translit(text: str) -> str:
+    """Транслитерация для имён файлов: кириллица → латиница, прочее → «_»."""
+    out = "".join((ch.lower().translate(_TR).capitalize() if ch.isupper() else ch.translate(_TR)) for ch in text)
+    return re.sub(r"[^A-Za-z0-9]+", "_", out).strip("_")
+
+
 def est_tokens(text: str, chars_per_token: float = 2.6) -> int:
     return max(1, int(len(text) / chars_per_token))
 

@@ -1521,16 +1521,6 @@ export interface components {
         /** ExportCreate */
         ExportCreate: {
             /**
-             * Include Dialog
-             * @default false
-             */
-            include_dialog: boolean;
-            /**
-             * Include Profile
-             * @default true
-             */
-            include_profile: boolean;
-            /**
              * Allow Incomplete
              * @default false
              */

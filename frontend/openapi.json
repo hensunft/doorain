@@ -4095,16 +4095,6 @@
    },
    "ExportCreate": {
     "properties": {
-     "include_dialog": {
-      "type": "boolean",
-      "title": "Include Dialog",
-      "default": false
-     },
-     "include_profile": {
-      "type": "boolean",
-      "title": "Include Profile",
-      "default": true
-     },
      "allow_incomplete": {
       "type": "boolean",
       "title": "Allow Incomplete",

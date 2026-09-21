@@ -103,3 +103,27 @@ def test_textbook_chunks_keep_page() -> None:
 def test_normalize_keeps_numbers_and_negations() -> None:
     t = chunker.normalize("1) не вправе передавать  \r\n2) обязан")
     assert "не вправе передавать" in t and "2) обязан" in t
+
+
+def test_translit_for_export_filename() -> None:
+    from app.core.util import translit
+
+    assert translit("Онлайн-школа программирования: запуск") == "Onlayn_shkola_programmirovaniya_zapusk"
+    assert translit("Щука и Ёж") == "Shchuka_i_Ezh"
+
+
+def test_print_palette_matches_tokens() -> None:
+    """Цвета PDF — не в коде, а в app/config/print.yaml; значения совпадают со светлой темой tokens.css."""
+    import re
+    from pathlib import Path
+
+    import yaml
+
+    root = Path(__file__).resolve().parents[2]
+    tokens = root / "frontend" / "src" / "styles" / "tokens.css"
+    if not tokens.is_file():
+        pytest.skip("исходники frontend недоступны")
+    light = tokens.read_text(encoding="utf-8").split("@media")[0]
+    css = {k: v.lower() for k, v in re.findall(r"--([a-z0-9-]+):\s*(#[0-9a-fA-F]{6})", light)}
+    pal = yaml.safe_load((root / "backend" / "app" / "config" / "print.yaml").read_text(encoding="utf-8"))
+    assert {k: v.lower() for k, v in pal.items()} == {k: css[k] for k in pal}

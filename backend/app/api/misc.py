@@ -17,6 +17,7 @@ from .. import __version__
 from ..auth import service as auth
 from ..core.config import Settings, get_settings
 from ..core.errors import ApiError, not_found
+from ..core.util import translit
 from ..db.models import AuditEvent, ConsultationSession, Export, GenerationRun, Job, Quiz, QuizAttempt
 from ..db.session import get_db
 from ..providers.registry import get_providers
@@ -132,7 +133,8 @@ def download_export(export_id: uuid.UUID, ctx: auth.AuthContext = Depends(curren
     ex = _export_of(db, ctx, export_id)  # права проверяются при каждом скачивании
     if ex.status != "ready" or not ex.file_path or not Path(ex.file_path).is_file():
         raise ApiError(409, "export_not_ready", "PDF ещё не готов")
-    return FileResponse(ex.file_path, media_type="application/pdf", filename=f"doorain-portrait-{ex.created_at:%Y%m%d-%H%M}.pdf", content_disposition_type="attachment", headers={"X-Content-Type-Options": "nosniff"})
+    theme = translit((ex.snapshot or {}).get("session", {}).get("title") or "")[:40].strip("_") or "sessiya"
+    return FileResponse(ex.file_path, media_type="application/pdf", filename=f"DoorAIn_слепок_{theme}_{ex.created_at:%Y-%m-%d}.pdf", content_disposition_type="attachment", headers={"X-Content-Type-Options": "nosniff"})
 
 
 # ───────────── система ─────────────

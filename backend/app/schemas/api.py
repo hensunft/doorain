@@ -576,9 +576,7 @@ class QuizAttemptOut(BaseModel):
 
 
 class ExportCreate(BaseModel):
-    include_dialog: bool = False
-    include_profile: bool = True
-    allow_incomplete: bool = False
+    allow_incomplete: bool = False  # реплик диалога в документе нет: опции «приложить диалог» не существует
 
 
 class ExportOut(Out):

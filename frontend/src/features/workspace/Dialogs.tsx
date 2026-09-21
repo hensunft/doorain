@@ -70,12 +70,10 @@ export function QuizDialog({ session, open, onClose }: { session: Session; open:
   )
 }
 
-/** Экспорт «портрета» в PDF из согласованного снимка. Неполный снимок — только по явному выбору. */
+/** Экспорт «Правового слепка сессии» в PDF из согласованного снимка. Реплик диалога в документе нет; неполный снимок — только по явному выбору. */
 export function ExportDialog({ session, open, onClose }: { session: Session; open: boolean; onClose: () => void }) {
-  const [includeDialog, setIncludeDialog] = useState(false)
-  const [includeProfile, setIncludeProfile] = useState(true)
   const [exportId, setExportId] = useState<string | null>(null)
-  const create = useMutation({ mutationFn: (allow: boolean) => post<Export>(`/sessions/${session.id}/exports`, { include_dialog: includeDialog, include_profile: includeProfile, allow_incomplete: allow }), onSuccess: (e) => setExportId(e.id) })
+  const create = useMutation({ mutationFn: (allow: boolean) => post<Export>(`/sessions/${session.id}/exports`, { allow_incomplete: allow }), onSuccess: (e) => setExportId(e.id) })
   const status = useQuery({ queryKey: ['export', exportId], queryFn: () => get<Export>(`/exports/${exportId}`), enabled: !!exportId, refetchInterval: (q) => (q.state.data && (q.state.data.status === 'ready' || q.state.data.status === 'failed') ? false : 1200) })
   const past = useQuery({ queryKey: ['exports', session.id, open], queryFn: () => get<Export[]>(`/sessions/${session.id}/exports`), enabled: open })
   const pending = create.error instanceof ApiError && create.error.code === 'analysis_pending'
@@ -83,9 +81,7 @@ export function ExportDialog({ session, open, onClose }: { session: Session; ope
   return (
     <Dialog open={open} onClose={onClose} title="Экспорт портрета в PDF">
       <div className="space-y-4 text-small">
-        <p>PDF содержит слепок, полную таблицу рисков со статусами, рекомендации, источники с редакциями, модель, ограничения и дисклеймер. Он формируется из снимка на момент запроса и не меняется после обновления корпуса.</p>
-        <label className="flex items-center gap-2"><input type="checkbox" checked={includeDialog} onChange={(e) => setIncludeDialog(e.target.checked)} />Добавить полный диалог приложением</label>
-        {session.role === 'entrepreneur' && <label className="flex items-center gap-2"><input type="checkbox" checked={includeProfile} onChange={(e) => setIncludeProfile(e.target.checked)} />Включить профиль бизнеса</label>}
+        <p>«Правовой слепок сессии»: сводка, граф-слепок, матрица и карточки рисков, нормативные основания и методика оценки. Реплик диалога в документе нет. PDF собирается из снимка на момент запроса и не меняется после обновления корпуса.</p>
         {pending && (
           <Banner tone="warn" action={<Button onClick={() => create.mutate(true)}>Выгрузить неполный</Button>}>
             Анализ сессии ещё выполняется или завершился ошибкой. Дождитесь завершения либо явно выгрузите неполный снимок (он будет помечен в PDF).
