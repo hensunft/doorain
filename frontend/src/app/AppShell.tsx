@@ -1,4 +1,4 @@
-import { BookOpenText, History, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, ShieldUser } from 'lucide-react'
+import { BookOpenText, History, Menu, Palette, PanelLeftClose, PanelLeftOpen, Plus, Settings, ShieldUser } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
 import { Dialog } from '../components/Dialog'
@@ -28,6 +28,7 @@ function SidebarNav({ compact, onNavigate }: { compact: boolean; onNavigate?: ()
       <Link to="/" onClick={onNavigate} className="btn btn-primary mb-2 no-underline"><Plus className="size-4" aria-hidden />{!compact && 'Новая сессия'}{compact && <span className="sr-only">Новая сессия</span>}</Link>
       <NavLink to="/history" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><History className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">История</span> : 'История'}</NavLink>
       {isOwner && <NavLink to="/kb" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><BookOpenText className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">База знаний</span> : 'База знаний'}</NavLink>}
+      {isOwner && <NavLink to="/styleguide" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><Palette className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Библиотека компонентов</span> : 'Компоненты'}</NavLink>}
       {isOwner && <NavLink to="/admin" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><ShieldUser className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Администрирование</span> : 'Администрирование'}</NavLink>}
       <NavLink to="/settings" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><Settings className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Настройки</span> : 'Настройки'}</NavLink>
       {!compact && (

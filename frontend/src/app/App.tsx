@@ -5,6 +5,7 @@ import { AdminPage } from '../features/admin/AdminPage'
 import { DisclaimerGate } from '../features/auth/DisclaimerGate'
 import { LoginPage } from '../features/auth/LoginPage'
 import { RegisterPage } from '../features/auth/RegisterPage'
+import { StyleguidePage } from '../features/styleguide/StyleguidePage'
 import { HistoryPage } from '../features/sessions/HistoryPage'
 import { KnowledgeBasePage } from '../features/kb/KnowledgeBasePage'
 import { SettingsPage } from '../features/settings/SettingsPage'
@@ -61,6 +62,7 @@ export function App() {
         <Route path="kb" element={<KnowledgeBasePage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="admin" element={<AdminPage />} />
+        <Route path="styleguide" element={<StyleguidePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

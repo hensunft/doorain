@@ -1,145 +1,227 @@
 @import "tailwindcss";
+@import "./tokens.css";
 
-/* Шрифт Inter (SIL OFL) хранится локально: public/fonts. Внешние шрифты и CDN не используются. */
-@font-face {
-  font-family: "Inter";
-  src: url("/fonts/inter-cyrillic-wght-normal.woff2") format("woff2-variations");
-  font-weight: 100 900;
-  font-display: swap;
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-@font-face {
-  font-family: "Inter";
-  src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
-  font-weight: 100 900;
-  font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
+/* Шрифты (SIL OFL) лежат локально в public/fonts. Внешние шрифты, CDN и сетевые запросы не используются. */
+@font-face { font-family: "Playfair Display"; src: url("/fonts/playfair-display-cyrillic-600-normal.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "Playfair Display"; src: url("/fonts/playfair-display-latin-600-normal.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Playfair Display"; src: url("/fonts/playfair-display-cyrillic-700-normal.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "Playfair Display"; src: url("/fonts/playfair-display-latin-700-normal.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
 
+@font-face { font-family: "IBM Plex Sans"; src: url("/fonts/ibm-plex-sans-cyrillic-400-normal.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "IBM Plex Sans"; src: url("/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url("/fonts/ibm-plex-sans-cyrillic-500-normal.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "IBM Plex Sans"; src: url("/fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url("/fonts/ibm-plex-sans-cyrillic-600-normal.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "IBM Plex Sans"; src: url("/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+
+@font-face { font-family: "IBM Plex Mono"; src: url("/fonts/ibm-plex-mono-cyrillic-400-normal.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "IBM Plex Mono"; src: url("/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url("/fonts/ibm-plex-mono-cyrillic-500-normal.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "IBM Plex Mono"; src: url("/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+
+/* Утилиты Tailwind ссылаются на переменные токенов, поэтому тёмная тема работает без второго набора классов. */
 @theme {
-  --font-sans: "Inter", "Segoe UI", Arial, sans-serif;
-  --font-serif: Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-display);
+  --font-mono: var(--font-mono);
 
-  --color-canvas: #ffffff;
-  --color-sidebar: #f7f7f5;
-  --color-ink: #37352f;
-  --color-muted: #6b6b66;
-  --color-line: #e9e9e7;
-  --color-graphite: #2f2e2b;
-  --color-graphite-hover: #454440;
-  --color-brand: #7a3447;
-  --color-hover: #efefed;
-  --color-selected: #ecebe8;
+  --color-canvas: var(--surface);
+  --color-page: var(--bg);
+  --color-sidebar: var(--surface-3);
+  --color-panel: var(--surface-2);
+  --color-alt: var(--surface-alt);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-line-strong: var(--line-strong);
+  --color-graphite: var(--ink);
+  --color-graphite-hover: var(--ink-2);
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-tint: var(--brand-tint);
+  --color-gold: var(--gold);
+  --color-gold-tint: var(--gold-tint);
+  --color-hover: var(--surface-3);
+  --color-selected: var(--brand-tint);
 
-  /* Риск — единственное многоцветное исключение. Пары проверены на контраст ≥ 4.5:1 (см. docs/design-system.md). */
-  --color-risk-low: #3f6b55;
-  --color-risk-low-soft: #eaf3ee;
-  --color-risk-medium: #8a641f;
-  --color-risk-medium-soft: #faf3e0;
-  --color-risk-high: #b4473e;
-  --color-risk-high-soft: #fbedeb;
-  --color-risk-critical: #70263a;
-  --color-risk-critical-soft: #f5e8ec;
-  --color-neutral-node: #9a9a94;
+  --color-risk-low: var(--risk-low);
+  --color-risk-low-soft: var(--risk-low-tint);
+  --color-risk-medium: var(--risk-mid);
+  --color-risk-medium-soft: var(--risk-mid-tint);
+  --color-risk-high: var(--risk-high);
+  --color-risk-high-soft: var(--risk-high-tint);
+  --color-risk-critical: var(--risk-critical);
+  --color-risk-critical-soft: var(--risk-critical-tint);
+  --color-neutral-node: var(--risk-none);
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-sm: var(--r-chip);
+  --radius-md: 8px;
+  --radius-lg: var(--r-card);
+  --radius-zone: var(--r-zone);
 
-  --text-body: 15px;
-  --text-small: 13px;
-  --text-xs: 12px;
-  --text-h1: 26px;
-  --text-h2: 20px;
-  --text-h3: 16px;
+  --text-body: var(--body-l);
+  --text-small: var(--body-m);
+  --text-xs: var(--body-s);
+  --text-h1: var(--display-l);
+  --text-h2: var(--display-m);
+  --text-h3: var(--display-s);
 }
 
 @layer base {
-  html {
-    font-size: 16px;
-    -webkit-text-size-adjust: 100%;
-  }
+  html { font-size: 16px; -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
     font-family: var(--font-sans);
-    font-size: var(--text-body);
-    line-height: 1.6;
-    color: var(--color-ink);
-    background: var(--color-canvas);
-    font-feature-settings: "cv11", "ss03";
+    font-size: var(--body-l);
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--bg);
   }
-  h1, h2, h3 { line-height: 1.25; margin: 0; text-wrap: balance; }
-  h1 { font-family: var(--font-serif); font-size: var(--text-h1); font-weight: 600; letter-spacing: -0.01em; }
-  h2 { font-size: var(--text-h2); font-weight: 600; }
-  h3 { font-size: var(--text-h3); font-weight: 600; }
+  h1, h2, h3 { line-height: 1.2; margin: 0; text-wrap: balance; font-family: var(--font-display); }
+  h1 { font-size: var(--display-l); font-weight: 700; line-height: 1.1; }
+  h2 { font-size: var(--display-m); font-weight: 600; line-height: 1.15; }
+  h3 { font-size: var(--display-s); font-weight: 600; line-height: 1.25; }
   p { margin: 0; }
   button, input, select, textarea { font: inherit; color: inherit; }
-  ::selection { background: #e8d9dd; color: var(--color-ink); }
-  :focus-visible { outline: 2px solid var(--color-graphite); outline-offset: 2px; border-radius: var(--radius-sm); }
-  * { scrollbar-width: thin; scrollbar-color: #cfcfca transparent; }
+  ::selection { background: var(--brand-tint); color: var(--ink); }
+  :focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-chip); }
+  * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
   table { font-variant-numeric: tabular-nums; }
   .tnum { font-variant-numeric: tabular-nums; }
-  
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
   }
 }
 
 @layer components {
+  /* Типографика */
+  .display-l { font-family: var(--font-display); font-size: var(--display-l); font-weight: 700; line-height: 1.1; }
+  .display-m { font-family: var(--font-display); font-size: var(--display-m); font-weight: 600; line-height: 1.15; }
+  .display-s { font-family: var(--font-display); font-size: var(--display-s); font-weight: 600; line-height: 1.25; }
+  .body-l { font-family: var(--font-sans); font-size: var(--body-l); line-height: 1.5; font-weight: inherit; }
+  .body-m { font-family: var(--font-sans); font-size: var(--body-m); line-height: 1.5; font-weight: inherit; }
+  .body-s { font-family: var(--font-sans); font-size: var(--body-s); line-height: 1.45; font-weight: inherit; }
+  .caption { font-family: var(--font-sans); font-size: var(--caption); line-height: 1.45; color: var(--muted); }
+  .overline { font-family: var(--font-sans); font-size: var(--overline); line-height: 1.2; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500; color: var(--faint); }
+  /* Любой реквизит нормы набирается моноширинным: номер статьи читается как идентификатор, а не как проза. */
+  .mono-m { font-family: var(--font-mono); font-size: var(--mono-m); line-height: 1.4; }
+  .mono-l { font-family: var(--font-mono); font-size: var(--mono-l); font-weight: 500; line-height: 1.4; }
+
+  /* Кнопки */
   .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
-    min-height: 34px; padding: 0.3rem 0.8rem; border-radius: var(--radius-md);
-    border: 1px solid var(--color-line); background: var(--color-canvas); color: var(--color-ink);
-    font-size: var(--text-small); font-weight: 500; cursor: pointer; white-space: nowrap;
-    transition: background-color 140ms ease-out, border-color 140ms ease-out;
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+    min-height: 36px; padding: 9px 16px; border-radius: 8px;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2);
+    font-size: var(--body-m); font-weight: 500; cursor: pointer; white-space: nowrap;
+    transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
   }
-  .btn:hover:not(:disabled) { background: var(--color-hover); }
-  .btn:active:not(:disabled) { background: var(--color-selected); }
+  .btn:hover:not(:disabled) { background: var(--surface-3); }
   .btn:disabled { opacity: 0.55; cursor: not-allowed; }
-  .btn-primary { background: var(--color-graphite); border-color: var(--color-graphite); color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: var(--color-graphite-hover); }
-  .btn-primary:active:not(:disabled) { background: #1f1e1c; }
+  .btn-primary { background: var(--brand); border-color: var(--brand); color: var(--brand-on); }
+  .btn-primary:hover:not(:disabled) { background: var(--brand-deep); border-color: var(--brand-deep); }
   .btn-quiet { border-color: transparent; background: transparent; }
-  .btn-danger { color: var(--color-risk-high); border-color: #e7c4c0; }
-  .btn-icon { min-height: 32px; min-width: 32px; padding: 0.25rem; }
-  .input {
-    width: 100%; min-height: 36px; padding: 0.35rem 0.6rem; border-radius: var(--radius-md);
-    border: 1px solid #d6d6d2; background: #fff; font-size: var(--text-body);
-    transition: border-color 140ms ease-out;
+  .btn-quiet:hover:not(:disabled) { background: var(--surface-3); }
+  .btn-danger { color: var(--risk-high); border-color: var(--risk-high); background: var(--surface); }
+  .btn-danger:hover:not(:disabled) { background: var(--risk-high-tint); }
+  .btn-icon { min-height: 28px; min-width: 28px; padding: var(--space-1); border-radius: 7px; }
+
+  /* Сегментированный переключатель режимов */
+  .seg { display: inline-flex; gap: var(--space-1); padding: var(--space-1); border-radius: 10px; background: var(--surface-3); }
+  .seg-item {
+    padding: 6px 14px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2);
+    font-size: var(--body-m); font-weight: 500; cursor: pointer; transition: background-color var(--t-fast) var(--ease);
   }
-  .input:hover { border-color: #b9b9b4; }
-  .input:focus-visible { outline: 2px solid var(--color-graphite); outline-offset: 1px; }
-  .input[aria-invalid="true"] { border-color: var(--color-risk-high); }
-  .label { display: block; margin-bottom: 0.25rem; font-size: var(--text-small); font-weight: 500; }
-  .hint { font-size: var(--text-small); color: var(--color-muted); }
+  .seg-item:hover { background: var(--surface); }
+  .seg-item[aria-selected="true"], .seg-item[aria-pressed="true"] { background: var(--brand); color: var(--brand-on); }
+
+  /* Поля ввода */
+  .input {
+    width: 100%; min-height: 40px; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--line-strong); background: var(--surface-alt); color: var(--ink);
+    font-size: var(--body-l); transition: border-color var(--t-fast) var(--ease);
+  }
+  .input:hover { border-color: var(--gold); }
+  .input[aria-invalid="true"] { border-color: var(--risk-high); }
+  .label { display: block; margin-bottom: var(--space-1); font-size: var(--body-m); font-weight: 500; color: var(--ink-2); }
+  .hint { font-size: var(--body-s); color: var(--muted); }
+
+  /* Контейнеры */
+  .zone { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-zone); padding: var(--space-4); }
+  .card { background: var(--surface-alt); border: 1px solid var(--line-soft); border-radius: var(--r-card); padding: var(--space-3); }
+  .card-risk { position: relative; padding-left: var(--space-4); overflow: hidden; }
+  .card-risk::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--level, var(--risk-none)); transition: background-color var(--t-risk) var(--ease); }
+
+  /* Чипы и бейджи */
   .chip {
-    display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.05rem 0.5rem; min-height: 22px;
-    border-radius: var(--radius-sm); border: 1px solid var(--color-line); background: var(--color-sidebar);
-    font-size: var(--text-xs); font-weight: 500; color: var(--color-ink);
+    display: inline-flex; align-items: center; gap: var(--space-1); padding: 4px 8px; min-height: 22px;
+    border-radius: var(--r-chip); border: 1px solid var(--line); background: var(--surface-3);
+    font-size: var(--body-s); font-weight: 500; color: var(--ink-2);
   }
   button.chip { cursor: pointer; }
-  button.chip:hover { background: var(--color-hover); }
-  .kbd { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 11px; padding: 0 5px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-sidebar); }
-  .risk-low { color: var(--color-risk-low); background: var(--color-risk-low-soft); }
-  .risk-medium { color: var(--color-risk-medium); background: var(--color-risk-medium-soft); }
-  .risk-high { color: var(--color-risk-high); background: var(--color-risk-high-soft); }
-  .risk-critical { color: var(--color-risk-critical); background: var(--color-risk-critical-soft); }
-  .risk-none { color: var(--color-muted); background: var(--color-sidebar); }
-  .skeleton { border-radius: var(--radius-sm); background: linear-gradient(90deg, #f0f0ee 25%, #f7f7f5 50%, #f0f0ee 75%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
-  .prose-answer { line-height: 1.65; max-width: 72ch; }
-  .prose-answer p + p { margin-top: 0.6rem; }
-  .prose-answer ul { margin: 0.4rem 0 0.4rem 1.2rem; list-style: disc; }
-  .prose-answer ol { margin: 0.4rem 0 0.4rem 1.2rem; list-style: decimal; }
+  button.chip:hover { background: var(--surface); }
+  /* Чип нормы: реквизит акта всегда моноширинным. */
+  .chip-norm {
+    display: inline-flex; align-items: center; padding: 4px 8px; border-radius: var(--r-chip);
+    border: 0; background: var(--gold-tint); color: var(--chip-norm-ink);
+    font-family: var(--font-mono); font-size: var(--mono-m); line-height: 1.4;
+  }
+  button.chip-norm { cursor: pointer; }
+  button.chip-norm:hover { background: var(--brand-tint); }
+  .badge-level {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 28px; padding: 2px 10px;
+    border-radius: var(--r-pill); background: var(--level, var(--risk-none)); color: var(--on-risk);
+    font-family: var(--font-mono); font-size: var(--mono-l); font-weight: 500;
+    transition: background-color var(--t-risk) var(--ease);
+  }
+  .badge-level[data-level="medium"] { color: var(--on-risk-mid); }
+
+  /* Сообщения диалога */
+  .bubble-user { background: var(--brand); color: var(--brand-on); border-radius: 12px 12px 4px 12px; padding: var(--space-3); font-size: var(--body-m); }
+  .bubble-agent { background: var(--surface-3); color: var(--ink); border-radius: 12px 12px 12px 4px; padding: var(--space-3); font-size: var(--body-m); }
+  /* Системная врезка в чате: появление риска. */
+  .inline-note {
+    display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--line-soft); border-radius: var(--r-card); background: var(--surface-2);
+    font-size: var(--body-s); color: var(--ink-2); width: 100%; text-align: left;
+  }
+  .inline-note::before { content: ""; flex: none; width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--level, var(--risk-none)); }
+  button.inline-note { cursor: pointer; }
+  button.inline-note:hover { background: var(--surface-3); }
+
+  /* Карточка наведения */
+  .tooltip-card { background: var(--surface-alt); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-hover); overflow: hidden; }
+  .tooltip-card::before { content: ""; display: block; height: 4px; background: var(--level, var(--risk-none)); }
+
+  .kbd { font-family: var(--font-mono); font-size: var(--mono-m); padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface-3); }
+
+  /* Уровни риска: цвет никогда не единственный носитель смысла — рядом всегда число и словесный уровень. */
+  .risk-low { color: var(--risk-low); background: var(--risk-low-tint); }
+  .risk-medium { color: var(--risk-mid-ink); background: var(--risk-mid-tint); }
+  .risk-high { color: var(--risk-high); background: var(--risk-high-tint); }
+  .risk-critical { color: var(--risk-critical); background: var(--risk-critical-tint); }
+  .risk-none { color: var(--muted); background: var(--risk-none-tint); }
+
+  .skeleton { border-radius: var(--r-chip); background: var(--surface-3); animation: pulse-soft 1.4s ease-in-out infinite; }
+  .prose-answer { line-height: 1.55; max-width: 72ch; font-size: var(--body-m); }
+  .prose-answer p + p { margin-top: var(--space-2); }
+  .prose-answer ul { margin: var(--space-1) 0 var(--space-1) 1.2rem; list-style: disc; }
+  .prose-answer ol { margin: var(--space-1) 0 var(--space-1) 1.2rem; list-style: decimal; }
   .prose-answer strong { font-weight: 600; }
-  .prose-answer code { font-family: ui-monospace, Consolas, monospace; font-size: 0.9em; background: var(--color-sidebar); padding: 0 0.25em; border-radius: 3px; }
-  dialog::backdrop { background: rgba(47, 46, 43, 0.28); }
-  dialog[open] { animation: fade-in 140ms ease-out; }
+  .prose-answer code { font-family: var(--font-mono); font-size: var(--mono-m); background: var(--gold-tint); padding: 0 0.25em; border-radius: 3px; }
+  dialog::backdrop { background: rgba(36, 28, 26, 0.32); }
+  dialog[open] { animation: fade-in var(--t-fast) var(--ease); }
 }
 
-@keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-/* React Flow: спокойные линии и тема */
+/* React Flow: линии и элементы управления в токенах темы */
 .react-flow__attribution { display: none; }
-.react-flow__edge-path { stroke: #c9c9c5; stroke-width: 1.2; }
-.react-flow__controls-button { border-color: var(--color-line); }
+.react-flow__edge-path { stroke: var(--line-strong); stroke-width: 1.2; }
+.react-flow__controls-button { border-color: var(--line); background: var(--surface); color: var(--ink); fill: var(--ink); }
+.react-flow__controls-button:hover { background: var(--surface-3); }
+.react-flow__minimap { background: var(--surface-2); }

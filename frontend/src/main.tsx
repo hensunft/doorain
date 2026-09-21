@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { App } from './app/App'
 import { ApiError } from './lib/api'
 import './styles/index.css'
+import { applyTheme, readTheme } from './lib/theme'
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -15,6 +16,8 @@ const qc = new QueryClient({
     },
   },
 })
+
+applyTheme(readTheme())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

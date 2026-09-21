@@ -1,0 +1,166 @@
+/* Единственный источник правды по цвету, типографике, геометрии и движению.
+   В компонентах не должно быть литеральных цветов и размеров — только эти переменные.
+   Тёмная тема: [data-theme="dark"] или prefers-color-scheme, если пользователь не выбрал тему явно. */
+
+:root {
+  /* Поверхности */
+  --bg: #f6f1e9;
+  --surface: #fffdf9;
+  --surface-2: #fbf7f0;
+  --surface-3: #f4efe5;
+  --surface-alt: #ffffff;
+
+  /* Линии */
+  --line: #e3d8c8;
+  --line-soft: #eadfcd;
+  --line-strong: #c6b8a4;
+
+  /* Текст */
+  --ink: #241c1a;
+  --ink-2: #4a403a;
+  --muted: #5f544e;
+  --faint: #8a7d74;
+
+  /* Бренд */
+  --brand: #5b1a2b;
+  --brand-deep: #471420;
+  --brand-tint: #efe0e3;
+  --brand-on: #fffdf9; /* текст на бордовом */
+  --gold: #b08d57;
+  --gold-tint: #f4ece0;
+
+  /* Уровни риска */
+  --risk-none: #6b7280;
+  --risk-none-tint: #efedea;
+  --risk-low: #3c7a45;
+  --risk-low-tint: #e2ede3;
+  --risk-mid: #c98a12;
+  --risk-mid-tint: #f7ebd3;
+  --risk-high: #b3261e;
+  --risk-high-tint: #f3e3e2;
+  --risk-critical: #5b1a2b;
+  --risk-critical-tint: #efe0e3;
+  --on-risk-mid: #2b2008; /* тёмный текст на насыщенном жёлтом: контраст ≥ 4.5:1 */
+  --on-risk: #ffffff;
+  --risk-mid-ink: #7a5405; /* текст на подложке-тинте среднего уровня */
+  --chip-norm-ink: var(--brand); /* реквизит нормы на золотой подложке */
+
+  /* Геометрия */
+  --r-chip: 6px;
+  --r-card: 10px;
+  --r-zone: 14px;
+  --r-pill: 999px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Глубина */
+  --shadow-hover: 0 6px 16px rgba(58, 47, 42, 0.16);
+  --focus-ring: 0 0 0 3px var(--gold);
+
+  /* Движение */
+  --t-fast: 120ms;
+  --t-node: 300ms;
+  --t-risk: 400ms;
+  --t-camera: 500ms;
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* Типографика */
+  --font-display: "Playfair Display", "PT Serif", Georgia, serif;
+  --font-sans: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Mono", "Courier New", monospace;
+
+  --display-l: 30px;
+  --display-m: 22px;
+  --display-s: 17px;
+  --body-l: 14px;
+  --body-m: 13px;
+  --body-s: 12px;
+  --caption: 11.5px;
+  --overline: 10px;
+  --mono-m: 11px;
+  --mono-l: 13px;
+}
+
+/* Тёплая тёмная тема. Применяется по выбору пользователя либо по системной настройке. */
+:root[data-theme="dark"],
+:root:not([data-theme="light"]) {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #17120f;
+    --surface: #1f1a16;
+    --surface-2: #241e19;
+    --surface-3: #2b241e;
+    --surface-alt: #241e19;
+    --line: #3a312a;
+    --line-soft: #332b25;
+    --line-strong: #4d4239;
+    --ink: #f2ebe0;
+    --ink-2: #d9cfc1;
+    --muted: #b3a798;
+    --faint: #8f8375;
+    --brand: #8e2d45;
+    --brand-deep: #a3364f;
+    --brand-tint: #3a1d25;
+    --brand-on: #fdf7f8;
+    --gold: #c9a26b;
+    --gold-tint: #32291f;
+    --risk-none: #9aa1ac;
+    --risk-none-tint: #2a2622;
+    --risk-low: #5fa36a;
+    --risk-low-tint: #1f2b21;
+    --risk-mid: #e3a62b;
+    --risk-mid-tint: #332915;
+    --risk-high: #e05a50;
+    --risk-high-tint: #331f1d;
+    --risk-critical: #c2506a;
+    --risk-critical-tint: #331d24;
+    --on-risk-mid: #1c1409;
+  --risk-mid-ink: #e3a62b;
+  --chip-norm-ink: var(--gold);
+    --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.45);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #17120f;
+  --surface: #1f1a16;
+  --surface-2: #241e19;
+  --surface-3: #2b241e;
+  --surface-alt: #241e19;
+  --line: #3a312a;
+  --line-soft: #332b25;
+  --line-strong: #4d4239;
+  --ink: #f2ebe0;
+  --ink-2: #d9cfc1;
+  --muted: #b3a798;
+  --faint: #8f8375;
+  --brand: #8e2d45;
+  --brand-deep: #a3364f;
+  --brand-tint: #3a1d25;
+  --brand-on: #fdf7f8;
+  --gold: #c9a26b;
+  --gold-tint: #32291f;
+  --risk-none: #9aa1ac;
+  --risk-none-tint: #2a2622;
+  --risk-low: #5fa36a;
+  --risk-low-tint: #1f2b21;
+  --risk-mid: #e3a62b;
+  --risk-mid-tint: #332915;
+  --risk-high: #e05a50;
+  --risk-high-tint: #331f1d;
+  --risk-critical: #c2506a;
+  --risk-critical-tint: #331d24;
+  --on-risk-mid: #1c1409;
+  --risk-mid-ink: #e3a62b;
+  --chip-norm-ink: var(--gold);
+  --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
