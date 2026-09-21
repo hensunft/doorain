@@ -1,8 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { EmptyState, ErrorNote, Skeleton } from '../../components/States'
-import type { Level, Risk, Session } from '../../lib/api'
-import { errorText, patch } from '../../lib/api'
+import type { Level, PlanStep, Risk, Session } from '../../lib/api'
+import { del, errorText, get, patch, post } from '../../lib/api'
 import { keys, useRisks } from '../../lib/queries'
 import { levelVar } from '../../lib/risk'
 import { useSelection } from '../../lib/selection'
@@ -65,6 +65,43 @@ function Step({ risk, sessionId }: { risk: Risk; sessionId: string }) {
   )
 }
 
+/** Свои шаги пользователя: хранятся в сессии, не связаны с рисками и не меняют их статус. */
+function OwnSteps({ sessionId }: { sessionId: string }) {
+  const qc = useQueryClient()
+  const key = [...keys.risks(sessionId), 'steps']
+  const q = useQuery({ queryKey: key, queryFn: () => get<PlanStep[]>(`/sessions/${sessionId}/plan/steps`) })
+  const [title, setTitle] = useState('')
+  const [due, setDue] = useState('')
+  const done = () => void qc.invalidateQueries({ queryKey: key })
+  const add = useMutation({ mutationFn: () => post<PlanStep>(`/sessions/${sessionId}/plan/steps`, { title, due: due || null }), onSuccess: () => { setTitle(''); setDue(''); done() } })
+  const toggle = useMutation({ mutationFn: (s: PlanStep) => patch<PlanStep>(`/sessions/${sessionId}/plan/steps/${s.id}`, { done: !s.done }), onSuccess: done })
+  const drop = useMutation({ mutationFn: (s: PlanStep) => del(`/sessions/${sessionId}/plan/steps/${s.id}`), onSuccess: done })
+  const err = add.error ?? toggle.error ?? drop.error
+  return (
+    <section aria-labelledby="pl-own" className="space-y-2">
+      <h3 id="pl-own" className="display-s">Свои шаги</h3>
+      <ul className="space-y-2">
+        {(q.data ?? []).map((s) => (
+          <li key={s.id} className="card flex items-start gap-3 border-dashed">
+            <input type="checkbox" className="mt-0.5 size-5 shrink-0 accent-[var(--brand)]" checked={s.done} disabled={toggle.isPending} onChange={() => toggle.mutate(s)} aria-label={`Выполнено: ${s.title}`} />
+            <div className="min-w-0 flex-1">
+              <p className={`body-l font-semibold ${s.done ? 'text-muted line-through' : ''}`}>{s.title}</p>
+              <p className="caption">шаг добавлен вами{s.due ? ` · до ${new Date(s.due).toLocaleDateString('ru-RU')}` : ''}</p>
+            </div>
+            <button type="button" className="btn btn-quiet !min-h-7 !px-2" onClick={() => drop.mutate(s)} aria-label={`Удалить шаг: ${s.title}`}>Удалить</button>
+          </li>
+        ))}
+      </ul>
+      <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); add.mutate() }}>
+        <label className="min-w-48 flex-1"><span className="label">Добавить свой шаг</span><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} minLength={2} maxLength={300} placeholder="Например: запросить у подрядчика акт передачи прав" /></label>
+        <label><span className="label">Срок</span><input type="date" className="input" value={due} onChange={(e) => setDue(e.target.value)} /></label>
+        <button className="btn" type="submit" disabled={title.trim().length < 2 || add.isPending}>Добавить</button>
+      </form>
+      {err && <p role="alert" className="body-s text-risk-high">{errorText(err)}</p>}
+    </section>
+  )
+}
+
 /** План-схема: открытые риски превращаются в шаги, сгруппированные по срочности.
  *  Отметка шага закрывает риск и перекрашивает граф без перезагрузки. */
 export function PlanPanel({ session }: { session: Session }) {
@@ -74,7 +111,7 @@ export function PlanPanel({ session }: { session: Session }) {
   const data = risks.data
   if (!data) return null
   const all = [...data.active, ...data.resolved]
-  if (!all.length) return <EmptyState title="Плана пока нет">Шаги появятся, когда в сессии будут риски с рекомендациями. Пустой план не означает отсутствие рисков.</EmptyState>
+  if (!all.length) return <div className="min-h-0 space-y-4 overflow-y-auto p-3"><EmptyState title="Плана пока нет">Шаги появятся, когда в сессии будут риски с рекомендациями. Пустой план не означает отсутствие рисков.</EmptyState><OwnSteps sessionId={session.id} /></div>
   const closed = data.resolved.length
   const critical = data.active.filter((r) => r.level === 'critical').length
   const pct = Math.round((closed / all.length) * 100)
@@ -85,7 +122,10 @@ export function PlanPanel({ session }: { session: Session }) {
   return (
     <div className="min-h-0 space-y-4 overflow-y-auto p-3">
       <header>
-        <h2 className="display-s">План-схема</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="display-s">План-схема</h2>
+          <a className="btn no-underline" href={`/api/v1/sessions/${session.id}/risks/export?format=md`} download>Выгрузить чек-лист</a>
+        </div>
         <p className="hint mt-1">Рекомендации по открытым рискам превращены в шаги. Закрытие шага высветляет узлы в других режимах.</p>
       </header>
       <div className="card">
@@ -111,6 +151,7 @@ export function PlanPanel({ session }: { session: Session }) {
           </section>
         )
       })}
+      <OwnSteps sessionId={session.id} />
       <p className="caption">Оценка носит информационный характер и не является юридическим заключением.</p>
     </div>
   )

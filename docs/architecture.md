@@ -27,7 +27,7 @@
 | `services/rag` | Один запуск = путь сообщения: классификация → retrieval (dense+sparse RRF, точные статьи, rerank, бюджет токенов) → генерация блоками с серверной проверкой ссылок/цитат → финальная проверка → аналитика по JSON Schema. |
 | `services/risks` | Шкала P×S, дедупликация по `(тип, сценарий, семейство нормы)`, однократный бонус P, снятие/повторное открытие, история. |
 | `services/portrait` | Граф/хронология в PostgreSQL, раскладка для PDF. |
-| `services/exports` | Снимок сессии → ReportLab PDF (кириллица DejaVu, граф векторно). |
+| `services/exports` | Снимок сессии → ReportLab PDF (печатная тема: Playfair + IBM Plex, граф векторно, матрица 5 × 5, дисклеймер в колонтитуле). |
 | `providers/` | Границы с моделями: `ollama.py`, `embeddings.py` (BGE-M3, reranker), `vectorstore.py` (Qdrant), `testing.py` (**заглушки для тестов, маркируются в UI**). Облачного fallback нет. |
 | `worker/` | Очередь заданий (`SELECT … FOR UPDATE SKIP LOCKED`), lease/heartbeat, повторы, отмена. |
 | `ops.py` | Backup/restore/maintenance/загрузка моделей/smoke внутри образа. |

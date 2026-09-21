@@ -21,6 +21,11 @@ export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: s
     mutationFn: (v: { status: string; reason: string; version: number }) => patch<Risk>(`/risks/${riskId}`, v),
     onSuccess: () => { setReason(''); void qc.invalidateQueries({ queryKey: keys.risk(riskId) }); void qc.invalidateQueries({ queryKey: keys.risks(sessionId) }); void qc.invalidateQueries({ queryKey: keys.graph(sessionId) }) },
   })
+  const [ps, setPs] = useState<{ p: number; s: number; reason: string } | null>(null)
+  const rescore = useMutation({
+    mutationFn: (v: { p: number; s: number; reason: string; version: number }) => patch<Risk>(`/risks/${riskId}`, v),
+    onSuccess: () => { setPs(null); void qc.invalidateQueries({ queryKey: keys.risk(riskId) }); void qc.invalidateQueries({ queryKey: keys.risks(sessionId) }); void qc.invalidateQueries({ queryKey: keys.graph(sessionId) }) },
+  })
   if (q.isLoading) return <Skeleton lines={6} />
   if (q.isError) return <ErrorNote error={q.error} onRetry={() => q.refetch()} />
   if (!q.data) return null
@@ -53,6 +58,23 @@ export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: s
         <p><b>S:</b> {r.s_reason || '—'}</p>
         {r.conditions && <p><b>Условия применимости:</b> {r.conditions}</p>}
       </section>
+      {r.status !== 'needs_clarification' && (
+        <section>
+          {!ps ? (
+            <button type="button" className="btn" onClick={() => setPs({ p: r.p ?? 3, s: r.s ?? 3, reason: '' })}>Изменить оценку P и S</button>
+          ) : (
+            <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); rescore.mutate({ ...ps, version: r.version }) }}>
+              <label className="block"><span className="label">P</span><select className="input !w-20" value={ps.p} onChange={(e) => setPs({ ...ps, p: Number(e.target.value) })}>{[1, 2, 3, 4, 5].map((x) => <option key={x}>{x}</option>)}</select></label>
+              <label className="block"><span className="label">S</span><select className="input !w-20" value={ps.s} onChange={(e) => setPs({ ...ps, s: Number(e.target.value) })}>{[1, 2, 3, 4, 5].map((x) => <option key={x}>{x}</option>)}</select></label>
+              <label className="block min-w-40 flex-1"><span className="label">Почему</span><input className="input" required maxLength={1000} value={ps.reason} onChange={(e) => setPs({ ...ps, reason: e.target.value })} /></label>
+              <button className="btn btn-primary" type="submit" disabled={!ps.reason.trim() || rescore.isPending}>Сохранить</button>
+              <button className="btn" type="button" onClick={() => setPs(null)}>Отмена</button>
+            </form>
+          )}
+          <p className="hint mt-1">{r.manual_ps ? 'Оценка задана вами: агент её не перезаписывает, а при расхождении предлагает уточнение.' : 'После ручной правки агент перестанет менять P и S автоматически.'}</p>
+          {rescore.error && <p role="alert" className="text-risk-high">{errorText(rescore.error)}</p>}
+        </section>
+      )}
       <section><h4 className="font-semibold">Нормативное основание</h4>
         <ul className="mt-1 flex flex-wrap gap-1.5">{cites.map((c) => <li key={`${c.kind}${c.ref_id}`}><button type="button" className="chip" onClick={() => c.citation_id && openCitation(c.citation_id)}>{c.kind === 'consequence' ? 'Последствия: ' : ''}{c.label}</button></li>)}</ul>
         {!cites.length && <p className="text-muted">Основание не указано</p>}

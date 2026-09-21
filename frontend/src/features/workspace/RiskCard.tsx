@@ -2,11 +2,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { ErrorNote } from '../../components/States'
 import type { Risk } from '../../lib/api'
-import { errorText, patch } from '../../lib/api'
+import { errorText, patch, post } from '../../lib/api'
 import { keys } from '../../lib/queries'
 import { LEVEL_RU, levelVar, STATUS_RU } from '../../lib/risk'
 
-const FLOW: { id: 'open' | 'in_progress' | 'resolved'; label: string }[] = [
+type Next = 'open' | 'in_progress' | 'resolved' | 'dismissed'
+const FLOW: { id: Next; label: string }[] = [
   { id: 'open', label: 'Открыт' },
   { id: 'in_progress', label: 'В работе' },
   { id: 'resolved', label: 'Закрыт' },
@@ -26,7 +27,7 @@ export function RiskCard({ risk, sessionId, questions, expanded, selected, highl
 }) {
   const qc = useQueryClient()
   const [reason, setReason] = useState('')
-  const [ask, setAsk] = useState<null | 'open' | 'in_progress' | 'resolved'>(null)
+  const [ask, setAsk] = useState<null | Next>(null)
   const change = useMutation({
     mutationFn: (v: { status: string; reason: string }) => patch<Risk>(`/risks/${risk.id}`, { ...v, version: risk.version }),
     onSuccess: () => {
@@ -36,6 +37,11 @@ export function RiskCard({ risk, sessionId, questions, expanded, selected, highl
       void qc.invalidateQueries({ queryKey: keys.risk(risk.id) })
     },
   })
+  const decide = useMutation({
+    mutationFn: (d: 'accept' | 'reject') => post<Risk>(`/risks/${risk.id}/suggestion/${d}`),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: keys.risks(sessionId) }); void qc.invalidateQueries({ queryKey: keys.graph(sessionId) }) },
+  })
+  const sug = risk.pending_suggestion as { p?: number; s?: number; reason?: string } | null | undefined
   const closed = risk.status === 'resolved' || risk.status === 'not_applicable'
   const level = levelVar(risk.level)
   const basis = [risk.norms.join(' · '), questions.length ? `${questions.length > 1 ? 'вопросы' : 'вопрос'} ${questions.map((n) => `№${n}`).join(', ')}` : '']
@@ -62,19 +68,31 @@ export function RiskCard({ risk, sessionId, questions, expanded, selected, highl
           </span>
         )}
       </button>
-      <p className="mono-m mt-1 text-muted">{basis || 'основание не указано'}</p>
+      <p className="mono-m mt-1 text-muted">{basis || (risk.origin === 'user' ? 'основание не указано · добавлен вами' : 'основание не указано')}</p>
+      {risk.origin === 'user' && basis && <p className="caption">добавлен вами</p>}
+      {sug && !closed && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-gold-tint px-2 py-1.5">
+          <span className="chip" style={{ borderColor: 'var(--gold)' }}>есть уточнение</span>
+          <span className="body-s">Агент оценил P{sug.p} × S{sug.s}{sug.reason ? `: ${sug.reason}` : ''}. Ваша оценка сохранена.</span>
+          <button type="button" className="btn !min-h-7 !px-2" disabled={decide.isPending} onClick={() => decide.mutate('accept')}>Принять</button>
+          <button type="button" className="btn btn-quiet !min-h-7 !px-2" disabled={decide.isPending} onClick={() => decide.mutate('reject')}>Отклонить</button>
+        </div>
+      )}
       {expanded && (
         <>
           {risk.recommendation && <p className="body-s mt-2">{risk.recommendation}</p>}
-          <div className="seg mt-3" role="group" aria-label="Статус риска">
-            {FLOW.map((s) => (
-              <button key={s.id} type="button" className="seg-item" aria-pressed={risk.status === s.id} disabled={change.isPending} onClick={() => (risk.status === s.id ? undefined : setAsk(s.id))}>{s.label}</button>
-            ))}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="seg" role="group" aria-label="Статус риска">
+              {FLOW.map((s) => (
+                <button key={s.id} type="button" className="seg-item" aria-pressed={risk.status === s.id} disabled={change.isPending} onClick={() => (risk.status === s.id ? undefined : setAsk(s.id))}>{s.label}</button>
+              ))}
+            </div>
+            {risk.status !== 'not_applicable' && <button type="button" className="btn btn-quiet !min-h-8 !px-2 body-s" onClick={() => setAsk('dismissed')}>Неприменимо ко мне</button>}
           </div>
           {ask && (
             <form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); change.mutate({ status: ask, reason }) }}>
               <label className="sr-only" htmlFor={`rs-${risk.id}`}>Причина изменения статуса</label>
-              <input id={`rs-${risk.id}`} className="input min-w-40 flex-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Причина (обязательно)" required maxLength={1000} autoFocus />
+              <input id={`rs-${risk.id}`} className="input min-w-40 flex-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={ask === 'dismissed' ? 'Почему неприменимо (обязательно)' : 'Причина (обязательно)'} required maxLength={1000} autoFocus />
               <button className="btn btn-primary" type="submit" disabled={!reason.trim() || change.isPending}>Сохранить</button>
               <button className="btn" type="button" onClick={() => setAsk(null)}>Отмена</button>
             </form>

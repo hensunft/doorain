@@ -1,5 +1,5 @@
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type SortingState } from '@tanstack/react-table'
-import { Maximize2 } from 'lucide-react'
+import { Download, Maximize2, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState, ErrorNote, Skeleton } from '../../components/States'
@@ -8,7 +8,9 @@ import type { Level, Risk, Session } from '../../lib/api'
 import { useGraph, useRisks } from '../../lib/queries'
 import { LEVEL_ORDER, levelVar, STATUS_RU } from '../../lib/risk'
 import { riskIdsForNode, useSelection } from '../../lib/selection'
+import { ManualRiskDialog } from './ManualRisk'
 import { RiskCard } from './RiskCard'
+import { RiskMatrix } from './RiskMatrix'
 import { RiskDetail } from './RiskDetail'
 
 const col = createColumnHelper<Risk>()
@@ -55,7 +57,7 @@ function RisksTable({ rows, highlight, selected, onSelect }: { rows: Risk[]; hig
   )
 }
 
-const FILTERS = [['active', 'Активные'], ['needs_clarification', 'Уточнения'], ['resolved', 'Снятые']] as const
+const FILTERS = [['active', 'Риски'], ['needs_clarification', 'Уточнения']] as const
 
 const SHORT: Record<Level, string> = { low: 'низк.', medium: 'средн.', high: 'высок.', critical: 'критич.' }
 
@@ -91,9 +93,13 @@ export function RisksPanel({ session }: { session: Session }) {
   const [wide, setWide] = useState(false)
   const [only, setOnly] = useState<Level | null>(null)
   const [open, setOpen] = useState<Record<string, boolean>>({})
+  const [view, setView] = useState<'list' | 'matrix'>('list')
+  const [cell, setCell] = useState<{ p: number; s: number } | null>(null)
+  const [adding, setAdding] = useState(false)
   const data = risks.data
-  const base = data ? (filter === 'active' ? data.active : filter === 'resolved' ? data.resolved : data.needs_clarification) : []
-  const list = only ? base.filter((r) => r.level === only) : base
+  // закрытые риски — в конце общего списка, приглушённые; уточнения — отдельной вкладкой
+  const base = data ? (filter === 'active' ? [...data.active, ...data.resolved] : data.needs_clarification) : []
+  const list = base.filter((r) => (!only || r.level === only) && (!cell || (r.p === cell.p && r.s === cell.s && (r.status === 'open' || r.status === 'in_progress'))))
   const qNum = new Map<string, number>()
   graph.data?.nodes.filter((n) => n.kind === 'question').forEach((n, i) => qNum.set(n.id, i + 1))
   const questionsOf = (riskId: string) => {
@@ -115,12 +121,31 @@ export function RisksPanel({ session }: { session: Session }) {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
         <h2 className="display-s">{learning ? 'Ошибки понимания' : 'Риски'} <span className="caption font-normal">P × S, по убыванию</span></h2>
-        <Button className="btn-icon" aria-label="Развернуть таблицу на всю ширину" onClick={() => setWide(true)}><Maximize2 className="size-4" aria-hidden /></Button>
+        <span className="flex items-center gap-1">
+          {!learning && <Button className="btn-icon" aria-label="Добавить свой риск" title="Добавить свой риск" onClick={() => setAdding(true)}><Plus className="size-4" aria-hidden /></Button>}
+          <details className="relative">
+            <summary className="btn btn-icon list-none" aria-label="Выгрузить риски" title="Выгрузить"><Download className="size-4" aria-hidden /></summary>
+            <div className="zone absolute right-0 z-20 mt-1 w-56 space-y-1 !p-2 shadow-[var(--shadow-hover)]">
+              <a className="btn btn-quiet w-full !justify-start no-underline" href={`/api/v1/sessions/${session.id}/risks/export?format=csv`} download>Таблица рисков (CSV)</a>
+              <a className="btn btn-quiet w-full !justify-start no-underline" href={`/api/v1/sessions/${session.id}/risks/export?format=md`} download>Чек-лист плана (Markdown)</a>
+            </div>
+          </details>
+          <Button className="btn-icon" aria-label="Развернуть таблицу на всю ширину" onClick={() => setWide(true)}><Maximize2 className="size-4" aria-hidden /></Button>
+        </span>
       </div>
-      <div role="tablist" aria-label="Фильтр рисков" className="flex gap-1 px-3 py-2">
-        {FILTERS.map(([id, label]) => <button key={id} role="tab" aria-selected={filter === id} className={`btn ${filter === id ? 'btn-primary' : 'btn-quiet'}`} onClick={() => setFilter(id)}>{label}{data ? ` ${id === 'active' ? data.active.length : id === 'resolved' ? data.resolved.length : data.needs_clarification.length}` : ''}</button>)}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+        <div role="tablist" aria-label="Фильтр рисков" className="seg">
+          {FILTERS.map(([id, label]) => <button key={id} role="tab" aria-selected={filter === id} className="seg-item" onClick={() => setFilter(id)}>{label}{data ? ` ${id === 'active' ? data.active.length : data.needs_clarification.length}` : ''}</button>)}
+        </div>
+        {filter === 'active' && (
+          <div className="seg" role="group" aria-label="Вид">
+            <button type="button" className="seg-item" aria-pressed={view === 'list'} onClick={() => setView('list')}>Список</button>
+            <button type="button" className="seg-item" aria-pressed={view === 'matrix'} onClick={() => setView('matrix')}>Матрица</button>
+          </div>
+        )}
       </div>
       {filter === 'active' && data && <LevelSummary rows={data.active} only={only} onOnly={setOnly} />}
+      {cell && <p className="caption flex items-center gap-2 px-3 pb-2">Ячейка P{cell.p} × S{cell.s}<button type="button" className="btn btn-quiet !min-h-7 !px-2" onClick={() => setCell(null)}>Показать все</button></p>}
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3">
         {risks.isLoading && <Skeleton lines={5} />}
         {risks.isError && <ErrorNote error={risks.error} onRetry={() => risks.refetch()} />}
@@ -128,7 +153,8 @@ export function RisksPanel({ session }: { session: Session }) {
           filter === 'active' ? <EmptyState title={learning ? 'Ошибок понимания не выявлено' : 'Подтверждённых рисков нет'}>{learning ? 'Вопрос сам по себе не доказывает незнание. Пройдите самопроверку: подтверждённые ошибки появятся здесь.' : 'Риск создаётся только при нормативном основании и подтверждённых фактах. Отсутствие строк не означает безопасность.'}</EmptyState> : <p className="hint px-1">Здесь пока ничего нет.</p>
         )}
         {filter === 'needs_clarification' && data?.clarifications.map((c) => <p key={c} className="rounded-md bg-risk-medium-soft px-3 py-2 text-small text-risk-medium">Вопрос для уточнения: {c}</p>)}
-        <ul className="space-y-2">
+        {filter === 'active' && view === 'matrix' && <RiskMatrix sessionId={session.id} onPick={(p, s) => { setCell({ p, s }); setView('list') }} />}
+        <ul className={`space-y-2 ${filter === 'active' && view === 'matrix' ? 'hidden' : ''}`}>
           {list.map((r, i) => {
             const isSel = selected === r.id
             const isOpen = open[r.id] ?? (isSel || (i < 2 && filter === 'active'))
@@ -150,6 +176,7 @@ export function RisksPanel({ session }: { session: Session }) {
           })}
         </ul>
       </div>
+      <ManualRiskDialog sessionId={session.id} open={adding} onClose={() => setAdding(false)} />
       <Dialog open={wide} onClose={() => setWide(false)} title="Таблица рисков" variant="full">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
           <div className="min-w-0"><RisksTable rows={data?.active ?? []} highlight={highlight} selected={selected} onSelect={(id) => selectRisk(id)} /></div>

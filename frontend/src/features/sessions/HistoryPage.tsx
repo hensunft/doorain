@@ -1,18 +1,35 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArchiveRestore, Pencil, Trash2 } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import { Button } from '../../components/ui'
-import { MapArt } from '../../components/art'
 import type { Session } from '../../lib/api'
 import { del, errorText, patch } from '../../lib/api'
 import { useSessions } from '../../lib/queries'
-import { ROLE_RU } from '../../lib/risk'
+import type { Level } from '../../lib/api'
+import { LEVEL_RU, levelVar, ROLE_RU } from '../../lib/risk'
+
+const ORDER: Level[] = ['critical', 'high', 'medium', 'low']
+
+/** Полоса распределения активных рисков по уровням; уровень дублируется подписью для печати и скринридера. */
+function RiskBar({ by }: { by: Record<string, number> }) {
+  const total = ORDER.reduce((n, l) => n + (by[l] ?? 0), 0)
+  if (!total) return <p className="caption">активных рисков нет</p>
+  const text = ORDER.filter((l) => by[l]).map((l) => `${LEVEL_RU[l].toLowerCase()}: ${by[l]}`).join(', ')
+  return (
+    <div>
+      <div className="flex h-2 overflow-hidden rounded-full bg-sidebar" role="img" aria-label={`Активные риски — ${text}`}>
+        {ORDER.map((l) => (by[l] ? <span key={l} style={{ width: `${((by[l] ?? 0) / total) * 100}%`, background: levelVar(l) }} /> : null))}
+      </div>
+      <p className="caption mt-1">{text}</p>
+    </div>
+  )
+}
 
 export function HistoryPage() {
-  document.title = 'История — DoorAIn'
+  document.title = 'Мои сессии — DoorAIn'
   const [tab, setTab] = useState<'active' | 'archived'>('active')
   const list = useSessions(tab)
   const qc = useQueryClient()
@@ -26,26 +43,31 @@ export function HistoryPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4 px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1>История сессий</h1>
-        <div role="tablist" aria-label="Фильтр" className="flex gap-1">
-          {(['active', 'archived'] as const).map((t) => <button key={t} role="tab" aria-selected={tab === t} className={`btn ${tab === t ? 'btn-primary' : ''}`} onClick={() => setTab(t)}>{t === 'active' ? 'Активные' : 'Архив'}</button>)}
+        <h1 className="display-m">Мои сессии</h1>
+        <div role="tablist" aria-label="Фильтр" className="seg">
+          {(['active', 'archived'] as const).map((t) => <button key={t} role="tab" aria-selected={tab === t} className="seg-item" onClick={() => setTab(t)}>{t === 'active' ? 'Активные' : 'Архив'}</button>)}
         </div>
       </div>
       {list.isLoading && <Skeleton lines={5} />}
       {list.isError && <ErrorNote error={list.error} onRetry={() => list.refetch()} />}
-      {list.data?.length === 0 && <EmptyState art={MapArt} title={tab === 'active' ? 'Сессий пока нет' : 'Архив пуст'} action={tab === 'active' ? <Link to="/" className="btn btn-primary no-underline">Создать сессию</Link> : undefined}>Сессия хранит диалог, портрет и риски. После перезапуска её можно продолжить.</EmptyState>}
-      <ul className="divide-y divide-line rounded-lg border border-line empty:hidden">
+      {list.data?.length === 0 && <EmptyState title={tab === 'active' ? 'Сессий пока нет' : 'Архив пуст'} action={tab === 'active' ? <Link to="/" className="btn btn-primary no-underline">Создать сессию</Link> : undefined}>Сессия хранит диалог, портрет и риски. После перезапуска её можно продолжить.</EmptyState>}
+      <ul className="grid gap-3 empty:hidden md:grid-cols-2">
         {list.data?.map((s) => (
-          <li key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <Link to={`/s/${s.id}`} className="block truncate font-medium text-ink no-underline hover:underline">{s.title}</Link>
-              <p className="text-small text-muted">{ROLE_RU[s.role]} · срез на {s.as_of_date} · сообщений: {s.messages_count} · активных рисков: {s.active_risks} · обновлена {new Date(s.updated_at).toLocaleString('ru-RU')}</p>
+          <li key={s.id} className="card flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-2">
+              <Link to={`/s/${s.id}`} className="display-s min-w-0 text-ink no-underline hover:underline">{s.title}</Link>
+              <details className="relative shrink-0">
+                <summary className="btn btn-quiet btn-icon list-none" aria-label={`Действия с «${s.title}»`}><MoreHorizontal className="size-4" aria-hidden /></summary>
+                <div className="zone absolute right-0 z-20 mt-1 w-48 space-y-1 !p-2 shadow-[var(--shadow-hover)]">
+                  <Button variant="quiet" className="w-full !justify-start" onClick={() => { setRename(s); setName(s.title) }}>Переименовать</Button>
+                  <Button variant="quiet" className="w-full !justify-start" onClick={() => upd.mutate({ id: s.id, body: { status: s.status === 'active' ? 'archived' : 'active' } })}>{s.status === 'active' ? 'В архив' : 'Вернуть из архива'}</Button>
+                  <Button variant="quiet" className="w-full !justify-start text-risk-high" onClick={() => { setRemove(s); setConfirm('') }}>Удалить</Button>
+                </div>
+              </details>
             </div>
-            <div className="flex gap-1">
-              <Button variant="quiet" className="btn-icon" aria-label={`Переименовать «${s.title}»`} onClick={() => { setRename(s); setName(s.title) }}><Pencil className="size-4" aria-hidden /></Button>
-              <Button variant="quiet" className="btn-icon" aria-label={s.status === 'active' ? `Архивировать «${s.title}»` : `Вернуть из архива «${s.title}»`} onClick={() => upd.mutate({ id: s.id, body: { status: s.status === 'active' ? 'archived' : 'active' } })}>{s.status === 'active' ? <Archive className="size-4" aria-hidden /> : <ArchiveRestore className="size-4" aria-hidden />}</Button>
-              <Button variant="quiet" className="btn-icon" aria-label={`Удалить «${s.title}»`} onClick={() => { setRemove(s); setConfirm('') }}><Trash2 className="size-4" aria-hidden /></Button>
-            </div>
+            <p className="mono-m text-muted">{ROLE_RU[s.role].toLowerCase()} · обновлена {new Date(s.updated_at).toLocaleDateString('ru-RU')} · срез на {new Date(s.as_of_date).toLocaleDateString('ru-RU')}</p>
+            <p className="body-s">сообщений: {s.messages_count} · активных рисков: {s.active_risks}</p>
+            <RiskBar by={s.risks_by_level} />
           </li>
         ))}
       </ul>

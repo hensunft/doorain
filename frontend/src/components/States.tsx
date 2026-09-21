@@ -1,5 +1,5 @@
 import { CircleAlert, Info, WifiOff } from 'lucide-react'
-import type { ComponentType, ReactNode, SVGProps } from 'react'
+import type { ReactNode } from 'react'
 import { errorText } from '../lib/api'
 import { Button } from './ui'
 
@@ -39,10 +39,9 @@ export function OfflineBanner() {
   )
 }
 
-export function EmptyState({ art: Art, title, children, action }: { art?: ComponentType<SVGProps<SVGSVGElement>>; title: string; children?: ReactNode; action?: ReactNode }) {
+export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-4 py-10 text-center">
-      {Art && <Art className="h-32 w-auto text-ink" aria-hidden="true" />}
       <h3>{title}</h3>
       {children && <div className="text-small text-muted">{children}</div>}
       {action}

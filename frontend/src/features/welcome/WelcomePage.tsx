@@ -1,8 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Briefcase, GraduationCap, Scale } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { DoorArt } from '../../components/art'
 import { Banner } from '../../components/States'
 import { Field, Spinner } from '../../components/ui'
 import type { Role, Session } from '../../lib/api'
@@ -10,10 +8,10 @@ import { errorText, post } from '../../lib/api'
 import { useSessions } from '../../lib/queries'
 import { ROLE_RU } from '../../lib/risk'
 
-const ROLES: { id: Role; title: string; text: string; icon: typeof Scale }[] = [
-  { id: 'student', title: 'Студент', text: 'Объяснение от простого к сложному, примеры и связь с источниками. Самопроверка по материалам сессии.', icon: GraduationCap },
-  { id: 'entrepreneur', title: 'Предприниматель', text: 'Краткий условный вывод, основания, уточнения и действия. Правовые риски бизнеса и отчёт для юриста.', icon: Briefcase },
-  { id: 'expert', title: 'Эксперт', text: 'Точные выдержки с реквизитами и редакцией, условия применимости, сравнение редакций и выгрузка цитат.', icon: Scale },
+const ROLES: { id: Role; title: string; text: string; gets: string[] }[] = [
+  { id: 'student', title: 'Студент', text: 'Разобраться в теме и проверить себя.', gets: ['Объяснение от простого к сложному', 'Примеры и связь с источниками', 'Самопроверка по материалам сессии'] },
+  { id: 'entrepreneur', title: 'Предприниматель', text: 'Понять, что грозит бизнесу и что делать.', gets: ['Краткий условный вывод и действия', 'Риски с оценкой P × S и план шагов', 'Отчёт для юриста в PDF'] },
+  { id: 'expert', title: 'Эксперт', text: 'Точные нормы для собственной работы.', gets: ['Выдержки с реквизитами и редакцией', 'Условия применимости, сравнение редакций', 'Выгрузка цитат'] },
 ]
 type Tri = 'yes' | 'no' | 'unknown'
 const TRI: { v: Tri; t: string }[] = [{ v: 'unknown', t: 'Не знаю' }, { v: 'yes', t: 'Да' }, { v: 'no', t: 'Нет' }]
@@ -33,26 +31,24 @@ export function WelcomePage() {
   })
   const submit = (e: FormEvent) => { e.preventDefault(); create.mutate() }
   return (
-    <div className="mx-auto max-w-4xl space-y-8 px-4 py-8">
-      <header className="grid items-center gap-6 md:grid-cols-[1fr_auto]">
-        <div className="space-y-3">
-          <h1>Портрет вашего правового положения</h1>
-          <p className="max-w-prose text-muted">Задавайте вопросы по праву высоких технологий. Каждый ответ опирается на источники из закрытой базы знаний, а сессия постепенно складывается в карту вопросов и таблицу рисков.</p>
-          <Banner>Ответы носят информационный характер и не заменяют профессиональную юридическую помощь.</Banner>
-        </div>
-        <DoorArt className="hidden h-44 w-auto text-ink md:block" aria-hidden="true" />
+    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
+      <header className="space-y-3">
+        <h1 className="display-l">Портрет вашего правового положения</h1>
+        <p className="max-w-prose text-muted">Задавайте вопросы по праву высоких технологий. Каждый ответ опирается на источники из закрытой базы знаний, а сессия постепенно складывается в карту вопросов и таблицу рисков.</p>
+        <Banner>Ответы носят информационный характер и не заменяют профессиональную юридическую помощь.</Banner>
       </header>
 
       <form onSubmit={submit} className="space-y-6" aria-label="Новая сессия">
         <fieldset className="space-y-3">
-          <legend className="mb-2 text-h3 font-semibold">Выберите роль</legend>
-          <div className="grid gap-3 md:grid-cols-3">
+          <legend className="display-s mb-3">Выберите роль</legend>
+          <div className="grid justify-center gap-4 [grid-template-columns:repeat(auto-fit,minmax(0,320px))]">
             {ROLES.map((r) => (
-              <label key={r.id} className={`flex cursor-pointer flex-col gap-2 rounded-lg border p-4 transition-colors duration-150 hover:bg-sidebar has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-graphite ${role === r.id ? 'border-graphite bg-sidebar' : 'border-line'}`}>
+              <label key={r.id} className="card flex cursor-pointer flex-col gap-2 !p-5 transition-[border-color,box-shadow] duration-150 hover:shadow-[var(--shadow-hover)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--focus-ring)]" style={{ borderWidth: 2, borderColor: role === r.id ? 'var(--brand)' : 'var(--line)' }}>
                 <input type="radio" name="role" value={r.id} checked={role === r.id} onChange={() => setRole(r.id)} className="sr-only" />
-                <span className="flex items-center gap-2 font-semibold"><r.icon className="size-5" aria-hidden />{r.title}</span>
-                <span className="text-small text-muted">{r.text}</span>
-                {role === r.id && <span className="chip w-fit" aria-hidden>Выбрано</span>}
+                <span className="display-s">{r.title}</span>
+                <span className="body-m text-muted">{r.text}</span>
+                <span className="overline mt-1">что получите</span>
+                <ul className="body-s list-disc space-y-1 pl-4">{r.gets.map((g) => <li key={g}>{g}</li>)}</ul>
               </label>
             ))}
           </div>

@@ -67,7 +67,7 @@ export function AdminPage() {
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ['admin'] }) },
   })
   return (
-    <div className="mx-auto max-w-4xl space-y-8 p-4 md:p-6">
+    <div className="neutral mx-auto max-w-4xl space-y-6 p-4 md:p-6">
       <header>
         <h1>Администрирование</h1>
         <p className="hint mt-1">Учётные записи, приглашения и обезличенная статистика. Содержимое диалогов здесь не отображается.</p>

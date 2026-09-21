@@ -43,7 +43,7 @@ def test_parsers_txt_html_docx_pdf(env: Path) -> None:
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfgen import canvas
 
-    pdfmetrics.registerFont(TTFont("T", str(Path(__file__).resolve().parents[1] / "app/assets/fonts/DejaVuSans.ttf")))
+    pdfmetrics.registerFont(TTFont("T", str(Path(__file__).resolve().parents[1] / "app/assets/fonts/IBMPlexSans_400Regular.ttf")))
     c = canvas.Canvas(str(d / "a.pdf"), pagesize=A4)
     c.setFont("T", 11)
     c.drawString(50, 800, "Статья 4. Из PDF с текстовым слоем. " + "слово " * 30)

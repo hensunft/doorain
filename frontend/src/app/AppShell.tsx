@@ -26,7 +26,7 @@ function SidebarNav({ compact, onNavigate }: { compact: boolean; onNavigate?: ()
   return (
     <nav aria-label="Основная навигация" className="flex min-h-0 flex-1 flex-col gap-1 px-2">
       <Link to="/" onClick={onNavigate} className="btn btn-primary mb-2 no-underline"><Plus className="size-4" aria-hidden />{!compact && 'Новая сессия'}{compact && <span className="sr-only">Новая сессия</span>}</Link>
-      <NavLink to="/history" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><History className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">История</span> : 'История'}</NavLink>
+      <NavLink to="/history" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><History className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Мои сессии</span> : 'Мои сессии'}</NavLink>
       {isOwner && <NavLink to="/kb" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><BookOpenText className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">База знаний</span> : 'База знаний'}</NavLink>}
       {isOwner && <NavLink to="/styleguide" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><Palette className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Библиотека компонентов</span> : 'Компоненты'}</NavLink>}
       {isOwner && <NavLink to="/admin" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><ShieldUser className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Администрирование</span> : 'Администрирование'}</NavLink>}

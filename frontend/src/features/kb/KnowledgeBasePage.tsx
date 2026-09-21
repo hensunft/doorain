@@ -3,7 +3,6 @@ import { EyeOff, FileUp, GitCompare, RefreshCw, Search, Trash2 } from 'lucide-re
 import { useState, type FormEvent } from 'react'
 import { Banner, EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import { Button, Field, Spinner } from '../../components/ui'
-import { MapArt } from '../../components/art'
 import type { ConfirmImport, Doc, Draft, SearchHit } from '../../lib/api'
 import { ApiError, del, errorText, get, patch, post } from '../../lib/api'
 import { keys, useCorpus, useDocuments, useJobs, useManifest } from '../../lib/queries'
@@ -159,11 +158,11 @@ export function KnowledgeBasePage() {
   const c = corpus.data
   const running = jobs.data?.filter((j) => j.status === 'queued' || j.status === 'running') ?? []
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+    <div className="neutral mx-auto max-w-5xl space-y-6 px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-2"><h1>База знаний</h1><Button onClick={() => build.mutate()} disabled={build.isPending || running.length > 0}><RefreshCw className="size-4" aria-hidden />Переиндексировать</Button></div>
       {corpus.isLoading && <Skeleton lines={3} />}
       {corpus.isError && <ErrorNote error={corpus.error} onRetry={() => corpus.refetch()} />}
-      {c?.empty && <EmptyState art={MapArt} title="Корпус пуст">Загрузите проверенные тексты законов ниже. Приложение не скачивает законы само: обновление — управляемый импорт локальных файлов (см. docs/knowledge-base.md). Пока корпус пуст, диалог честно откажет в ответе.</EmptyState>}
+      {c?.empty && <EmptyState title="Корпус пуст">Загрузите проверенные тексты законов ниже. Приложение не скачивает законы само: обновление — управляемый импорт локальных файлов (см. docs/knowledge-base.md). Пока корпус пуст, диалог честно откажет в ответе.</EmptyState>}
       {c && !c.empty && (
         <p className="text-small text-muted tnum">Документов: {c.documents} · редакций: {c.revisions} · фрагментов: {c.chunks} · активная generation: {c.active_generation ? `№${c.active_generation.seq}, контрольный поиск ${c.active_generation.control_search['passed'] as number}/${c.active_generation.control_search['checked'] as number}` : 'нет (индекс не построен)'}</p>
       )}

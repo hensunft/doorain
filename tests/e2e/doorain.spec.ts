@@ -195,8 +195,8 @@ test('снимки страниц для визуального контроля
   await page.getByRole('link', { name: 'База знаний' }).click()
   await expect(page.getByRole('heading', { name: 'База знаний' })).toBeVisible()
   await page.screenshot({ path: path.join(SHOTS, 'kb-1440.png'), fullPage: true })
-  await page.getByRole('link', { name: 'История' }).click()
-  await expect(page.getByRole('heading', { name: 'История сессий' })).toBeVisible()
+  await page.getByRole('link', { name: 'Мои сессии' }).click()
+  await expect(page.getByRole('heading', { name: 'Мои сессии' })).toBeVisible()
   await page.screenshot({ path: path.join(SHOTS, 'history-1440.png') })
   await page.getByRole('link', { name: 'Настройки' }).click()
   await expect(page.getByText('Диагностика системы')).toBeVisible()
@@ -238,7 +238,9 @@ test('пользователь по приглашению: регистраци
   await expect(page.getByRole('heading', { name: 'Прежде чем начать' })).toBeVisible()
   await expect(page.getByText('не оказывает юридических услуг')).toBeVisible()
   await expect(page.getByText('видны только вам и владельцу сервиса')).toBeVisible()
-  await page.getByRole('button', { name: /Я ознакомился/ }).click()
+  await expect(page.getByRole('button', { name: 'Продолжить' })).toBeDisabled()  // без отметки не пускает
+  await page.getByLabel(/Я прочитал/).check()
+  await page.getByRole('button', { name: 'Продолжить' }).click()
   await expect(page.getByRole('heading', { name: 'Портрет вашего правового положения' })).toBeVisible()
   // разделы владельца пользователю не видны
   await expect(page.getByRole('link', { name: 'Администрирование' })).toHaveCount(0)
@@ -247,7 +249,7 @@ test('пользователь по приглашению: регистраци
   await startSession(page, 'Предприниматель')
   await ask(page, NO_POLICY)
   await expect(page.getByRole('button', { name: /Открыть источник: ДЕМО-1-ФЗ/ }).first()).toBeVisible()
-  await expect(page.getByRole('table', { name: 'Риски сессии' }).getByRole('row')).not.toHaveCount(1)
+  await expect(page.getByRole('region', { name: 'Риски' }).getByRole('article').first()).toBeVisible()
   const url = page.url()
 
   await page.goto('/settings')
@@ -260,7 +262,7 @@ test('пользователь по приглашению: регистраци
   await page.getByRole('button', { name: 'Войти' }).click()
   await expect(page).toHaveURL(url)  // вход возвращает на запрошенную страницу
   await expect(page.getByRole('log', { name: 'Диалог' }).getByText(NO_POLICY)).toBeVisible()  // сессия открыта в том же состоянии
-  await expect(page.getByRole('table', { name: 'Риски сессии' }).getByRole('row')).not.toHaveCount(1)
+  await expect(page.getByRole('region', { name: 'Риски' }).getByRole('article').first()).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Прежде чем начать' })).toHaveCount(0)  // дисклеймер уже принят
 })
 

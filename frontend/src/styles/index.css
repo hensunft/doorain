@@ -251,6 +251,14 @@
   .gn[data-user="true"] .gn-question { border-style: dashed; }
   .react-flow__node:focus-visible { outline: none; }
   .react-flow__node:focus-visible .gn > :first-child { box-shadow: var(--focus-ring); }
+
+  /* Админка и база знаний — нейтральный служебный стиль: заголовки гротеском, секции карточками, без акцентов бренда */
+  .neutral h1, .neutral h2, .neutral h3 { font-family: var(--font-sans); font-weight: 600; letter-spacing: 0; }
+  .neutral h1 { font-size: var(--display-s); }
+  .neutral h2 { font-size: var(--body-l); }
+  .neutral > section { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--space-4); }
+  .neutral th { text-align: left; font-weight: 500; color: var(--muted); border-bottom: 1px solid var(--line); padding: var(--space-1) var(--space-2) var(--space-1) 0; }
+  .neutral td { border-bottom: 1px solid var(--line-soft); padding: var(--space-1) var(--space-2) var(--space-1) 0; }
 }
 
 @keyframes node-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }

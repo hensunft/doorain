@@ -13,14 +13,6 @@ export const ROLE_RU = { student: 'Студент', entrepreneur: 'Предпр�
 export const NODE_KIND_RU: Record<string, string> = { center: 'Центр', topic: 'Тема', question: 'Вопрос', norm: 'Норма', risk: 'Риск' }
 export const RESULT_RU: Record<string, string> = { answered: 'Есть ответ', refused: 'Отказ', cancelled: 'Отменён', failed: 'Ошибка' }
 
-export const LEVEL_HEX: Record<Level | 'none', string> = {
-  low: '#3f6b55',
-  medium: '#8a641f',
-  high: '#b4473e',
-  critical: '#70263a',
-  none: '#9a9a94',
-}
-
 export const levelOf = (score: number | null | undefined): Level | null =>
   score == null ? null : score <= 4 ? 'low' : score <= 9 ? 'medium' : score <= 15 ? 'high' : 'critical'
 

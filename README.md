@@ -44,4 +44,4 @@ docs/       product, architecture, decisions, security, access, risk-methodology
 
 Что реально проверено, а что нет — в **[docs/progress.md](docs/progress.md)** (таблица проверок и список невыполненного). Коротко: логика приложения, безопасность, PDF, UI, миграции на PostgreSQL 17, стек в Docker, backup→restore drill и изоляция сети проверены автоматически; качество ответов на **реальном юридическом корпусе и эксперт-валидация** требуют вашего корпуса и юриста; внешний доступ по HTTPS требует вашего домена и публичного IP.
 
-Лицензии сторонних компонентов: Inter (SIL OFL, `frontend/public/fonts`), DejaVu (`backend/app/assets/fonts`), BGE-M3 (MIT), mmarco-mMiniLMv2 (Apache-2.0); лицензию модели Ollama проверьте по карточке перед загрузкой.
+Лицензии сторонних компонентов: Playfair Display и IBM Plex Sans/Mono (SIL OFL; `frontend/public/fonts` — woff2 для интерфейса, `backend/app/assets/fonts` — TTF для PDF), BGE-M3 (MIT), mmarco-mMiniLMv2 (Apache-2.0); лицензию модели Ollama проверьте по карточке перед загрузкой.

@@ -45,10 +45,15 @@ from ...db.models import (
 )
 from ..portrait import graph, layout
 from ..risks.methodology import DEMO_NOTICE, DISCLAIMER, TOPIC_TITLES
-from ..risks.scoring import LEVEL_RU
+from ..risks.scoring import LEVEL_RU, level
 
 FONTS = Path(__file__).resolve().parents[2] / "assets" / "fonts"
-LEVEL_COLOR = {"low": "#3F6B55", "medium": "#8A641F", "high": "#B4473E", "critical": "#70263A", None: "#9A9A94"}
+# Печатная тема: белый фон, значения цветов — из frontend/src/styles/tokens.css (светлая тема)
+INK, MUTED, LINE, SOFT = "#241C1A", "#5F544E", "#E3D8C8", "#FBF7F0"
+LEVEL_COLOR = {"low": "#3C7A45", "medium": "#C98A12", "high": "#B3261E", "critical": "#5B1A2B", None: "#6B7280"}
+LEVEL_TEXT = {**LEVEL_COLOR, "medium": "#7A5405"}  # текст среднего уровня на белом: контраст ≥ 4.5:1
+LEVEL_TINT = {"low": "#E2EDE3", "medium": "#F7EBD3", "high": "#F3E3E2", "critical": "#EFE0E3", None: "#EFEDEA"}
+LEVEL_SHORT = {"low": "низк.", "medium": "средн.", "high": "высок.", "critical": "критич."}
 ROLE_RU = {"student": "Студент", "entrepreneur": "Предприниматель", "expert": "Эксперт"}
 STATUS_RU = {"open": "Открыт", "in_progress": "В работе", "resolved": "Снят", "needs_clarification": "Нужно уточнение", "not_applicable": "Неприменим"}
 _registered = False
@@ -58,7 +63,7 @@ def _fonts() -> None:
     global _registered  # noqa: PLW0603
     if _registered:
         return
-    for name, f in (("Sans", "DejaVuSans.ttf"), ("Sans-Bold", "DejaVuSans-Bold.ttf"), ("Serif-Bold", "DejaVuSerif-Bold.ttf")):
+    for name, f in (("Sans", "IBMPlexSans_400Regular.ttf"), ("Sans-Bold", "IBMPlexSans_600SemiBold.ttf"), ("Display", "PlayfairDisplay_700Bold.ttf"), ("Mono", "IBMPlexMono_400Regular.ttf")):
         pdfmetrics.registerFont(TTFont(name, str(FONTS / f)))
     pdfmetrics.registerFontFamily("Sans", normal="Sans", bold="Sans-Bold", italic="Sans", boldItalic="Sans-Bold")
     _registered = True
@@ -142,16 +147,17 @@ def build_snapshot(db: Session, s: ConsultationSession, options: dict[str, Any],
 
 # ───────────── рендер ─────────────
 def _st() -> dict[str, ParagraphStyle]:
-    base = dict(fontName="Sans", fontSize=9.5, leading=13.5, textColor=colors.HexColor("#37352F"), alignment=TA_LEFT)
+    base = dict(fontName="Sans", fontSize=12, leading=16.5, textColor=colors.HexColor(INK), alignment=TA_LEFT)  # тело — не меньше 12 pt
     return {
         "body": ParagraphStyle("body", **base),
-        "small": ParagraphStyle("small", **{**base, "fontSize": 8, "leading": 10.5}),
-        "cell": ParagraphStyle("cell", **{**base, "fontSize": 8, "leading": 10.2}),
-        "cellb": ParagraphStyle("cellb", **{**base, "fontName": "Sans-Bold", "fontSize": 8, "leading": 10.2}),
-        "h1": ParagraphStyle("h1", **{**base, "fontName": "Serif-Bold", "fontSize": 20, "leading": 25, "spaceAfter": 6}),
-        "h2": ParagraphStyle("h2", **{**base, "fontName": "Serif-Bold", "fontSize": 13.5, "leading": 18, "spaceBefore": 12, "spaceAfter": 5}),
-        "muted": ParagraphStyle("muted", **{**base, "textColor": colors.HexColor("#6B6B66"), "fontSize": 8.5}),
-        "banner": ParagraphStyle("banner", **{**base, "textColor": colors.HexColor("#70263A"), "fontName": "Sans-Bold", "backColor": colors.HexColor("#F7EDEF"), "borderPadding": 6, "spaceBefore": 6, "spaceAfter": 8}),
+        "small": ParagraphStyle("small", **{**base, "fontSize": 10.5, "leading": 14.5}),
+        "cell": ParagraphStyle("cell", **{**base, "fontSize": 8.5, "leading": 11}),
+        "cellb": ParagraphStyle("cellb", **{**base, "fontName": "Sans-Bold", "fontSize": 8.5, "leading": 11}),
+        "mono": ParagraphStyle("mono", **{**base, "fontName": "Mono", "fontSize": 8, "leading": 10.5}),
+        "h1": ParagraphStyle("h1", **{**base, "fontName": "Display", "fontSize": 26, "leading": 32, "spaceAfter": 8}),
+        "h2": ParagraphStyle("h2", **{**base, "fontName": "Display", "fontSize": 16, "leading": 21, "spaceBefore": 14, "spaceAfter": 6}),
+        "muted": ParagraphStyle("muted", **{**base, "textColor": colors.HexColor(MUTED), "fontSize": 9.5, "leading": 13}),
+        "banner": ParagraphStyle("banner", **{**base, "textColor": colors.HexColor(LEVEL_COLOR["critical"]), "fontName": "Sans-Bold", "backColor": colors.HexColor(LEVEL_TINT["critical"]), "borderPadding": 6, "spaceBefore": 6, "spaceAfter": 8}),
     }
 
 
@@ -173,29 +179,46 @@ def _draw_graph(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], pos: d
     for e in edges:
         if e["source"] in P and e["target"] in P:
             a, b = P[e["source"]], P[e["target"]]
-            d.add(Line(a[0], a[1], b[0], b[1], strokeColor=colors.HexColor("#C9C9C5"), strokeWidth=0.6))
+            d.add(Line(a[0], a[1], b[0], b[1], strokeColor=colors.HexColor(LINE), strokeWidth=0.6))
     for n in nodes:
         if n["id"] not in P:
             continue
         x, y = P[n["id"]]
         r = {"center": 12, "topic": 9, "question": 6, "norm": 5, "risk": 7}.get(n["kind"], 5) + min(3, n["weight"] - 1)
-        fill = colors.HexColor("#37352F") if n["kind"] == "center" else colors.HexColor(LEVEL_COLOR[n["risk_level"]])
+        fill = colors.HexColor(INK) if n["kind"] == "center" else colors.HexColor(LEVEL_COLOR[n["risk_level"]])
         d.add(Circle(x, y, r, fillColor=fill if n["kind"] != "norm" else colors.white, strokeColor=fill, strokeWidth=1.2 if n["kind"] == "norm" else 0.5))
         lab = n["label"][:26] + ("…" if len(n["label"]) > 26 else "")
-        d.add(String(x + r + 2, y - 2.5, lab, fontName="Sans", fontSize=6.5, fillColor=colors.HexColor("#37352F")))
+        d.add(String(x + r + 2, y - 2.5, lab, fontName="Sans", fontSize=6.5, fillColor=colors.HexColor(INK)))
     return d
+
+
+def _matrix(risks: list[dict[str, Any]], st: dict[str, ParagraphStyle]) -> KeepTogether:
+    """Матрица 5 × 5 для печати: тинт уровня + подпись уровня в углу, поэтому читается и в чёрно-белой печати."""
+    count = {(p, s): 0 for p in range(1, 6) for s in range(1, 6)}
+    for r in risks:
+        if r["p"] and r["s"]:
+            count[(r["p"], r["s"])] += 1
+    cell = ParagraphStyle("mx", parent=st["cell"], alignment=1)
+    rows: list[list[Any]] = [[Paragraph(f"P{p}", st["cellb"])] + [Paragraph(f"<font size=6 color='{MUTED}'>{LEVEL_SHORT[level(p * s) or 'low']}</font><br/><b>{count[(p, s)] or ''}</b>", cell) for s in range(1, 6)] for p in range(5, 0, -1)]
+    rows.append([Paragraph("", cell)] + [Paragraph(f"<b>S{s}</b>", cell) for s in range(1, 6)])
+    tb = Table(rows, colWidths=[12 * mm] + [16 * mm] * 5, rowHeights=[12 * mm] * 5 + [6 * mm], hAlign="LEFT")
+    style = [("GRID", (1, 0), (-1, 4), 0.4, colors.HexColor(LINE)), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]
+    style += [("BACKGROUND", (s, 5 - p), (s, 5 - p), colors.HexColor(LEVEL_TINT[level(p * s)])) for p in range(1, 6) for s in range(1, 6)]
+    tb.setStyle(TableStyle(style))
+    return KeepTogether([Paragraph("Матрица рисков 5 × 5", st["h2"]), tb, Paragraph("Вероятность (P) по вертикали, тяжесть (S) по горизонтали; в ячейке — число активных рисков.", st["muted"]), Spacer(1, 6)])
 
 
 def _page_deco(snap: dict[str, Any]):
     def deco(canv: Any, doc: Any) -> None:
         canv.saveState()
-        canv.setFont("Sans", 7)
-        canv.setFillColor(colors.HexColor("#6B6B66"))
+        canv.setFont("Sans", 7.5)
+        canv.setFillColor(colors.HexColor(MUTED))
         w, h = canv._pagesize
-        canv.drawString(15 * mm, 9 * mm, f"DoorAIn · {snap['session']['title'][:60]} · {DISCLAIMER}")
-        canv.drawRightString(w - 15 * mm, 9 * mm, f"стр. {doc.page}")
+        canv.drawString(15 * mm, 9 * mm, DISCLAIMER + ".")  # колонтитул: дисклеймер на каждой странице
+        canv.drawString(15 * mm, 5.5 * mm, f"DoorAIn · {snap['session']['title'][:80]}")
+        canv.drawRightString(w - 15 * mm, 5.5 * mm, f"стр. {doc.page}")
         if snap["incomplete"]:
-            canv.setFillColor(colors.HexColor("#70263A"))
+            canv.setFillColor(colors.HexColor(LEVEL_COLOR["critical"]))
             canv.drawString(15 * mm, h - 9 * mm, "НЕПОЛНЫЙ СНИМОК: анализ сессии не завершён на момент выгрузки")
         canv.restoreState()
 
@@ -230,7 +253,7 @@ def render_pdf(snap: dict[str, Any], out: Path) -> None:
     if snap["profile"]:
         info.append(["Профиль бизнеса", "; ".join(f"{k}: {v}" for k, v in snap["profile"].items() if v not in (None, ""))])
     t = Table([[Paragraph(_esc(a), st["cellb"]), Paragraph(_esc(b), st["cell"])] for a, b in info], colWidths=[42 * mm, pw - 2 * m - 42 * mm])
-    t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#E9E9E7")), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+    t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor(LINE)), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
     story += [t, Spacer(1, 6), Paragraph(f"<b>Важно.</b> {DISCLAIMER}.", st["body"])]
     story.append(Paragraph("Краткий итог по вопросам сессии", st["h2"]))
     if not snap["questions"]:
@@ -247,7 +270,7 @@ def render_pdf(snap: dict[str, Any], out: Path) -> None:
     # граф + таблица рисков — на альбомных страницах
     story += [NextPageTemplate("L"), PageBreak(), Paragraph("Цифровой слепок (граф)", st["h2"])]
     g = snap["graph"]
-    gw, gh = lw - 2 * m, lh - 2 * m - 40
+    gw, gh = lw - 2 * m, lh - 2 * m - 4 * mm - 75  # место под заголовок и подпись: граф не уезжает на следующую страницу
     if len(g["nodes"]) <= 40:
         story.append(_draw_graph(g["nodes"], g["edges"], g["positions"], gw, gh))
     else:  # общий обзор (темы и риски) + страницы по темам
@@ -258,17 +281,16 @@ def render_pdf(snap: dict[str, Any], out: Path) -> None:
             ids |= {e["target"] if e["source"] in ids else e["source"] for e in g["edges"] if e["source"] in ids or e["target"] in ids}
             story += [PageBreak(), Paragraph(f"Слепок: {_esc(t_['label'])}", st["h2"]), _draw_graph([n for n in g["nodes"] if n["id"] in ids], g["edges"], g["positions"], gw, gh)]
     story.append(Paragraph("Цвет узла — максимальный уровень связанных активных рисков; серый — риски не выявлены или сведений недостаточно (это не доказательство безопасности).", st["muted"]))
-    story += [PageBreak(), Paragraph("Таблица рисков", st["h2"]), Paragraph("Методика P×S экспериментальная и качественная: это не вероятность штрафа. Основание последствий указывается отдельно.", st["muted"])]
-    head = ["№", "Риск и сценарий", "P×S, уровень", "Нормативное основание", "Последствия", "Рекомендация", "Статус"]
-    cw = [8 * mm, 58 * mm, 24 * mm, 56 * mm, 46 * mm, 50 * mm, 22 * mm]
+    story += [PageBreak(), _matrix(snap["risks"], st), Paragraph("Таблица рисков", st["h2"]), Paragraph("Методика P×S экспериментальная и качественная: это не вероятность штрафа. Основание последствий указывается отдельно.", st["muted"])]
+    head = ["№", "Риск и сценарий", "P", "S", "Уровень", "Нормативное основание", "Последствия", "Рекомендация", "Статус"]
+    cw = [8 * mm, 52 * mm, 9 * mm, 9 * mm, 22 * mm, 50 * mm, 40 * mm, 55 * mm, 22 * mm]
     rows: list[list[Any]] = [[Paragraph(h, st["cellb"]) for h in head]]
-    styles = [("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F7F7F5")), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#E9E9E7")), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]
+    styles = [("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(SOFT)), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor(LINE)), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]
     for i, r in enumerate(snap["risks"], 1):
-        col = LEVEL_COLOR[r["level"]]
-        lvl = f"<font color='{col}'><b>{r['p']}×{r['s']}={r['score']}<br/>{LEVEL_RU.get(r['level'], '')}</b></font>"
-        rows.append([Paragraph(str(i), st["cell"]), Paragraph(f"<b>{_esc(r['title'])}</b><br/>{_esc(r['scenario'])}", st["cell"]), Paragraph(lvl, st["cell"]), Paragraph(_esc("; ".join(r["norms"]) or "—"), st["cell"]), Paragraph(_esc(r["consequences"] or "—"), st["cell"]), Paragraph(_esc(r["recommendation"] or "—"), st["cell"]), Paragraph(STATUS_RU.get(r["status"], r["status"]), st["cell"])])
+        lvl = f"<font color='{LEVEL_TEXT[r['level']]}'><b>{LEVEL_RU.get(r['level'], '')}</b></font><br/>{r['score']}"
+        rows.append([Paragraph(str(i), st["cell"]), Paragraph(f"<b>{_esc(r['title'])}</b><br/>{_esc(r['scenario'])}", st["cell"]), Paragraph(str(r['p']), st["cell"]), Paragraph(str(r['s']), st["cell"]), Paragraph(lvl, st["cell"]), Paragraph(_esc("; ".join(r["norms"]) or "—"), st["mono"]), Paragraph(_esc(r["consequences"] or "—"), st["cell"]), Paragraph(_esc(r["recommendation"] or "—"), st["cell"]), Paragraph(STATUS_RU.get(r["status"], r["status"]), st["cell"])])
     if len(rows) == 1:
-        rows.append([Paragraph("—", st["cell"])] + [Paragraph("Активных оценённых рисков нет", st["cell"])] + [Paragraph("", st["cell"])] * 5)
+        rows.append([Paragraph("—", st["cell"])] + [Paragraph("Активных оценённых рисков нет", st["cell"])] + [Paragraph("", st["cell"])] * 7)
     tb = LongTable(rows, colWidths=cw, repeatRows=1)
     tb.setStyle(TableStyle(styles))
     story.append(tb)
@@ -286,7 +308,7 @@ def render_pdf(snap: dict[str, Any], out: Path) -> None:
     for src in snap["sources"]:
         when = f"редакция от {src['revision_date']}" if src["revision_date"] else (f"издание {src['edition']}" + (f", с. {src['page']}" if src["page"] else "") if src["edition"] else "дата не указана")
         ver = f"проверена {src['verified_at']}" if src["verified_at"] else "актуальность не подтверждена"
-        story.append(KeepTogether([Paragraph(f"<b>{_esc(src['short_name'] or src['act'])}</b>, {_esc(src['locator'])} — {when}; {ver}", st["small"]), Paragraph("«" + _esc(src["excerpt"]) + "»", st["muted"]), Spacer(1, 4)]))
+        story.append(KeepTogether([Paragraph(f"<b>{_esc(src['short_name'] or src['act'])}</b>, <font name='Mono'>{_esc(src['locator'])}</font> — {when}; {ver}", st["small"]), Paragraph("«" + _esc(src["excerpt"]) + "»", st["muted"]), Spacer(1, 4)]))
     if not snap["sources"]:
         story.append(Paragraph("Источники не использовались.", st["body"]))
     story.append(Paragraph("Ограничения", st["h2"]))

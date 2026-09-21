@@ -126,6 +126,10 @@ def test_export_pdf_content_snapshot_and_auth(owner: Api, demo: dict) -> None:
     for must in ("Цифровой портрет правового положения", "не заменяют профессиональную юридическую помощь", "Нет опубликованной политики обработки ПДн", "Демонстрационные данные — не нормативная база", "ДЕМО-1-ФЗ", "Таблица рисков", "Предприниматель", "онлайн-школа", "Приложение: диалог", "Нормативное основание", "Ограничения"):
         assert must in text, must
     assert pages >= 3
+    assert "Матрица рисков 5 × 5" in text
+    # печатная тема: Playfair в заголовках, IBM Plex в тексте и реквизитах (встроенные подмножества шрифтов)
+    fonts = {str(f["/BaseFont"]) for p in PdfReader(io.BytesIO(dl.content)).pages for f in p["/Resources"]["/Font"].values()}
+    assert {"PlayfairDisplay", "IBMPlexSans", "IBMPlexMono"} <= {f.split("+")[-1].split("-")[0] for f in fonts}, fonts
     # снимок не меняется после последующих изменений сессии и корпуса
     risk = owner.get(f"/sessions/{sid}/risks").json()["active"][0]
     owner.patch(f"/risks/{risk['id']}", json={"status": "resolved", "reason": "Опубликовали", "version": risk["version"]})
