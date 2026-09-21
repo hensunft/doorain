@@ -70,7 +70,8 @@ function HoverCard({ graph, hover, sessionId, nums }: { graph: Graph; hover: Hov
     <div
       className="tooltip-card pointer-events-none absolute z-10 w-80"
       role="tooltip"
-      style={{ left: hover.x + 16, top: hover.y + 12, ['--level' as string]: `var(--risk-${n.risk_level === 'medium' ? 'mid' : (n.risk_level ?? 'none')})` }}
+      style={{ left: hover.x + 16, top: hover.y + 12 }}
+      data-level={n.risk_level ?? 'none'}
     >
       <div className="p-3">
         <p className="overline">{head}</p>
@@ -97,7 +98,7 @@ function Legend({ questions }: { questions: number }) {
 }
 
 function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
-  const { sel, selectNode, openCitation, clear } = useSelection()
+  const { sel, selectNode, openCitation, clear, hoverRisks, setHoverRisks } = useSelection()
   const rf = useReactFlow()
   const zoom = useStore((s) => s.transform[2])
   const saved = graph.filters as Partial<GraphFilters>
@@ -163,7 +164,9 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   const branch = useMemo(() => (hover ? branchOf(graph, hover.id) : null), [graph, hover])
   const highlight = useMemo(() => (sel.riskId ? nodesForRisk(graph, sel.riskId) : sel.nodeId ? branchOf(graph, sel.nodeId) : sel.messageId ? new Set(graph.nodes.filter((n) => n.data['message_id'] === sel.messageId).map((n) => n.id)) : new Set<string>()), [graph, sel])
   const match = useMemo(() => (query.trim() ? new Set(graph.nodes.filter((n) => n.label.toLowerCase().includes(query.trim().toLowerCase())).map((n) => n.id)) : new Set<string>()), [graph.nodes, query])
-  const marked = branch ?? (match.size ? match : highlight)
+  // наведение на риск в матрице или списке подсвечивает его узлы; остальное приглушается
+  const riskHover = useMemo(() => (hoverRisks?.length ? new Set(hoverRisks.flatMap((id) => [...nodesForRisk(graph, id)])) : null), [graph, hoverRisks])
+  const marked = branch ?? riskHover ?? (match.size ? match : highlight)
   const role = String(graph.nodes.find((n) => n.kind === 'center')?.data['role'] ?? '')
 
   const nodes: Node<PData>[] = useMemo(
@@ -304,8 +307,13 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
           nodesConnectable={false} deleteKeyCode={null} aria-label="Карта тем: цифровой слепок сессии"
           onNodeClick={(_, n) => activate(n.id)}
           onNodeDoubleClick={(_, n) => { if (graph.nodes.find((x) => x.id === n.id)?.kind === 'topic') setF({ ...filters, topic: n.id }) }}
-          onNodeMouseEnter={(ev, n) => { const r = box.current?.getBoundingClientRect(); if (r) setHover({ id: n.id, x: ev.clientX - r.left, y: ev.clientY - r.top }) }}
-          onNodeMouseLeave={() => setHover(null)}
+          onNodeMouseEnter={(ev, n) => {
+            const r = box.current?.getBoundingClientRect()
+            if (r) setHover({ id: n.id, x: ev.clientX - r.left, y: ev.clientY - r.top })
+            const rid = graph.nodes.find((x) => x.id === n.id && x.kind === 'risk')?.data['risk_id']
+            if (rid) setHoverRisks([String(rid)])
+          }}
+          onNodeMouseLeave={() => { setHover(null); setHoverRisks(null) }}
           onNodeDragStop={(_, n) => { positions.current = { ...positions.current, [n.id]: n.position }; force((x) => x + 1); persist(filters) }}
           onPaneClick={() => { clear(); setHover(null) }}
         >

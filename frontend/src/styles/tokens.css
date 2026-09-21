@@ -31,18 +31,21 @@
 
   /* Уровни риска */
   --risk-none: #6b7280;
-  --risk-none-tint: #efedea;
+  --risk-none-tint: #eff0f2;
   --risk-low: #3c7a45;
-  --risk-low-tint: #e2ede3;
+  --risk-low-tint: #e7f0e7;
   --risk-mid: #c98a12;
-  --risk-mid-tint: #f7ebd3;
+  --risk-mid-tint: #faefd8;
   --risk-high: #b3261e;
-  --risk-high-tint: #f3e3e2;
+  --risk-high-tint: #f7e3e1;
   --risk-critical: #5b1a2b;
-  --risk-critical-tint: #efe0e3;
+  --risk-critical-tint: #f1e2e5;
   --on-risk-mid: #2b2008; /* тёмный текст на насыщенном жёлтом: контраст ≥ 4.5:1 */
   --on-risk: #ffffff;
   --risk-mid-ink: #7a5405; /* текст на подложке-тинте среднего уровня */
+  /* Штриховка уровня: дублирует цвет, различима в ч/б печати. dark — поверх тинта, light — поверх насыщенной заливки */
+  --hatch-dark: rgba(36, 28, 26, 0.2);
+  --hatch-light: rgba(255, 253, 249, 0.34);
   --chip-norm-ink: var(--brand); /* реквизит нормы на золотой подложке */
 
   /* Геометрия */
@@ -124,7 +127,11 @@
     --risk-critical: #c2506a;
     --risk-critical-tint: #331d24;
     --on-risk-mid: #1c1409;
+  --hatch-dark: rgba(242, 235, 224, 0.2);
+  --hatch-light: rgba(23, 18, 15, 0.3);
   --risk-mid-ink: #e3a62b;
+    --hatch-dark: rgba(242, 235, 224, 0.2);
+    --hatch-light: rgba(23, 18, 15, 0.3);
   --chip-norm-ink: var(--gold);
     --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.45);
   }

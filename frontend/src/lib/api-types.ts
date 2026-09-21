@@ -1827,9 +1827,14 @@ export interface components {
             /** Count */
             count: number;
             /** Risks */
-            risks: {
-                [key: string]: string;
-            }[];
+            risks: components["schemas"]["MatrixRisk"][];
+        };
+        /** MatrixRisk */
+        MatrixRisk: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
         };
         /** MessageIn */
         MessageIn: {
@@ -2189,6 +2194,11 @@ export interface components {
              * @default
              */
             rationale: string;
+            /**
+             * Mentions
+             * @default 0
+             */
+            mentions: number;
             /** Methodology Version */
             methodology_version: string;
             /** Version */
@@ -2220,7 +2230,7 @@ export interface components {
          */
         RiskPatch: {
             /** Status */
-            status?: ("open" | "in_progress" | "resolved" | "not_applicable" | "dismissed") | null;
+            status?: ("open" | "in_progress" | "resolved" | "closed" | "not_applicable" | "dismissed") | null;
             /** P */
             p?: number | null;
             /** S */

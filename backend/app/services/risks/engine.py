@@ -129,19 +129,14 @@ def apply_analysis(db: Session, s: ConsultationSession, run_id: uuid.UUID, msg: 
     return {"risks_changed": changed, "ignored_candidates": ignored, "facts": len(result.fact_candidates)}
 
 
-def _clarify(db: Session, s: ConsultationSession, run_id_msg: Message, cand: RiskCandidate, text: str) -> None:
-    key = f"clarify_{cand.risk_type}_{slug(cand.scope)}"[:80]
-    if not db.scalar(select(SessionFact).where(SessionFact.session_id == s.id, SessionFact.key == key, SessionFact.status == "active")):
-        db.add(SessionFact(session_id=s.id, message_id=run_id_msg.id, key=key, value=None, statement=text[:400], kind="clarification"))
-
-
 def _apply_candidate(
     db: Session, s: ConsultationSession, msg: Message, cand: RiskCandidate, cites: dict[str, Citation], facts: dict[str, SessionFact],
     novelty: dict[str, str], qnode: graph.GraphNode, *, allow_new: bool = True,
 ) -> tuple[Risk | None, bool | None]:
-    """Возвращает (риск, создан ли новый). (None, None) — кандидат отброшен лимитом новых рисков на ответ."""
-    obl = [cites[m] for m in cand.obligation_citation_ids if m in cites]
-    cons = [cites[m] for m in cand.consequence_citation_ids if m in cites]
+    """Возвращает (риск, создан ли новый). (None, None) — кандидат отброшен (лимит или неподтверждённое основание)."""
+    # Основание — только фрагменты этого ответа и только нормативный акт: учебник и разъяснение поясняют, но не создают риск.
+    obl = [cites[m] for m in cand.obligation_citation_ids if m in cites and cites[m].snapshot.get("doc_type") == "npa"]
+    cons = [cites[m] for m in cand.consequence_citation_ids if m in cites and cites[m].snapshot.get("doc_type") == "npa"]
     scope = slug(cand.scope)
     family = _family(db, obl)
     key = f"{cand.risk_type}|{scope}|{family}"
@@ -160,9 +155,9 @@ def _apply_candidate(
             r.updated_at = now()
             return r, False
         return None, False
-    if not obl:  # без проверенного нормативного основания строка риска не создаётся → вопрос для уточнения
-        _clarify(db, s, msg, cand, cand.needs_clarification or f"Нет нормативного основания в базе знаний для риска «{cand.title}»: уточните вопрос или загрузите нужный акт")
-        return None, False
+    if not obl:  # основание не подтверждено цитатами ответа — кандидат отбрасывается и пользователю не показывается
+        log.info("risk candidate dropped: no confirmed normative basis in answer citations: %s (ids %s)", cand.title[:80], cand.obligation_citation_ids)
+        return None, None
 
     basis = [facts[k] for k in cand.factual_basis_keys if k in facts and facts[k].value in ("yes", "no") and facts[k].status == "active"]
     p, sv = cand.proposed_p, cand.proposed_s

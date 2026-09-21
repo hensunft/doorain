@@ -6,10 +6,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+import yaml
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PLACEHOLDER_SECRET = "change-me"  # noqa: S105 — маркер незаданного секрета, production такое значение отклоняет
+RISK_CONFIG = Path(__file__).resolve().parents[1] / "config" / "risk.yaml"
+_RISK = yaml.safe_load(RISK_CONFIG.read_text(encoding="utf-8"))
 
 
 class Settings(BaseSettings):
@@ -43,9 +46,10 @@ class Settings(BaseSettings):
     threshold_source: str = "uncalibrated"
     partial_answer_margin: float = 1.5  # ниже порога, но выше (порог − margin) → ответ с оговоркой о неполноте оснований
     scope_override_min_score: float = 2.0  # насколько сильными должны быть найденные нормы, чтобы перевесить вердикт «вне области»
-    # Риски: верхние границы уровней «низкий / средний / высокий» по P × S (выше — критический). Владелец может сдвинуть.
-    risk_thresholds: tuple[int, int, int] = (4, 9, 15)
-    max_new_risks_per_answer: int = 3  # защита от размывания внимания: лишние кандидаты с меньшим P × S пишутся в лог
+    # Риски: верхние границы уровней «низкий / средний / высокий» по P × S (выше — критический) и лимит новых рисков
+    # на ответ. Значения по умолчанию — app/config/risk.yaml; лишние кандидаты с меньшим P × S пишутся в лог.
+    risk_thresholds: tuple[int, int, int] = tuple(_RISK["risk_thresholds"])
+    max_new_risks_per_answer: int = int(_RISK["max_new_risks_per_answer"])
     chunk_target_tokens: int = 700
     chunk_overlap_tokens: int = 60
     chunking_version: str = "npa-v1"

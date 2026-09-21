@@ -4,7 +4,7 @@ import { Dialog } from '../../components/Dialog'
 import { Skeleton } from '../../components/States'
 import type { Block, CitationChip, Graph, Message, Risk } from '../../lib/api'
 import { useCitation, useGraph, useMessages, useRisks } from '../../lib/queries'
-import { LEVEL_RU, levelVar } from '../../lib/risk'
+import { LEVEL_RU } from '../../lib/risk'
 import { riskIdsForNode, useSelection } from '../../lib/selection'
 import { questionNumbers } from './graphModel'
 
@@ -79,10 +79,10 @@ export function ReasoningDrawer({ sessionId, nodeId, onClose }: { sessionId: str
             </section>
           )}
           {linked.map((r) => (
-            <article key={r.id} className="card card-risk" style={{ ['--level' as string]: levelVar(r.level) }}>
+            <article key={r.id} className="card card-risk" data-level={r.level ?? 'none'}>
               <div className="flex items-start justify-between gap-3">
                 <h3 className="body-l font-semibold">Риск: {r.title}</h3>
-                <span className="badge-level shrink-0" style={{ ['--level' as string]: levelVar(r.level) }} data-level={r.level ?? 'none'}>{r.p} × {r.s} = {r.score}</span>
+                <span className="badge-level shrink-0" data-level={r.level ?? 'none'}>{r.p} × {r.s} = {r.score}</span>
               </div>
               <p className="caption mt-0.5">{r.level ? LEVEL_RU[r.level] : 'Не оценён'}</p>
               {r.recommendation && <p className="body-s mt-2">Рекомендация: {r.recommendation}</p>}

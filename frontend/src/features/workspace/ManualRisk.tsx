@@ -5,7 +5,7 @@ import { ErrorNote } from '../../components/States'
 import { Field } from '../../components/ui'
 import type { Risk } from '../../lib/api'
 import { post } from '../../lib/api'
-import { keys } from '../../lib/queries'
+import { keys, useRisks } from '../../lib/queries'
 import { LEVEL_RU, levelOf } from '../../lib/risk'
 
 const SCALE = [1, 2, 3, 4, 5]
@@ -18,7 +18,7 @@ export function ManualRiskDialog({ sessionId, open, onClose }: { sessionId: stri
     mutationFn: () => post<Risk>(`/sessions/${sessionId}/risks`, f),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: keys.risks(sessionId) }); setF({ title: '', description: '', p: 3, s: 3, consequences: '', recommendation: '' }); onClose() },
   })
-  const lv = levelOf(f.p * f.s)
+  const lv = levelOf(f.p * f.s, useRisks(sessionId).data?.thresholds)
   return (
     <Dialog open={open} onClose={onClose} title="Добавить свой риск">
       <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); create.mutate() }}>

@@ -94,6 +94,7 @@ def _risk_out(db: Session, r: Risk) -> RiskOut:
                 sn = c.snapshot
                 cmap[c.id] = f"{sn['short_name'] or sn['act_title']}, {sn['locator']} (ред. {sn['revision_date'] or sn['edition'] or 'н/д'})"
     out.norms = list(dict.fromkeys(cmap.values()))
+    out.mentions = sum(1 for e in ev if e.kind == "message")
     node = db.scalar(select(GraphNode).where(GraphNode.session_id == r.session_id, GraphNode.stable_key == f"risk:{r.id}"))
     if node:
         out.question_ids = [str(x) for x in db.scalars(select(GraphEdge.src_id).where(GraphEdge.dst_id == node.id, GraphEdge.kind == "evidences"))]
@@ -155,7 +156,7 @@ def patch_risk(risk_id: uuid.UUID, body: RiskPatch, ctx: auth.AuthContext = Depe
     if body.p is not None and body.s is not None:
         engine.set_ps(db, r, body.p, body.s, body.reason, body.version, "owner")
     if body.status is not None:
-        engine.set_status(db, r, "not_applicable" if body.status == "dismissed" else body.status, body.reason, r.version if body.p is not None else body.version, "owner")
+        engine.set_status(db, r, {"dismissed": "not_applicable", "closed": "resolved"}.get(body.status, body.status), body.reason, r.version if body.p is not None else body.version, "owner")
     s = db.get(ConsultationSession, r.session_id)
     if s:
         s.version += 1

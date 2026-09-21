@@ -6,7 +6,7 @@ import { EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import { Button, RiskBadge } from '../../components/ui'
 import type { Level, Risk, Session } from '../../lib/api'
 import { useGraph, useRisks } from '../../lib/queries'
-import { LEVEL_ORDER, levelVar, STATUS_RU } from '../../lib/risk'
+import { LEVEL_ORDER, STATUS_RU } from '../../lib/risk'
 import { riskIdsForNode, useSelection } from '../../lib/selection'
 import { ManualRiskDialog } from './ManualRisk'
 import { RiskCard } from './RiskCard'
@@ -74,7 +74,6 @@ function LevelSummary({ rows, only, onOnly }: { rows: Risk[]; only: Level | null
             aria-pressed={only === l}
             onClick={() => onOnly(only === l ? null : l)}
             className="badge-level gap-1.5 px-3"
-            style={{ ['--level' as string]: levelVar(l) }}
             data-level={l}
           >
             <span className="tnum">{n}</span> {SHORT[l]}
@@ -88,18 +87,18 @@ function LevelSummary({ rows, only, onOnly }: { rows: Risk[]; only: Level | null
 export function RisksPanel({ session }: { session: Session }) {
   const risks = useRisks(session.id)
   const graph = useGraph(session.id)
-  const { sel, selectRisk } = useSelection()
+  const { sel, selectRisk, hoverRisks, setHoverRisks } = useSelection()
   const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>('active')
   const [wide, setWide] = useState(false)
   const [only, setOnly] = useState<Level | null>(null)
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [view, setView] = useState<'list' | 'matrix'>('list')
-  const [cell, setCell] = useState<{ p: number; s: number } | null>(null)
+  const [showClosed, setShowClosed] = useState(false)
   const [adding, setAdding] = useState(false)
   const data = risks.data
-  // закрытые риски — в конце общего списка, приглушённые; уточнения — отдельной вкладкой
-  const base = data ? (filter === 'active' ? [...data.active, ...data.resolved] : data.needs_clarification) : []
-  const list = base.filter((r) => (!only || r.level === only) && (!cell || (r.p === cell.p && r.s === cell.s && (r.status === 'open' || r.status === 'in_progress'))))
+  // закрытые — только по переключателю, в конце списка и приглушённые; уточнения — отдельной вкладкой
+  const base = data ? (filter === 'active' ? [...data.active, ...(showClosed ? data.resolved : [])] : data.needs_clarification) : []
+  const list = base.filter((r) => !only || r.level === only)
   const qNum = new Map<string, number>()
   graph.data?.nodes.filter((n) => n.kind === 'question').forEach((n, i) => qNum.set(n.id, i + 1))
   const questionsOf = (riskId: string) => {
@@ -145,7 +144,6 @@ export function RisksPanel({ session }: { session: Session }) {
         )}
       </div>
       {filter === 'active' && data && <LevelSummary rows={data.active} only={only} onOnly={setOnly} />}
-      {cell && <p className="caption flex items-center gap-2 px-3 pb-2">Ячейка P{cell.p} × S{cell.s}<button type="button" className="btn btn-quiet !min-h-7 !px-2" onClick={() => setCell(null)}>Показать все</button></p>}
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3">
         {risks.isLoading && <Skeleton lines={5} />}
         {risks.isError && <ErrorNote error={risks.error} onRetry={() => risks.refetch()} />}
@@ -153,8 +151,11 @@ export function RisksPanel({ session }: { session: Session }) {
           filter === 'active' ? <EmptyState title={learning ? 'Ошибок понимания не выявлено' : 'Подтверждённых рисков нет'}>{learning ? 'Вопрос сам по себе не доказывает незнание. Пройдите самопроверку: подтверждённые ошибки появятся здесь.' : 'Риск создаётся только при нормативном основании и подтверждённых фактах. Отсутствие строк не означает безопасность.'}</EmptyState> : <p className="hint px-1">Здесь пока ничего нет.</p>
         )}
         {filter === 'needs_clarification' && data?.clarifications.map((c) => <p key={c} className="rounded-md bg-risk-medium-soft px-3 py-2 text-small text-risk-medium">Вопрос для уточнения: {c}</p>)}
-        {filter === 'active' && view === 'matrix' && <RiskMatrix sessionId={session.id} onPick={(p, s) => { setCell({ p, s }); setView('list') }} />}
-        <ul className={`space-y-2 ${filter === 'active' && view === 'matrix' ? 'hidden' : ''}`}>
+        {filter === 'active' && view === 'matrix' && data && <RiskMatrix sessionId={session.id} risks={data.active} thresholds={data.thresholds} />}
+        {filter === 'active' && view === 'list' && data && data.resolved.length > 0 && (
+          <label className="caption flex min-h-11 items-center gap-2"><input type="checkbox" className="size-4 accent-[var(--brand)]" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} />Показывать закрытые ({data.resolved.length})</label>
+        )}
+        {!(filter === 'active' && view === 'matrix') && <ul className="space-y-2">
           {list.map((r, i) => {
             const isSel = selected === r.id
             const isOpen = open[r.id] ?? (isSel || (i < 2 && filter === 'active'))
@@ -166,7 +167,9 @@ export function RisksPanel({ session }: { session: Session }) {
                   questions={questionsOf(r.id)}
                   expanded={isOpen}
                   selected={isSel}
-                  highlighted={highlight.has(r.id)}
+                  highlighted={highlight.has(r.id) || !!hoverRisks?.includes(r.id)}
+                  dim={!!hoverRisks?.length && !hoverRisks.includes(r.id)}
+                  onHover={(on) => setHoverRisks(on ? [r.id] : null)}
                   onToggle={() => { setOpen({ ...open, [r.id]: !isSel }); selectRisk(isSel ? null : r.id) }}
                 >
                   {isSel && <div className="mt-3 border-t border-line-soft pt-3"><RiskDetail riskId={r.id} sessionId={session.id} /></div>}
@@ -174,7 +177,8 @@ export function RisksPanel({ session }: { session: Session }) {
               </li>
             )
           })}
-        </ul>
+        </ul>}
+        {data && data.active.length > 0 && <p className="caption pt-1">Оценка носит информационный характер и не является юридическим заключением.</p>}
       </div>
       <ManualRiskDialog sessionId={session.id} open={adding} onClose={() => setAdding(false)} />
       <Dialog open={wide} onClose={() => setWide(false)} title="Таблица рисков" variant="full">

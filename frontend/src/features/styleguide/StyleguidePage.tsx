@@ -114,7 +114,7 @@ export function StyleguidePage() {
         <span className="chip-norm">КоАП РФ, ст. 13.11</span>
         <span className="chip">обычный чип</span>
         <span className="chip risk-medium">средний</span>
-        <button className="inline-note" style={{ ['--level' as string]: 'var(--risk-high)' }}>
+        <button className="inline-note" data-level="high">
           Добавлен риск: обработка ПДн без уведомления · 12
         </button>
       </Row>
@@ -127,10 +127,10 @@ export function StyleguidePage() {
       </Row>
 
       <Row title="Карточка риска">
-        <article className="card card-risk w-full max-w-lg" style={{ ['--level' as string]: 'var(--risk-critical)' }}>
+        <article className="card card-risk w-full max-w-lg" data-level="critical">
           <div className="flex items-start justify-between gap-3">
             <h3 className="body-l font-semibold">Первичная запись ПДн на зарубежный сервер</h3>
-            <span className="badge-level" style={{ ['--level' as string]: 'var(--risk-critical)' }}>20</span>
+            <span className="badge-level" data-level="critical">20</span>
           </div>
           <p className="mono-m mt-1 text-muted">ч. 5 ст. 18 152-ФЗ · вопрос №2</p>
           <p className="body-s mt-2">Перенести первичную запись в базу на территории РФ, зарубежную CRM использовать как вторичную.</p>
@@ -143,7 +143,7 @@ export function StyleguidePage() {
       </Row>
 
       <Row title="Карточка наведения">
-        <div className="tooltip-card w-80" style={{ ['--level' as string]: 'var(--risk-high)' }}>
+        <div className="tooltip-card w-80" data-level="high">
           <div className="p-3">
             <p className="overline">Вопрос №1 · 21 сентября, 14:02</p>
             <p className="body-l mt-1 font-semibold">Нужно ли уведомлять Роскомнадзор, если мы храним e-mail учеников?</p>

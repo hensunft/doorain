@@ -4,7 +4,7 @@ import { ErrorNote } from '../../components/States'
 import type { Risk } from '../../lib/api'
 import { errorText, patch, post } from '../../lib/api'
 import { keys } from '../../lib/queries'
-import { LEVEL_RU, levelVar, STATUS_RU } from '../../lib/risk'
+import { LEVEL_RU, STATUS_RU } from '../../lib/risk'
 
 type Next = 'open' | 'in_progress' | 'resolved' | 'dismissed'
 const FLOW: { id: Next; label: string }[] = [
@@ -15,13 +15,15 @@ const FLOW: { id: Next; label: string }[] = [
 
 /** Карточка риска: полоса уровня слева, бейдж P × S справа, основание моноширинным, переключатель статуса.
  *  Свёрнута по умолчанию — разворачивается кликом; закрытый риск приглушается и уходит в конец списка. */
-export function RiskCard({ risk, sessionId, questions, expanded, selected, highlighted, onToggle, children }: {
+export function RiskCard({ risk, sessionId, questions, expanded, selected, highlighted, dim = false, onHover, onToggle, children }: {
   risk: Risk
   sessionId: string
   questions: number[]
   expanded: boolean
   selected: boolean
   highlighted: boolean
+  dim?: boolean
+  onHover?: (on: boolean) => void
   onToggle: () => void
   children?: React.ReactNode
 }) {
@@ -43,13 +45,16 @@ export function RiskCard({ risk, sessionId, questions, expanded, selected, highl
   })
   const sug = risk.pending_suggestion as { p?: number; s?: number; reason?: string } | null | undefined
   const closed = risk.status === 'resolved' || risk.status === 'not_applicable'
-  const level = levelVar(risk.level)
   const basis = [risk.norms.join(' · '), questions.length ? `${questions.length > 1 ? 'вопросы' : 'вопрос'} ${questions.map((n) => `№${n}`).join(', ')}` : '']
     .filter(Boolean).join(' · ')
   return (
     <article
-      className={`card card-risk transition-opacity ${closed ? 'opacity-[0.78]' : ''} ${selected ? 'ring-1 ring-gold' : highlighted ? 'ring-1 ring-line-strong' : ''}`}
-      style={{ ['--level' as string]: level }}
+      className={`card card-risk transition-opacity ${selected ? 'ring-1 ring-gold' : highlighted ? 'ring-1 ring-line-strong' : ''}`}
+      data-level={risk.level ?? 'none'}
+      data-closed={closed}
+      data-dim={dim}
+      onMouseEnter={() => onHover?.(true)}
+      onMouseLeave={() => onHover?.(false)}
       aria-label={`Риск: ${risk.title}`}
     >
       <button type="button" className="flex w-full items-start justify-between gap-3 text-left" aria-expanded={expanded} onClick={onToggle}>
@@ -63,7 +68,7 @@ export function RiskCard({ risk, sessionId, questions, expanded, selected, highl
         {closed ? (
           <span className="chip risk-low shrink-0">закрыт</span>
         ) : (
-          <span className="badge-level shrink-0" style={{ ['--level' as string]: level }} data-level={risk.level ?? 'none'} title={`P${risk.p} × S${risk.s} — ${risk.level ? LEVEL_RU[risk.level].toLowerCase() : 'не оценён'}`}>
+          <span className="badge-level shrink-0" data-level={risk.level ?? 'none'} title={`P${risk.p} × S${risk.s} — ${risk.level ? LEVEL_RU[risk.level].toLowerCase() : 'не оценён'}`}>
             {risk.score ?? '—'}
           </span>
         )}
@@ -72,7 +77,7 @@ export function RiskCard({ risk, sessionId, questions, expanded, selected, highl
       {risk.origin === 'user' && basis && <p className="caption">добавлен вами</p>}
       {sug && !closed && (
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-gold-tint px-2 py-1.5">
-          <span className="chip" style={{ borderColor: 'var(--gold)' }}>есть уточнение</span>
+          <span className="chip border-gold">есть уточнение</span>
           <span className="body-s">Агент оценил P{sug.p} × S{sug.s}{sug.reason ? `: ${sug.reason}` : ''}. Ваша оценка сохранена.</span>
           <button type="button" className="btn !min-h-7 !px-2" disabled={decide.isPending} onClick={() => decide.mutate('accept')}>Принять</button>
           <button type="button" className="btn btn-quiet !min-h-7 !px-2" disabled={decide.isPending} onClick={() => decide.mutate('reject')}>Отклонить</button>
@@ -99,7 +104,6 @@ export function RiskCard({ risk, sessionId, questions, expanded, selected, highl
           )}
           {change.error && <p role="alert" className="body-s mt-1 text-risk-high">{errorText(change.error)}</p>}
           {children}
-          <p className="caption mt-2">Оценка носит информационный характер и не является юридическим заключением.</p>
         </>
       )}
       {change.error && !expanded && <ErrorNote error={change.error} />}

@@ -21,6 +21,7 @@ from .core.middleware import CSP, SecurityMiddleware
 from .db.models import Topic
 from .db.session import SessionLocal
 from .services.risks.methodology import TOPICS
+from .services.risks.scoring import resync_levels
 
 log = logging.getLogger("doorain")
 
@@ -37,6 +38,15 @@ def seed_topics() -> None:
         db.close()
 
 
+def _resync_risk_levels() -> None:
+    db = SessionLocal()
+    try:
+        if n := resync_levels(db):
+            logging.getLogger("doorain").info("risk levels resynced to thresholds %s: %d rows", get_settings().risk_thresholds, n)
+    finally:
+        db.close()
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     s = settings or get_settings()
     prod = s.env == "production"
@@ -44,6 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         seed_topics()
+        _resync_risk_levels()
         stop = threading.Event()
         t = None
         if _embedded():

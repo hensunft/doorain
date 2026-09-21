@@ -46,7 +46,7 @@ export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: s
           {r.kind === 'learning' && <span className="chip">Учебный риск</span>}
           {r.category && <span className="chip">{r.category}</span>}
         </div>
-        <p className="hint">Оценка качественная (методика {r.methodology_version}, экспериментальная), это не вероятность штрафа в процентах.</p>
+        <p className="hint">Оценка качественная (методика {r.methodology_version}, экспериментальная), это не вероятность штрафа в процентах.{r.mentions > 1 ? ` Упоминался в ${r.mentions} сообщениях, обновлён ${new Date(r.updated_at).toLocaleDateString('ru-RU')}.` : ''}</p>
       </header>
       {r.status === 'needs_clarification' && <Banner tone="warn">Нужно уточнение: {r.clarification ?? 'недостаточно фактов'}. Строка не входит в ранжированную таблицу.</Banner>}
       {r.resolution_pending && (

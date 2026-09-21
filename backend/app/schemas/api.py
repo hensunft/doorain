@@ -289,6 +289,7 @@ class RiskOut(Out):
     closed_at: datetime | None = None
     description: str = ""  # суть риска (для агентских — сценарий)
     rationale: str = ""  # почему такие P и S
+    mentions: int = 0  # в скольких сообщениях риск всплывал (дубли схлопываются в одну строку)
     methodology_version: str
     version: int
     created_at: datetime
@@ -307,12 +308,17 @@ class RisksOut(BaseModel):
     thresholds: list[int] = [4, 9, 15]
 
 
+class MatrixRisk(BaseModel):
+    id: str
+    title: str
+
+
 class MatrixCell(BaseModel):
     p: int
     s: int
-    level: Literal["low", "medium", "high", "critical"]
-    count: int
-    risks: list[dict[str, str]]
+    level: Literal["low", "medium", "high", "critical"]  # уровень координат ячейки, а не её содержимого
+    count: int  # открытые риски в ячейке; закрытые сюда не входят
+    risks: list[MatrixRisk]
 
 
 class RiskCreate(BaseModel):
@@ -370,7 +376,7 @@ class RiskDetail(BaseModel):
 class RiskPatch(BaseModel):
     """Смена статуса и/или ручная оценка P и S. dismissed — синоним not_applicable («неприменимо ко мне»)."""
 
-    status: Literal["open", "in_progress", "resolved", "not_applicable", "dismissed"] | None = None
+    status: Literal["open", "in_progress", "resolved", "closed", "not_applicable", "dismissed"] | None = None
     p: int | None = Field(default=None, ge=1, le=5)
     s: int | None = Field(default=None, ge=1, le=5)
     reason: str = Field(min_length=1, max_length=1000)

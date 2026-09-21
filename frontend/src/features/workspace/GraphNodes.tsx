@@ -90,7 +90,7 @@ function NormNode({ data }: NodeProps<Node<PData>>) {
   const w = Math.round(46 * k), h = Math.round(40 * k)
   return (
     <Shell data={data}>
-      <div className="gn-norm relative" data-level={!!data.level} style={{ width: w, height: h }}>
+      <div className="gn-norm relative" data-risk={!!data.level} style={{ width: w, height: h }}>
         <svg width={w} height={h} viewBox="0 0 46 40" aria-hidden>
           <polygon points="12,2 34,2 44,20 34,38 12,38 2,20" />
         </svg>

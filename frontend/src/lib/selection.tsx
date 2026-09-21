@@ -20,18 +20,22 @@ interface Ctx {
   /** Текст, который нужно подставить в поле вопроса (например, «Уточнить по этому узлу»). */
   prefill: string | null
   requestPrefill: (text: string | null) => void
+  /** Риски под курсором: матрица ↔ список ↔ граф подсвечивают их, остальное приглушается до 25 %. */
+  hoverRisks: string[] | null
+  setHoverRisks: (ids: string[] | null) => void
 }
 const SelCtx = createContext<Ctx | null>(null)
 
 export function SelectionProvider({ children }: { children: ReactNode }) {
   const [sel, setSel] = useState<SelectionState>(empty)
   const [prefill, requestPrefill] = useState<string | null>(null)
+  const [hoverRisks, setHoverRisks] = useState<string[] | null>(null)
   const selectRisk = useCallback((id: string | null) => setSel((s) => ({ ...s, riskId: id, nodeId: null })), [])
   const selectNode = useCallback((id: string | null) => setSel((s) => ({ ...s, nodeId: id, riskId: null })), [])
   const selectMessage = useCallback((id: string | null) => setSel((s) => ({ ...s, messageId: id })), [])
   const openCitation = useCallback((id: string | null) => setSel((s) => ({ ...s, citationId: id })), [])
   const clear = useCallback(() => setSel((s) => ({ ...empty, citationId: s.citationId })), [])
-  const value = useMemo(() => ({ sel, selectRisk, selectNode, selectMessage, openCitation, clear, prefill, requestPrefill }), [sel, selectRisk, selectNode, selectMessage, openCitation, clear, prefill])
+  const value = useMemo(() => ({ sel, selectRisk, selectNode, selectMessage, openCitation, clear, prefill, requestPrefill, hoverRisks, setHoverRisks }), [sel, selectRisk, selectNode, selectMessage, openCitation, clear, prefill, hoverRisks])
   return <SelCtx.Provider value={value}>{children}</SelCtx.Provider>
 }
 

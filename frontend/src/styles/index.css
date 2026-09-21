@@ -98,6 +98,32 @@
 }
 
 @layer components {
+  /* Уровень риска: единственный способ окрасить элемент — атрибут data-level (цвета только из токенов).
+     --level — насыщенный цвет, --level-tint — подложка, --level-on — текст на заливке, --level-ink — текст на подложке,
+     --level-hatch — штриховка (низкий — без неё): уровень читается и без цвета. */
+  [data-level] { --hatch: var(--hatch-dark); --level: var(--risk-none); --level-tint: var(--risk-none-tint); --level-on: var(--on-risk); --level-ink: var(--risk-none); --level-hatch: none; }
+  [data-level="low"] { --level: var(--risk-low); --level-tint: var(--risk-low-tint); --level-ink: var(--risk-low); }
+  [data-level="medium"] { --level: var(--risk-mid); --level-tint: var(--risk-mid-tint); --level-on: var(--on-risk-mid); --level-ink: var(--risk-mid-ink);
+    --level-hatch: repeating-linear-gradient(45deg, transparent 0 7px, var(--hatch) 7px 8px); }
+  [data-level="high"] { --level: var(--risk-high); --level-tint: var(--risk-high-tint); --level-ink: var(--risk-high);
+    --level-hatch: repeating-linear-gradient(45deg, transparent 0 3px, var(--hatch) 3px 4px); }
+  [data-level="critical"] { --level: var(--risk-critical); --level-tint: var(--risk-critical-tint); --level-ink: var(--risk-critical);
+    --level-hatch: repeating-linear-gradient(45deg, transparent 0 3px, var(--hatch) 3px 4px), repeating-linear-gradient(-45deg, transparent 0 3px, var(--hatch) 3px 4px); }
+
+  /* Матрица 5 × 5: ячейка окрашена уровнем своих координат; пустая — тинт, с рисками — насыщенная заливка. */
+  .mx-cell {
+    position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 1; min-height: 44px;
+    border: 1px solid var(--line); border-radius: var(--r-chip); color: var(--level-ink);
+    background-color: var(--level-tint); background-image: var(--level-hatch);
+    font-family: var(--font-mono); font-size: var(--mono-l); font-weight: 500;
+    transition: opacity var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease), background-color var(--t-risk) var(--ease);
+  }
+  .mx-cell[data-filled="true"] { --hatch: var(--hatch-light); background-color: var(--level); color: var(--level-on); border-color: var(--level); cursor: pointer; }
+  .mx-cell[data-filled="true"] > span { padding: 0 6px; border-radius: var(--r-pill); background: var(--level); }
+  .mx-cell[data-dim="true"] { opacity: 0.25; }
+  .mx-cell[data-hot="true"], .mx-cell[aria-expanded="true"] { box-shadow: var(--focus-ring); }
+  .mx-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--level); background-color: var(--level-tint); background-image: var(--level-hatch); }
+
   /* Типографика */
   .display-l { font-family: var(--font-display); font-size: var(--display-l); font-weight: 700; line-height: 1.1; }
   .display-m { font-family: var(--font-display); font-size: var(--display-m); font-weight: 600; line-height: 1.15; }
@@ -154,6 +180,10 @@
   .card { background: var(--surface-alt); border: 1px solid var(--line-soft); border-radius: var(--r-card); padding: var(--space-3); }
   .card-risk { position: relative; padding-left: var(--space-4); overflow: hidden; }
   .card-risk::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--level, var(--risk-none)); transition: background-color var(--t-risk) var(--ease); }
+  /* Закрытый риск: приглушён, но тонкая обводка цвета уровня сохраняется. */
+  .card-risk[data-closed="true"] { opacity: 0.72; border-color: var(--level); }
+  .card-risk[data-closed="true"]::before { width: 2px; }
+  .card-risk[data-dim="true"] { opacity: 0.25; }
 
   /* Чипы и бейджи */
   .chip {
@@ -173,11 +203,10 @@
   button.chip-norm:hover { background: var(--brand-tint); }
   .badge-level {
     display: inline-flex; align-items: center; justify-content: center; min-width: 28px; padding: 2px 10px;
-    border-radius: var(--r-pill); background: var(--level, var(--risk-none)); color: var(--on-risk);
+    border-radius: var(--r-pill); background: var(--level, var(--risk-none)); color: var(--level-on, var(--on-risk));
     font-family: var(--font-mono); font-size: var(--mono-l); font-weight: 500;
     transition: background-color var(--t-risk) var(--ease);
   }
-  .badge-level[data-level="medium"] { color: var(--on-risk-mid); }
 
   /* Сообщения диалога */
   .bubble-user { background: var(--brand); color: var(--brand-on); border-radius: 12px 12px 4px 12px; padding: var(--space-3); font-size: var(--body-m); }
@@ -239,7 +268,7 @@
     background: var(--tint, var(--surface-3)); color: var(--edge, var(--ink-2)); font-family: var(--font-mono); font-size: var(--mono-m); font-weight: 500;
   }
   .gn-norm svg polygon { fill: var(--surface-alt); stroke: var(--gold); stroke-width: 2; transition: stroke var(--t-risk) var(--ease); }
-  .gn-norm[data-level="true"] svg polygon { stroke: var(--edge); }
+  .gn-norm[data-risk="true"] svg polygon { stroke: var(--edge); }
   .gn-risk { width: 34px; height: 34px; transform: rotate(45deg); border-radius: 4px; background: var(--fill, var(--risk-none)); transition: background-color var(--t-risk) var(--ease); }
   .gn-diamond {
     position: absolute; width: 20px; height: 20px; transform: rotate(45deg); border-radius: 3px; background: var(--fill, var(--risk-none));

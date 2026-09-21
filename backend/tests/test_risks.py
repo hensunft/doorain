@@ -41,7 +41,25 @@ def test_risk_basis_must_come_from_the_actual_answer_context(owner: Api, demo: d
     sid = new_session(owner)
     assert ask(owner, sid, NO_POLICY)["analysis_status"] == "completed"
     data = _risks(owner, sid)
-    assert data["active"] == [] and data["clarifications"]  # вместо риска — вопрос для уточнения
+    assert data["active"] == data["needs_clarification"] == data["clarifications"] == []  # отброшен и записан в лог
+    assert not [n for n in owner.get(f"/sessions/{sid}/graph").json()["nodes"] if n["kind"] == "risk"]
+
+
+def test_textbook_is_not_a_risk_basis(owner: Api, demo: dict) -> None:
+    """Доктрина поясняет, но не создаёт риск: основание — только нормативный акт."""
+    from app.db.models import Document
+    from app.db.session import SessionLocal
+
+    db = SessionLocal()
+    for d in db.query(Document).all():
+        d.doc_type = "textbook"
+    db.commit()
+    db.close()
+    sid = new_session(owner)
+    ask(owner, sid, NO_POLICY)
+    assert [n for n in owner.get(f"/sessions/{sid}/graph").json()["nodes"] if n["kind"] == "norm"]  # ответ опирался на учебник
+    data = _risks(owner, sid)
+    assert data["active"] == data["needs_clarification"] == []
 
 
 def test_same_risk_from_two_questions_is_one_row_with_two_sources(owner: Api, demo: dict) -> None:
@@ -49,7 +67,7 @@ def test_same_risk_from_two_questions_is_one_row_with_two_sources(owner: Api, de
     ask(owner, sid, NO_POLICY)
     ask(owner, sid, "Ещё раз: у нас нет политики обработки персональных данных.")
     active = _risks(owner, sid)["active"]
-    assert len(active) == 1 and len(active[0]["question_ids"]) == 2
+    assert len(active) == 1 and len(active[0]["question_ids"]) == 2 and active[0]["mentions"] == 2  # дубль → счётчик упоминаний
 
 
 def test_manual_ps_survives_agent_answers_and_divergence_becomes_suggestion(owner: Api, demo: dict) -> None:
@@ -77,11 +95,14 @@ def test_status_change_recolors_graph_and_summary(owner: Api, demo: dict) -> Non
     r = _risks(owner, sid)["active"][0]
     q = next(n for n in owner.get(f"/sessions/{sid}/graph").json()["nodes"] if n["kind"] == "question")
     assert q["risk_level"] == "medium" and q["risk_count"] == 1
+    cell = lambda: next(c for c in owner.get(f"/sessions/{sid}/risks/matrix").json() if (c["p"], c["s"]) == (r["p"], r["s"]))  # noqa: E731
+    assert cell()["count"] == 1
     assert owner.patch(f"/risks/{r['id']}", json={"status": "resolved", "reason": "Политика опубликована", "version": r["version"]}).status_code == 200
     data = _risks(owner, sid)
     assert data["active"] == [] and data["resolved"][0]["closed_at"] and data["summary"]["closed"] == 1
     q = next(n for n in owner.get(f"/sessions/{sid}/graph").json()["nodes"] if n["kind"] == "question")
     assert q["risk_level"] is None and q["resolved_level"] == "medium" and q["risk_count"] == 0  # узел высветлен, след остался
+    assert cell()["count"] == 0 and cell()["level"] == "medium"  # ячейка опустела, её цвет (уровень координат) прежний
 
 
 def test_matrix_matches_list_and_manual_risk(owner: Api, demo: dict) -> None:
@@ -162,6 +183,31 @@ def test_risk_thresholds_are_configurable(env: Path, monkeypatch: pytest.MonkeyP
     assert [level(x) for x in (3, 4, 8, 9, 14, 15)] == ["low", "medium", "medium", "high", "high", "critical"]
     with pytest.raises(ValueError, match="RISK_THRESHOLDS"):
         Settings(risk_thresholds=(9, 4, 15))
+
+
+def test_threshold_change_recolors_existing_risks(owner: Api, demo: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Пороги — конфигурация: после смены и перезапуска (resync) матрица, список и граф окрашиваются по-новому."""
+    import yaml
+
+    from app.core.config import RISK_CONFIG, get_settings, reset_settings_cache
+    from app.db.session import SessionLocal
+    from app.services.risks.scoring import resync_levels
+
+    assert list(get_settings().risk_thresholds) == yaml.safe_load(RISK_CONFIG.read_text(encoding="utf-8"))["risk_thresholds"]
+    sid = new_session(owner)
+    ask(owner, sid, NO_POLICY)
+    r = _risks(owner, sid)["active"][0]
+    assert r["level"] == "medium" and r["score"] == 8
+    monkeypatch.setenv("DOORAIN_RISK_THRESHOLDS", "[3, 7, 14]")
+    reset_settings_cache()
+    try:
+        assert resync_levels(SessionLocal()) == 1
+        assert _risks(owner, sid)["active"][0]["level"] == "high"
+        assert next(c for c in owner.get(f"/sessions/{sid}/risks/matrix").json() if (c["p"], c["s"]) == (r["p"], r["s"]))["level"] == "high"
+        assert next(n for n in owner.get(f"/sessions/{sid}/graph").json()["nodes"] if n["kind"] == "question")["risk_level"] == "high"
+    finally:
+        monkeypatch.delenv("DOORAIN_RISK_THRESHOLDS")
+        reset_settings_cache()
 
 
 def test_role_scales_are_complete() -> None:

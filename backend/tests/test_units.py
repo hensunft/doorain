@@ -6,12 +6,18 @@ import pytest
 
 from app.services.ingestion import chunker
 from app.services.rag import verify
-from app.services.risks.scoring import final_p, level, score
+from app.services.risks.scoring import final_p, level, level_from, score
 
 
 @pytest.mark.parametrize("sc,lv", [(1, "low"), (4, "low"), (5, "medium"), (9, "medium"), (10, "high"), (15, "high"), (16, "critical"), (25, "critical")])
 def test_level_boundaries(sc: int, lv: str) -> None:
     assert level(sc) == lv
+
+
+@pytest.mark.parametrize("p,s,lv", [(2, 2, "low"), (1, 5, "medium"), (3, 3, "medium"), (2, 5, "high"), (3, 5, "high"), (4, 4, "critical"), (5, 5, "critical")])
+def test_level_from_boundaries(p: int, s: int, lv: str) -> None:
+    """Границы 4/5, 9/10, 15/16: уровень считает приложение по P × S, модель уровень не называет."""
+    assert level_from(p, s) == lv
 
 
 def test_score_range() -> None:

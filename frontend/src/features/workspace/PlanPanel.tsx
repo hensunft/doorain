@@ -4,7 +4,7 @@ import { EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import type { Level, PlanStep, Risk, Session } from '../../lib/api'
 import { del, errorText, get, patch, post } from '../../lib/api'
 import { keys, useRisks } from '../../lib/queries'
-import { levelVar } from '../../lib/risk'
+import { LEVEL_RU } from '../../lib/risk'
 import { useSelection } from '../../lib/selection'
 
 type GroupId = 'now' | 'month' | 'watch'
@@ -30,7 +30,7 @@ function Step({ risk, sessionId }: { risk: Risk; sessionId: string }) {
   })
   return (
     <li>
-      <article className={`card card-risk ${closed ? 'opacity-[0.78]' : ''}`} style={{ ['--level' as string]: levelVar(risk.level) }}>
+      <article className={`card card-risk ${closed ? 'opacity-[0.78]' : ''}`} data-level={risk.level ?? 'none'}>
         <div className="flex items-start gap-3">
           <input
             type="checkbox"
@@ -45,8 +45,8 @@ function Step({ risk, sessionId }: { risk: Risk; sessionId: string }) {
             {risk.scenario && <p className="body-s mt-1 text-muted">{risk.scenario}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {risk.norms.map((n) => <span key={n} className="chip-norm">{n}</span>)}
-              <button type="button" className="badge-level" style={{ ['--level' as string]: levelVar(risk.level) }} data-level={risk.level ?? 'none'} onClick={() => selectRisk(risk.id)}>
-                {closed ? 'риск закрыт' : `закрывает риск ${risk.score ?? ''}`}
+              <button type="button" className="badge-level" data-level={risk.level ?? 'none'} onClick={() => selectRisk(risk.id)}>
+                {closed ? 'риск закрыт' : risk.level ? `${LEVEL_RU[risk.level]} · P×S = ${risk.score}` : 'не оценён'}
               </button>
             </div>
             {asking && !closed && (
@@ -143,7 +143,7 @@ export function PlanPanel({ session }: { session: Session }) {
         return (
           <section key={g.id} aria-labelledby={`pl-${g.id}`} className="space-y-2">
             <h3 id={`pl-${g.id}`} className="flex items-center gap-2">
-              <span className="inline-block size-2.5 rotate-45" style={{ background: levelVar(g.levels[0] ?? 'low') }} aria-hidden />
+              <span className="inline-block size-2.5 rotate-45 bg-[var(--level)]" data-level={g.levels[0] ?? 'low'} aria-hidden />
               <span className="display-s">{g.title}</span>
               <span className="caption">{g.hint}</span>
             </h3>

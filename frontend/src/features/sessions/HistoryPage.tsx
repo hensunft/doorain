@@ -9,7 +9,7 @@ import type { Session } from '../../lib/api'
 import { del, errorText, patch } from '../../lib/api'
 import { useSessions } from '../../lib/queries'
 import type { Level } from '../../lib/api'
-import { LEVEL_RU, levelVar, ROLE_RU } from '../../lib/risk'
+import { LEVEL_RU, ROLE_RU } from '../../lib/risk'
 
 const ORDER: Level[] = ['critical', 'high', 'medium', 'low']
 
@@ -21,7 +21,7 @@ function RiskBar({ by }: { by: Record<string, number> }) {
   return (
     <div>
       <div className="flex h-2 overflow-hidden rounded-full bg-sidebar" role="img" aria-label={`Активные риски — ${text}`}>
-        {ORDER.map((l) => (by[l] ? <span key={l} style={{ width: `${((by[l] ?? 0) / total) * 100}%`, background: levelVar(l) }} /> : null))}
+        {ORDER.map((l) => (by[l] ? <span key={l} data-level={l} className="bg-[var(--level)]" style={{ width: `${((by[l] ?? 0) / total) * 100}%` }} /> : null))}
       </div>
       <p className="caption mt-1">{text}</p>
     </div>

@@ -326,7 +326,7 @@ def test_risk_without_normative_basis_is_not_created(owner: Api, demo: dict) -> 
     sid = new_session(owner)
     ask(owner, sid, NO_POLICY)
     r = _risks(owner, sid)
-    assert r["active"] == [] and r["needs_clarification"] == [] and r["clarifications"]  # только вопрос для уточнения
+    assert r["active"] == r["needs_clarification"] == r["clarifications"] == []  # без основания кандидат отброшен (в лог), пользователю не показан
 
 
 def test_severity_3_requires_consequence_source(owner: Api, demo: dict) -> None:

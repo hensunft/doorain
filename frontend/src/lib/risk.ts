@@ -13,8 +13,9 @@ export const ROLE_RU = { student: 'Студент', entrepreneur: 'Предпр�
 export const NODE_KIND_RU: Record<string, string> = { center: 'Центр', topic: 'Тема', question: 'Вопрос', norm: 'Норма', risk: 'Риск' }
 export const RESULT_RU: Record<string, string> = { answered: 'Есть ответ', refused: 'Отказ', cancelled: 'Отменён', failed: 'Ошибка' }
 
-export const levelOf = (score: number | null | undefined): Level | null =>
-  score == null ? null : score <= 4 ? 'low' : score <= 9 ? 'medium' : score <= 15 ? 'high' : 'critical'
+/** Уровень по порогам, которые отдаёт сервер (app/config/risk.yaml): своих порогов во frontend нет. */
+export const levelOf = (score: number | null | undefined, t: number[] | undefined): Level | null =>
+  score == null || !t || t.length < 3 ? null : score <= t[0]! ? 'low' : score <= t[1]! ? 'medium' : score <= t[2]! ? 'high' : 'critical'
 
 export const scoreLabel = (p: number | null, s: number | null, score: number | null) => (score == null ? 'не оценён' : `${p}×${s}=${score}`)
 

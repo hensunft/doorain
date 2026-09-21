@@ -4816,10 +4816,7 @@
      },
      "risks": {
       "items": {
-       "additionalProperties": {
-        "type": "string"
-       },
-       "type": "object"
+       "$ref": "#/components/schemas/MatrixRisk"
       },
       "type": "array",
       "title": "Risks"
@@ -4834,6 +4831,24 @@
      "risks"
     ],
     "title": "MatrixCell"
+   },
+   "MatrixRisk": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "title"
+    ],
+    "title": "MatrixRisk"
    },
    "MessageIn": {
     "properties": {
@@ -5823,6 +5838,11 @@
       "title": "Rationale",
       "default": ""
      },
+     "mentions": {
+      "type": "integer",
+      "title": "Mentions",
+      "default": 0
+     },
      "methodology_version": {
       "type": "string",
       "title": "Methodology Version"
@@ -5899,6 +5919,7 @@
          "open",
          "in_progress",
          "resolved",
+         "closed",
          "not_applicable",
          "dismissed"
         ]

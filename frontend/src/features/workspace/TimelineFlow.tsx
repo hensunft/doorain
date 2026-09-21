@@ -1,7 +1,7 @@
 import { EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import type { Level, Message, TimelineItem } from '../../lib/api'
 import { useMessages, useTimeline } from '../../lib/queries'
-import { LEVEL_RU, levelVar, STATUS_RU } from '../../lib/risk'
+import { LEVEL_RU, STATUS_RU } from '../../lib/risk'
 import { useSelection } from '../../lib/selection'
 import { short } from './graphModel'
 
@@ -38,11 +38,11 @@ function QuestionCard({ it, onOpen, active }: { it: TimelineItem; onOpen: () => 
     <button
       type="button"
       onClick={onOpen}
-      className={`card w-full text-left transition-colors ${closed ? 'border-dashed opacity-80' : ''} ${active ? 'ring-1 ring-gold' : ''}`}
-      style={{ borderWidth: 2, borderColor: lv ? levelVar(lv) : 'var(--line-strong)', borderStyle: closed ? 'dashed' : 'solid' }}
+      data-level={lv ?? 'none'}
+      className={`card w-full border-2 text-left transition-colors ${lv ? 'border-[var(--level)]' : 'border-line-strong'} ${closed ? 'border-dashed opacity-80' : ''} ${active ? 'ring-1 ring-gold' : ''}`}
     >
       <span className="flex items-start gap-3">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full font-mono text-xs font-medium" style={{ background: lv ? `var(--risk-${lv === 'medium' ? 'mid' : lv}-tint)` : 'var(--surface-3)', color: lv ? levelVar(lv) : 'var(--ink-2)' }}>{it.seq}</span>
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--level-tint)] font-mono text-xs font-medium text-[var(--level-ink)]">{it.seq}</span>
         <span className="min-w-0">
           <span className={`body-l block font-semibold ${closed ? 'text-muted' : ''}`}>{it.text}</span>
           <span className="mono-m mt-1 block text-muted">{[time(it.at), it.topics.length ? `тема: ${it.topics.join(', ').toLowerCase()}` : '', it.follow_up_of ? 'уточнение' : ''].filter(Boolean).join(' · ')}</span>
@@ -67,11 +67,11 @@ function Bases({ it, conclusion }: { it: TimelineItem; conclusion: string }) {
 function RiskBox({ r, onOpen }: { r: TRisk; onOpen: () => void }) {
   const closed = r.status === 'resolved' || r.status === 'not_applicable'
   return (
-    <button type="button" onClick={onOpen} className={`card card-risk w-full text-left ${closed ? 'opacity-[0.78]' : ''}`} style={{ ['--level' as string]: levelVar(r.level) }}>
+    <button type="button" onClick={onOpen} className={`card card-risk w-full text-left ${closed ? 'opacity-[0.78]' : ''}`} data-level={r.level ?? 'none'}>
       <span className="overline block">Риск{r.level ? ` · ${LEVEL_RU[r.level].toLowerCase()}` : ''}</span>
       <span className={`body-l mt-1 block font-semibold ${closed ? 'text-muted line-through' : ''}`}>{r.label}</span>
       <span className="mt-2 flex flex-wrap items-center gap-2">
-        {r.score != null && <span className="badge-level" style={{ ['--level' as string]: levelVar(r.level) }} data-level={r.level ?? 'none'}>{r.p} × {r.s} = {r.score}</span>}
+        {r.score != null && <span className="badge-level" data-level={r.level ?? 'none'}>{r.p} × {r.s} = {r.score}</span>}
         <span className="caption">{r.level ? LEVEL_RU[r.level].toLowerCase() : 'не оценён'} · статус: {(STATUS_RU[r.status ?? ''] ?? r.status ?? '').toLowerCase()}</span>
       </span>
       {r.recommendation && <span className="body-s mt-2 block">{r.recommendation}</span>}

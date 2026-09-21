@@ -34,7 +34,8 @@ describe('двусторонняя навигация граф ↔ риски', 
 
 describe('уровни риска', () => {
   it.each([[1, 'low'], [4, 'low'], [5, 'medium'], [9, 'medium'], [10, 'high'], [15, 'high'], [16, 'critical'], [25, 'critical']])('score %i → %s', (s, l) => {
-    expect(levelOf(s)).toBe(l)
+    expect(levelOf(s, [4, 9, 15])).toBe(l)
   })
-  it('нет оценки — нет уровня', () => { expect(levelOf(null)).toBeNull(); expect(LEVEL_ORDER).toHaveLength(4) })
+  it('нет оценки или порогов — нет уровня', () => { expect(levelOf(null, [4, 9, 15])).toBeNull(); expect(levelOf(8, undefined)).toBeNull(); expect(LEVEL_ORDER).toHaveLength(4) })
+  it('пороги приходят с сервера: сдвиг меняет уровень', () => { expect(levelOf(8, [3, 7, 14])).toBe('high') })
 })

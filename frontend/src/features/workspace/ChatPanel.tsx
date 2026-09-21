@@ -35,7 +35,7 @@ function RiskNotes({ session, messageId }: { session: Session; messageId: string
   return (
     <div className="space-y-1 pt-1">
       {rows.map((r) => (
-        <button key={r.id} type="button" className="inline-note" style={{ ['--level' as string]: `var(--risk-${r.level === 'medium' ? 'mid' : (r.level ?? 'none')})` }} onClick={() => selectRisk(r.id)}>
+        <button key={r.id} type="button" className="inline-note" data-level={r.level ?? 'none'} onClick={() => selectRisk(r.id)}>
           Добавлен риск: {r.title}{r.score != null ? ` · ${r.score}` : ''}
         </button>
       ))}

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 METHODOLOGY_VERSION = "0.1-experimental"
 
 LEVELS = ("low", "medium", "high", "critical")
@@ -30,6 +33,24 @@ def level(sc: int, thresholds: tuple[int, int, int] | None = None) -> str:
     if sc <= high:
         return "high"
     return "critical"
+
+
+def level_from(p: int, s: int) -> str:
+    """Уровень считает приложение, а не модель: P и S (1–5) → P × S → порог из app/config/risk.yaml."""
+    return level(score(p, s))
+
+
+def resync_levels(db: Session) -> int:
+    """Сохранённые уровни — кэш от порогов: при старте пересчитываются, чтобы смена risk.yaml перекрасила всё сразу."""
+    from ...db.models import Risk  # noqa: PLC0415
+
+    n = 0
+    for r in db.scalars(select(Risk).where(Risk.score.is_not(None))):
+        lv = level(r.score or 1)
+        if r.level != lv:
+            r.level, n = lv, n + 1
+    db.commit()
+    return n
 
 
 def final_p(base_p: int, bonus: int, has_ongoing_evidence: bool) -> int:
