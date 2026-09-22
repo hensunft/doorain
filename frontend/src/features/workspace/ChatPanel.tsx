@@ -197,14 +197,16 @@ export function ChatPanel({ session, draft, setDraft }: { session: Session; draf
         {modelBad && <div className="mb-2"><Banner tone="warn">Локальная модель сейчас недоступна: {status.data?.model.detail}. Вопрос будет сохранён, но ответ не сформируется. Облачный сервис не используется.</Banner></div>}
         {sendError != null && <div className="mb-2"><ErrorNote error={sendError} /></div>}
         {!online && <p className="mb-2 text-small text-risk-medium">Нет интернета — отправка отключена, введённый текст сохранён.</p>}
-        <div className="flex items-end gap-2">
+        <div className="flex flex-col gap-2">
           <label className="sr-only" htmlFor="composer">Ваш вопрос</label>
           <textarea id="composer" className="input max-h-40 min-h-[44px] resize-none" rows={2} maxLength={4000} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={onKey} placeholder="Задайте вопрос по IT-праву…" title="Enter — отправить, Shift+Enter — перенос строки" disabled={session.status !== 'active'} />
-          {running ? (
-            <Button variant="primary" className="h-11" onClick={() => cancel.mutate()} disabled={cancel.isPending} aria-label="Остановить генерацию"><Square className="size-4" aria-hidden />Стоп</Button>
-          ) : (
-            <Button variant="primary" className="h-11" onClick={submit} disabled={!draft.trim() || send.isPending || !online || session.status !== 'active'} aria-label="Отправить"><Send className="size-4" aria-hidden />Отправить</Button>
-          )}
+          <div className="flex justify-end">
+            {running ? (
+              <Button variant="primary" className="h-11" onClick={() => cancel.mutate()} disabled={cancel.isPending} aria-label="Остановить генерацию"><Square className="size-4" aria-hidden />Стоп</Button>
+            ) : (
+              <Button variant="primary" className="h-11" onClick={submit} disabled={!draft.trim() || send.isPending || !online || session.status !== 'active'} aria-label="Отправить"><Send className="size-4" aria-hidden />Отправить</Button>
+            )}
+          </div>
         </div>
         {(session.status !== 'active' || draft.length > 3500) && <p className="mt-1 text-xs text-muted">{session.status !== 'active' ? 'Сессия в архиве' : `${draft.length}/4000`}</p>}
       </div>

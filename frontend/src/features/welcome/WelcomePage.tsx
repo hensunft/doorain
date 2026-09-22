@@ -5,6 +5,7 @@ import { Banner } from '../../components/States'
 import { Field } from '../../components/ui'
 import type { Role, Session } from '../../lib/api'
 import { errorText, post } from '../../lib/api'
+import { todayISO } from '../../lib/date'
 import { useSessions } from '../../lib/queries'
 import { ROLE_RU } from '../../lib/risk'
 
@@ -23,7 +24,7 @@ export function WelcomePage() {
   const recent = useSessions('active')
   const [role, setRole] = useState<Role>('entrepreneur')
   const [title, setTitle] = useState('')
-  const [asOf, setAsOf] = useState(() => new Date().toISOString().slice(0, 10))
+  const [asOf, setAsOf] = useState(todayISO)
   const [profile, setProfile] = useState({ sphere: '', has_site_or_app: 'unknown' as Tri, processes_pd: 'unknown' as Tri, mailings: 'unknown' as Tri, servers_location: 'unknown' as 'ru' | 'abroad' | 'both' | 'unknown' })
   const create = useMutation({
     mutationFn: () => post<Session>('/sessions', { role, title: title || null, as_of_date: asOf || null, profile: role === 'entrepreneur' ? { ...profile, sphere: profile.sphere || null } : null }),

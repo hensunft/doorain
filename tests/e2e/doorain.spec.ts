@@ -174,8 +174,19 @@ test('адаптивность: 390 / 768 / 1024 / 1440, без горизонт
       await page.getByRole('tab', { name: 'Риски' }).click()
       await expect(page.getByRole('button', { name: /Нет опубликованной политики/ }).first()).toBeVisible()
       await page.screenshot({ path: path.join(SHOTS, `risks-${w}.png`) })
+      // карта в скрытой вкладке измеряется нулём: после показа она должна быть вписана, а не сжата до предела
+      await page.getByRole('tab', { name: 'Портрет' }).click()
+      await page.waitForTimeout(600)
+      const zoom = await page.evaluate(() => Number(/scale\(([\d.]+)\)/.exec(document.querySelector('.react-flow__viewport')?.getAttribute('style') ?? '')?.[1] ?? 0))
+      expect(zoom, `масштаб карты на ${w}px`).toBeGreaterThan(0.2)
       await page.getByRole('tab', { name: 'Диалог' }).click()
     }
+    // поле вопроса занимает ширину своей зоны: кнопка отправки стоит строкой ниже
+    const composer = await page.evaluate(() => {
+      const el = document.querySelector('#composer') as HTMLElement
+      return { field: el.getBoundingClientRect().width, zone: (el.parentElement as HTMLElement).getBoundingClientRect().width }
+    })
+    expect(composer.field, `ширина поля вопроса на ${w}px`).toBeGreaterThan(composer.zone * 0.8)
     await page.screenshot({ path: path.join(SHOTS, `workspace-${w}.png`) })
   }
   // 200%: эмуляция уменьшением CSS-ширины вдвое от 1440

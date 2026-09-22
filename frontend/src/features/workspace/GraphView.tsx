@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { HelpPopover } from '../../components/ui'
 import type { Graph, GraphNode, Level } from '../../lib/api'
 import { put } from '../../lib/api'
+import { todayISO } from '../../lib/date'
 import { useMessages, useRisks } from '../../lib/queries'
 import { LEVEL_ORDER, LEVEL_RU, ROLE_RU } from '../../lib/risk'
 import { nodesForRisk, riskIdsForNode, useSelection } from '../../lib/selection'
@@ -209,6 +210,19 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   }, [graph, visible, marked])
 
   useEffect(() => { const t = window.setTimeout(() => rf.fitView({ padding: 0.15, duration: 0 }), 50); return () => window.clearTimeout(t) }, [rf, graph.nodes.length])
+  // Панель портрета на узком экране скрыта (display: none) и измеряется нулём: после показа карту вписываем заново.
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    let shown = el.clientWidth > 0 && el.clientHeight > 0
+    const ro = new ResizeObserver(() => {
+      const now = el.clientWidth > 0 && el.clientHeight > 0
+      if (now && !shown) rf.fitView({ padding: 0.15, duration: 0 })
+      shown = now
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [rf])
   useEffect(() => {
     if (match.size !== 1) return
     const id = [...match][0]
@@ -241,7 +255,7 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
     const all = [...graph.edges, ...dialogThread(graph)]
     const svg = toSvg(visible, all, { ...layout, ...positions.current }, `DoorAIn — цифровой слепок, ${new Date().toLocaleDateString('ru-RU')}`)
     if (!svg) return
-    const stamp = new Date().toISOString().slice(0, 10)
+    const stamp = todayISO()
     if (fmt === 'svg') { download(`doorain-portrait-${stamp}.svg`, new Blob([svg], { type: 'image/svg+xml' })); return }
     const png = await svgToPng(svg)
     if (png) download(`doorain-portrait-${stamp}.png`, png)

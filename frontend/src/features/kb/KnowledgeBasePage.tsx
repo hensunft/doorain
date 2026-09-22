@@ -5,6 +5,7 @@ import { Banner, EmptyState, ErrorNote, Skeleton } from '../../components/States
 import { Button, Field, Spinner } from '../../components/ui'
 import type { ConfirmImport, Doc, Draft, SearchHit } from '../../lib/api'
 import { ApiError, del, errorText, get, patch, post } from '../../lib/api'
+import { todayISO } from '../../lib/date'
 import { keys, useCorpus, useDocuments, useJobs, useManifest } from '../../lib/queries'
 
 const STATE_RU: Record<string, string> = { missing: 'Нет', imported: 'Импортирован', indexed: 'Проиндексирован', verified: 'Проверен' }
@@ -200,7 +201,7 @@ export function KnowledgeBasePage() {
                   <span className="chip">{STATE_RU[r.corpus_state]}</span>
                   <span className="text-muted">фрагментов: {r.chunk_count}</span>
                   {r.verified_at ? <span className="chip risk-low">проверена {r.verified_at}</span> : (
-                    <button type="button" className="chip" onClick={() => verify.mutate({ id: r.id, date: new Date().toISOString().slice(0, 10) })}>Отметить проверенной сегодня</button>
+                    <button type="button" className="chip" onClick={() => verify.mutate({ id: r.id, date: todayISO() })}>Отметить проверенной сегодня</button>
                   )}
                   <a href={`/api/v1/revisions/${r.id}/file`} download>оригинал</a>
                 </li>

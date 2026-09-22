@@ -12,7 +12,7 @@ export function ThemeToggle() {
   return (
     <div className="seg" role="group" aria-label="Тема оформления">
       {OPTIONS.map(([id, label, Icon]) => (
-        <button key={id} type="button" className="seg-item !px-2" aria-pressed={theme === id} aria-label={label} title={label} onClick={() => setTheme(id)}>
+        <button key={id} type="button" className="seg-item min-w-11 justify-center" aria-pressed={theme === id} aria-label={label} title={label} onClick={() => setTheme(id)}>
           <Icon className="size-4" aria-hidden />
         </button>
       ))}

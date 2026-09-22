@@ -20,7 +20,7 @@ import { SourceDrawer } from './SourceDrawer'
 export type PortraitMode = 'map' | 'timeline' | 'plan'
 const MODES: [PortraitMode, string][] = [['map', 'Карта тем'], ['timeline', 'Хронология'], ['plan', 'План-схема']]
 
-function TopBar({ session, mode, setMode, onExport, onQuiz }: { session: Session; mode: PortraitMode; setMode: (m: PortraitMode) => void; onExport: () => void; onQuiz: () => void }) {
+function TopBar({ session, mode, setMode, onExport, onQuiz, showModes = true }: { session: Session; mode: PortraitMode; setMode: (m: PortraitMode) => void; onExport: () => void; onQuiz: () => void; showModes?: boolean }) {
   const status = useStatus()
   const qc = useQueryClient()
   const nav = useNavigate()
@@ -57,11 +57,13 @@ function TopBar({ session, mode, setMode, onExport, onQuiz }: { session: Session
         </p>
         {rename.error && <p role="alert" className="text-small text-risk-high">{errorText(rename.error)}</p>}
       </div>
-      <div className="seg" role="tablist" aria-label="Режим портрета">
-        {MODES.map(([id, label]) => (
-          <button key={id} role="tab" className="seg-item" aria-selected={mode === id} onClick={() => setMode(id)}>{label}</button>
-        ))}
-      </div>
+      {showModes && (
+        <div className="seg" role="tablist" aria-label="Режим портрета">
+          {MODES.map(([id, label]) => (
+            <button key={id} role="tab" className="seg-item" aria-selected={mode === id} onClick={() => setMode(id)}>{label}</button>
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {anySel && <Button variant="tertiary" onClick={clear}><X className="size-4" aria-hidden />Снять выделение</Button>}
         {session.role === 'student' && <Button onClick={onQuiz}><GraduationCap className="size-4" aria-hidden />Проверить себя</Button>}
@@ -130,7 +132,7 @@ function Inner({ session }: { session: Session }) {
   )
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <TopBar session={session} mode={pmode} setMode={setPmode} onExport={() => setExportOpen(true)} onQuiz={() => setQuizOpen(true)} />
+      <TopBar session={session} mode={pmode} setMode={setPmode} onExport={() => setExportOpen(true)} onQuiz={() => setQuizOpen(true)} showModes={mode !== 'narrow' || tab === 'portrait'} />
       {mode === 'wide' && <ThreePanels chat={chat} portrait={portrait} risks={risks} />}
       {mode === 'mid' && (
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(320px,46fr)_minmax(320px,54fr)]">

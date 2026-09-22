@@ -3,10 +3,12 @@ import { LogOut } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Banner, ErrorNote, Skeleton } from '../../components/States'
+import { ThemeToggle } from '../../components/ThemeToggle'
 import { Field } from '../../components/ui'
 import { useLocalState } from '../../lib/hooks'
 import { errorText, post, setCsrf } from '../../lib/api'
 import type { components } from '../../lib/api-types'
+import { useMe } from '../../app/App'
 import { useDiagnostics } from '../../lib/queries'
 
 function Row({ k, children }: { k: string; children: ReactNode }) {
@@ -17,6 +19,7 @@ const ok = (v: boolean | undefined) => (v ? 'Работает' : 'Недосту
 export function SettingsPage() {
   document.title = 'Настройки — DoorAIn'
   const d = useDiagnostics()
+  const me = useMe()
   const nav = useNavigate()
   const qc = useQueryClient()
   const [cur, setCur] = useState('')
@@ -35,6 +38,7 @@ export function SettingsPage() {
       <h1>Настройки</h1>
       <section aria-labelledby="diag" className="space-y-2">
         <h2 id="diag" className="text-h3">О программе</h2>
+        <div className="flex flex-wrap items-center gap-3"><span className="label">Тема оформления</span><ThemeToggle /></div>
         <label className="flex min-h-11 items-center gap-2 text-small"><input type="checkbox" className="size-4 accent-[var(--brand)]" checked={dev} onChange={(e) => setDev(e.target.checked)} />Режим разработчика — служебные метки (номер generation корпуса) в рабочем пространстве</label>
         {d.isLoading && <Skeleton lines={6} />}
         {d.isError && <ErrorNote error={d.error} onRetry={() => d.refetch()} />}
@@ -58,6 +62,8 @@ export function SettingsPage() {
       <section aria-labelledby="pw" className="space-y-3">
         <h2 id="pw" className="text-h3">Смена пароля</h2>
         <form onSubmit={submit} className="max-w-sm space-y-3">
+          {/* Скрытое имя пользователя: без него браузер и менеджер паролей не связывают форму с учётной записью. */}
+          <input className="sr-only" type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden readOnly value={me.data?.user.username ?? ''} />
           <Field id="cur" label="Текущий пароль"><input id="cur" className="input" type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} required /></Field>
           <Field id="new" label="Новый пароль" hint="Не короче 12 символов. После смены все остальные сессии входа будут завершены."><input id="new" className="input" type="password" autoComplete="new-password" minLength={12} value={next} onChange={(e) => setNext(e.target.value)} required /></Field>
           {change.error && <Banner tone="error">{errorText(change.error)}</Banner>}

@@ -127,11 +127,9 @@
     --risk-critical: #c2506a;
     --risk-critical-tint: #331d24;
     --on-risk-mid: #1c1409;
-  --hatch-dark: rgba(242, 235, 224, 0.2);
-  --hatch-light: rgba(23, 18, 15, 0.3);
-  --risk-mid-ink: #e3a62b;
     --hatch-dark: rgba(242, 235, 224, 0.2);
     --hatch-light: rgba(23, 18, 15, 0.3);
+    --risk-mid-ink: #e3a62b;
   --chip-norm-ink: var(--gold);
     --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.45);
   }
@@ -168,6 +166,8 @@
   --risk-critical: #c2506a;
   --risk-critical-tint: #331d24;
   --on-risk-mid: #1c1409;
+  --hatch-dark: rgba(242, 235, 224, 0.2);
+  --hatch-light: rgba(23, 18, 15, 0.3);
   --risk-mid-ink: #e3a62b;
   --chip-norm-ink: var(--gold);
   --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.45);

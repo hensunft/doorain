@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import type { Level, PlanStep, Risk, Session } from '../../lib/api'
 import { del, errorText, get, patch, post } from '../../lib/api'
+import { useLayoutMode } from '../../lib/hooks'
 import { keys, useRisks } from '../../lib/queries'
 import { LEVEL_RU } from '../../lib/risk'
 import { useSelection } from '../../lib/selection'
@@ -106,6 +107,7 @@ function OwnSteps({ sessionId }: { sessionId: string }) {
  *  Отметка шага закрывает риск и перекрашивает граф без перезагрузки. */
 export function PlanPanel({ session }: { session: Session }) {
   const risks = useRisks(session.id)
+  const mode = useLayoutMode()
   if (risks.isLoading) return <div className="p-3"><Skeleton lines={5} /></div>
   if (risks.isError) return <div className="p-3"><ErrorNote error={risks.error} onRetry={() => risks.refetch()} /></div>
   const data = risks.data
@@ -151,7 +153,7 @@ export function PlanPanel({ session }: { session: Session }) {
         )
       })}
       <OwnSteps sessionId={session.id} />
-      <p className="caption">Оценка носит информационный характер и не является юридическим заключением.</p>
+      {mode !== 'wide' && <p className="caption">Оценка носит информационный характер и не является юридическим заключением.</p>}
     </div>
   )
 }

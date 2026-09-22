@@ -39,3 +39,4 @@ evals/reports/*.csv
 !evals/reports/.gitkeep
 *.tsbuildinfo
 knowledge_base/sources/
+.playwright-cli/

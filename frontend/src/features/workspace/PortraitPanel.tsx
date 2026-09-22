@@ -6,6 +6,7 @@ import { useGraph, useRisks } from '../../lib/queries'
 import { NODE_KIND_RU, RESULT_RU } from '../../lib/risk'
 import { riskIdsForNode, useSelection } from '../../lib/selection'
 import { GraphView } from './GraphView'
+import { plural } from './graphModel'
 
 import type { PortraitMode } from './WorkspacePage'
 import { PlanPanel } from './PlanPanel'
@@ -62,7 +63,7 @@ export function PortraitPanel({ session, mode }: { session: Session; mode: Portr
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
-        <h2 className="display-s">Цифровой слепок <span className="caption font-normal">{graph.data ? `${graph.data.nodes.filter((n) => n.kind === 'topic').length} тем · ${questions} вопросов · ${graph.data.nodes.filter((n) => n.kind === 'norm').length} норм` : ''}</span></h2>
+        <h2 className="display-s">Цифровой слепок <span className="caption whitespace-nowrap font-normal">{graph.data ? [plural(graph.data.nodes.filter((n) => n.kind === 'topic').length, 'тема', 'темы', 'тем'), plural(questions, 'вопрос', 'вопроса', 'вопросов'), plural(graph.data.nodes.filter((n) => n.kind === 'norm').length, 'норма', 'нормы', 'норм')].join(' · ') : ''}</span></h2>
         {mode === 'map' && <button className="btn btn-tertiary" aria-pressed={text} onClick={() => setText(!text)}>{text ? 'Показать карту' : 'Текстом'}</button>}
       </div>
       <div className="min-h-0 flex-1" aria-label="Портрет сессии">
