@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import service as auth
-from ..core.config import get_settings
+from ..core.config import Settings, get_settings
 from ..core.errors import ApiError, not_found
 from ..core.util import safe_filename
 from ..db.models import (
@@ -29,13 +29,19 @@ from ..db.models import (
     GraphNode,
     Message,
     Risk,
+    RiskClosureAttempt,
     RiskEvidence,
     RiskStatusEvent,
     SessionFact,
 )
 from ..db.session import get_db
+from ..providers.registry import get_providers
 from ..schemas.api import (
     CitationOut,
+    ClosureAttemptOut,
+    ClosureCitation,
+    ClosureIn,
+    ClosureResult,
     GraphOut,
     LayoutIn,
     MatrixCell,
@@ -46,13 +52,16 @@ from ..schemas.api import (
     RiskDetail,
     RiskEventOut,
     RiskEvidenceOut,
+    RiskLevelRange,
+    RiskMethodologyOut,
     RiskOut,
     RiskPatch,
     RisksOut,
     TimelineItem,
 )
 from ..services.portrait import graph
-from ..services.risks import engine
+from ..services.risks import closure, engine
+from ..services.risks import scales as risk_scales
 from ..services.risks.methodology import DISCLAIMER, TOPIC_TITLES
 from ..services.risks.scoring import LEVEL_RU, METHODOLOGY_VERSION
 from .deps import current_user, require_writable, session_of
@@ -101,6 +110,26 @@ def _risk_out(db: Session, r: Risk) -> RiskOut:
     return out
 
 
+@router.get("/risk-methodology", response_model=RiskMethodologyOut)
+def risk_methodology(role: Literal["student", "entrepreneur", "expert"] = Query("entrepreneur"), ctx: auth.AuthContext = Depends(current_user), s: Settings = Depends(get_settings)) -> RiskMethodologyOut:
+    """Пояснение P и S берёт шкалы и пороги отсюда: клиент числа не дублирует."""
+    sc = risk_scales.load(role)
+    low, mid, high = s.risk_thresholds
+    bounds: tuple[tuple[Literal["low", "medium", "high", "critical"], int, int], ...] = (("low", 1, low), ("medium", low + 1, mid), ("high", mid + 1, high), ("critical", high + 1, 25))
+    return RiskMethodologyOut(
+        version=METHODOLOGY_VERSION, role=role, measure=sc["measure"], probability=sc["probability"], severity=sc["severity"],
+        levels=[RiskLevelRange(level=lv, label=LEVEL_RU[lv], min=a, max=b) for lv, a, b in bounds],
+        rules=[
+            "P — оценка того, насколько условия риска есть в вашей ситуации по фактам и правилам методики; это не статистическая вероятность и не процент.",
+            "S — тяжесть последствий по подтверждённой норме: S от 3 ставится только при норме об ответственности или санкции в базе знаний.",
+            "P от 4 — только при фактах, которые вы сообщили сами; P = 5 — только если ситуация продолжается сейчас.",
+            "Новый независимый факт повышает P один раз (+1); повтор или перефразирование вопроса P не повышают.",
+            "Итог — P × S (от 1 до 25), уровень определяется порогами. Если фактов мало, риск показывается как «не оценён» с причиной.",
+            f"Если вы задали P и S вручную, агент их не перезаписывает, а при расхождении предлагает уточнение. Методика {METHODOLOGY_VERSION} экспериментальная.",
+        ],
+    )
+
+
 @router.get("/sessions/{session_id}/risks", response_model=RisksOut)
 def list_risks(session_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db)) -> RisksOut:
     s = session_of(db, ctx, session_id)
@@ -144,7 +173,29 @@ def risk_detail(risk_id: uuid.UUID, ctx: auth.AuthContext = Depends(current_user
                 label, cid = f"{c.snapshot['short_name'] or c.snapshot['act_title']}, {c.snapshot['locator']} (ред. {c.snapshot['revision_date'] or c.snapshot['edition'] or 'н/д'})", c.id
         evs.append(RiskEvidenceOut(role=e.role, kind=e.kind, ref_id=e.ref_id, label=label, citation_id=cid, message_id=mid))
     hist = [RiskEventOut.model_validate(x) for x in db.scalars(select(RiskStatusEvent).where(RiskStatusEvent.risk_id == r.id).order_by(RiskStatusEvent.at))]
-    return RiskDetail(risk=_risk_out(db, r), events=hist, evidence=evs)
+    tries = db.scalars(select(RiskClosureAttempt).where(RiskClosureAttempt.risk_id == r.id).order_by(RiskClosureAttempt.created_at.desc()).limit(5))
+    return RiskDetail(risk=_risk_out(db, r), events=hist, evidence=evs, closures=[_closure_out(db, a) for a in tries])
+
+
+def _closure_out(db: Session, a: RiskClosureAttempt) -> ClosureAttemptOut:
+    out = ClosureAttemptOut.model_validate(a)
+    for cid in a.citation_ids:
+        c = db.get(Citation, uuid.UUID(cid))
+        if c:
+            out.citations.append(ClosureCitation(id=c.id, label=f"{c.snapshot['short_name'] or c.snapshot['act_title']}, {c.snapshot['locator']} (ред. {c.snapshot['revision_date'] or c.snapshot['edition'] or 'н/д'})"))
+    return out
+
+
+@router.post("/risks/{risk_id}/closure", response_model=ClosureResult)
+def propose_closure(risk_id: uuid.UUID, body: ClosureIn, ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(get_db), s: Settings = Depends(get_settings)) -> ClosureResult:
+    """«Предложить закрытие»: до результата проверки риск остаётся активным. Ответ оценивает модель, результат проверяет сервер."""
+    require_writable(db)
+    r = _risk_of(db, ctx, risk_id)
+    a = closure.propose(db, get_providers(), s, r, answer=body.answer, source=body.source, key=body.idempotency_key, expected_version=body.version, actor=ctx.user.username)
+    db.add(AuditEvent(actor=ctx.user.username, action="risk.closure_check", object_type="risk", object_id=str(r.id), details={"attempt": str(a.id), "state": a.state, "decision": a.decision, "verification": a.verification, "source": a.source}))
+    db.commit()
+    db.refresh(r)
+    return ClosureResult(**_closure_out(db, a).model_dump(), risk=_risk_out(db, r))
 
 
 @router.patch("/risks/{risk_id}", response_model=RiskOut)
@@ -153,10 +204,16 @@ def patch_risk(risk_id: uuid.UUID, body: RiskPatch, ctx: auth.AuthContext = Depe
     r = _risk_of(db, ctx, risk_id)
     if body.status is None and (body.p is None or body.s is None):
         raise ApiError(422, "nothing_to_change", "Укажите новый статус либо обе оценки P и S")
+    if body.override and ctx.user.access_level != "owner":
+        raise ApiError(403, "forbidden", "Закрыть риск без проверки ответа может только владелец")
     if body.p is not None and body.s is not None:
         engine.set_ps(db, r, body.p, body.s, body.reason, body.version, "owner")
     if body.status is not None:
-        engine.set_status(db, r, {"dismissed": "not_applicable", "closed": "resolved"}.get(body.status, body.status), body.reason, r.version if body.p is not None else body.version, "owner")
+        new = {"dismissed": "not_applicable", "closed": "resolved"}.get(body.status, body.status)
+        override = body.override and new in engine.CLOSED
+        engine.set_status(db, r, new, body.reason, r.version if body.p is not None else body.version, "owner_override" if override else "owner")
+        if override:
+            db.add(AuditEvent(actor=ctx.user.username, action="risk.closure_override", object_type="risk", object_id=str(r.id), details={"status": new, "reason": body.reason[:300]}))
     s = db.get(ConsultationSession, r.session_id)
     if s:
         s.version += 1
@@ -282,8 +339,8 @@ def _formatted(c: Citation) -> str:
     when = f"редакция от {sn['revision_date']}" if sn["revision_date"] else (f"издание: {sn['edition']}" if sn["edition"] else "дата редакции не указана")
     page = f", с. {sn['page']}" if sn.get("page") else ""
     lines = [f"«{c.excerpt.strip()}»", "", f"{sn['act_title']}" + (f" ({sn['act_number']})" if sn["act_number"] else ""), f"{sn['locator']}{page}; {when}", f"Проверена: {sn['verified_at'] or 'актуальность не подтверждена'}", f"Источник (реквизит): {sn['source_url'] or 'не указан'}", f"Происхождение: локальный корпус DoorAIn, контрольная сумма {sn['checksum'][:16]}"]
-    if sn["is_demo"]:
-        lines.append("Демонстрационные данные — не нормативная база")
+    if sn.get("archived"):
+        lines.append("Источник выведен из базы знаний: основание недействительно")
     return "\n".join(lines)
 
 

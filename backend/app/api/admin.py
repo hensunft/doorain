@@ -36,7 +36,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def _user_out(db: Session, u: User) -> UserAdminOut:
     q = select(func.count()).select_from(ConsultationSession).where(ConsultationSession.user_id == u.id)
     return UserAdminOut(
-        id=u.id, username=u.username, access_level=u.access_level, created_at=u.created_at, last_login_at=u.last_login_at,
+        id=u.id, username=u.username, display_name=u.display_name, access_level=u.access_level, created_at=u.created_at, last_login_at=u.last_login_at,
         disclaimer_accepted_at=u.disclaimer_accepted_at, disabled_at=u.disabled_at,
         sessions=db.scalar(q.where(ConsultationSession.deleted_at.is_(None))) or 0,
         deleted_sessions=db.scalar(q.where(ConsultationSession.deleted_at.is_not(None))) or 0,
@@ -79,10 +79,10 @@ def invites(ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db
 
 @router.post("/invites", response_model=InviteCreated, status_code=201)
 def create_invite(body: InviteCreate, ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db), s: Settings = Depends(get_settings)) -> InviteCreated:
-    code, inv = auth.create_invite(db, s, ctx.user.id, body.note)
-    db.add(AuditEvent(actor=ctx.user.username, action="admin.invite_create", object_type="invite", object_id=str(inv.id)))
+    code, inv = auth.create_invite(db, s, ctx.user.id, body.note, body.ttl_days)
+    db.add(AuditEvent(actor=ctx.user.username, action="admin.invite_create", object_type="invite", object_id=str(inv.id), details={"ttl_days": body.ttl_days}))
     db.commit()
-    return InviteCreated(code=code, expires_at=inv.expires_at, hint=inv.hint)  # код показывается один раз
+    return InviteCreated(code=code, expires_at=inv.expires_at, hint=inv.hint, register_path=f"/register#code={code}")  # код показывается один раз
 
 
 @router.delete("/invites/{invite_id}", status_code=204)

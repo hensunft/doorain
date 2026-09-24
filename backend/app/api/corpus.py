@@ -50,7 +50,7 @@ def overview(ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_d
     return CorpusOverview(
         documents=db.scalar(select(func.count()).select_from(Document)) or 0, revisions=n_rev, chunks=db.scalar(select(func.count()).select_from(Chunk)) or 0,
         active_generation=GenerationOut.model_validate(act) if act else None, generations=[GenerationOut.model_validate(g) for g in gens], empty=n_rev == 0,
-        has_demo=bool(db.scalar(select(Document.id).where(Document.is_demo.is_(True), Document.excluded_at.is_(None)).limit(1))), index_ready=act is not None,
+        index_ready=act is not None,
     )
 
 
@@ -108,13 +108,16 @@ def confirm(draft_id: uuid.UUID, body: ConfirmImportIn, ctx: auth.AuthContext = 
 
 
 @router.get("/documents", response_model=list[DocumentOut])
-def documents(ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db)) -> list[DocumentOut]:
+def documents(ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db), s: Settings = Depends(get_settings)) -> list[DocumentOut]:
     out = []
-    for d in db.scalars(select(Document).order_by(Document.title)):
+    q = select(Document).order_by(Document.title)
+    if s.provider_mode != "test":  # выведенные из рабочей базы тестовые акты не показываются; в тестовом стенде исключение обратимо
+        q = q.where(~(Document.is_demo.is_(True) & Document.excluded_at.is_not(None)))
+    for d in db.scalars(q):
         revs = db.scalars(select(DocumentRevision).where(DocumentRevision.document_id == d.id).order_by(DocumentRevision.revision_date.desc().nullslast(), DocumentRevision.uploaded_at.desc()))
         out.append(DocumentOut(
             id=d.id, doc_type=d.doc_type, title=d.title, short_name=d.short_name, act_number=d.act_number, act_date=d.act_date,
-            license_note=d.license_note, source_url=d.source_url, is_demo=d.is_demo, excluded=d.excluded_at is not None,
+            license_note=d.license_note, source_url=d.source_url, excluded=d.excluded_at is not None,
             cited_in_sessions=len(kb.citing_sessions(db, d.id)), revisions=[RevisionOut.model_validate(r) for r in revs],
         ))
     return out
@@ -130,7 +133,7 @@ def patch_document(document_id: uuid.UUID, body: DocumentPatch, ctx: auth.AuthCo
     revs = db.scalars(select(DocumentRevision).where(DocumentRevision.document_id == d.id).order_by(DocumentRevision.revision_date.desc().nullslast()))
     return DocumentOut(
         id=d.id, doc_type=d.doc_type, title=d.title, short_name=d.short_name, act_number=d.act_number, act_date=d.act_date,
-        license_note=d.license_note, source_url=d.source_url, is_demo=d.is_demo, excluded=d.excluded_at is not None,
+        license_note=d.license_note, source_url=d.source_url, excluded=d.excluded_at is not None,
         cited_in_sessions=len(kb.citing_sessions(db, d.id)), revisions=[RevisionOut.model_validate(r) for r in revs],
     )
 
@@ -142,16 +145,6 @@ def delete_document(document_id: uuid.UUID, ctx: auth.AuthContext = Depends(owne
     title = (db.get(Document, document_id) or Document()).title
     out = kb.remove(db, s, get_providers(), document_id)
     db.add(AuditEvent(actor=ctx.user.username, action="corpus.document_removed", object_type="document", object_id=str(document_id), details={"title": title, "chunks": out["chunks"]}))
-    db.commit()
-    return out
-
-
-@router.post("/documents/demo/remove", response_model=dict[str, Any])
-def remove_demo(ctx: auth.AuthContext = Depends(owner), db: Session = Depends(get_db), s: Settings = Depends(get_settings)) -> dict[str, Any]:
-    """Убрать демонстрационные акты: без ссылок — удалить, со ссылками — исключить из корпуса."""
-    require_writable(db)
-    out = kb.remove_demo(db, s, get_providers())
-    db.add(AuditEvent(actor=ctx.user.username, action="corpus.demo_removed", details={"items": len(out["items"])}))
     db.commit()
     return out
 

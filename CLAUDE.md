@@ -6,7 +6,7 @@
 
 ```bash
 # backend (uv, Python 3.12)
-cd backend && uv sync && uv run pytest                 # 123 теста, SQLite; на PostgreSQL: DOORAIN_TEST_DATABASE_URL=postgresql+psycopg://…  uv run pytest
+cd backend && uv sync && uv run pytest                 # 179 тестов, SQLite; на PostgreSQL: DOORAIN_TEST_DATABASE_URL=postgresql+psycopg://…  uv run pytest
 uv run ruff check app tests && uv run mypy app
 uv run alembic revision --autogenerate -m "…"          # только против PostgreSQL 17; затем alembic check
 uv run python -m app.cli export-openapi --out ../frontend/openapi.json
@@ -30,6 +30,7 @@ python evals/run_eval.py --user owner --split holdout   # DOORAIN_EVAL_PASSWORD 
 * Любой изменяющий запрос — cookie-сессия + `X-CSRF-Token` + проверка Origin; владелец объекта проверяется в каждом маршруте.
 * PostgreSQL и файлы — источник истины; Qdrant восстанавливаем. Редакции неизменяемы; цитаты хранят снимок реквизитов и выдержки.
 * Ссылки, реквизиты и даты подставляет сервер; модель выбирает только выданные `[C#]`; непроверенное заменяется «Недостаточно данных». Облачного fallback нет.
+* Риск закрывается только через проверку ответа (`POST /risks/{id}/closure`, `services/risks/closure.py`): прямой PATCH `resolved/not_applicable` → 409, обход — только владелец с `override` и записью в журнал; «закрыт» по умолчанию = «со слов пользователя».
 * Риск без нормативного основания не создаётся; S ≥ 3 только при источнике последствий; P≥4 — только при фактах пользователя; бонус P однократный и только за новый независимый факт; P=5 — только при «продолжающейся» ситуации. Повтор/retry/перефразирование P не повышают.
 * Сбой аналитики не портит проверенный ответ и не блокирует сессию; retry без дублей.
 * `internal: true` сеть; наружу только `web`; api/worker/БД/Ollama не публикуются. Restore — только в новые volumes.
@@ -44,7 +45,11 @@ python evals/run_eval.py --user owner --split holdout   # DOORAIN_EVAL_PASSWORD 
 * Мутируя `Message`/`GenerationRun`, помните о `session.version` и SSE-событиях (`job_events`).
 * Пороги отказа (`DOORAIN_MIN_RERANK_SCORE`) не откалиброваны, пока не выполнена калибровка на `split=calibration` (docs/evaluation.md).
 * Вердикт классификатора «вне области» — мягкий: снимается нормами со скором ≥ порог + `DOORAIN_SCOPE_OVERRIDE_MIN_SCORE`. Жёсткий отказ остаётся ниже `порог − DOORAIN_PARTIAL_ANSWER_MARGIN`; между ними ответ идёт с явной оговоркой о неполноте оснований.
-* Манифест корпуса — `knowledge_base/manifest.yaml`; документ без `license` не индексируется.
+* Манифест корпуса — `knowledge_base/manifest.yaml`; документ без `license` не индексируется. Перечень НПА для администратора — `docs/npa-knowledge-base.md` (сами акты автоматически не загружаются).
+* Синтетические акты (`tests/fixtures/demo`) — только при `provider_mode=test`; из рабочей базы выводятся `kb retire-demo` (архив оснований, без удаления сообщений).
+* Блок «Со слов пользователя» — только утверждение с предметом из слов пользователя (`verify.fact_has_subject/fact_grounded`): «нет.» → уточнение, непроизнесённое → допущение.
+* Регистрация: логин неизменяем; e-mail уникален без регистра, меняется только с текущим паролем и письмом не подтверждается; код приглашения погашается атомарным UPDATE. Реквизиты оператора — `backend/app/config/legal.yaml` (пустые — «не заполнено», не выдумывать).
+* Разделитель зон — `features/workspace/Splitter.tsx` (модульный компонент: вложенный в рендер тип пересоздаёт DOM и теряет pointer capture).
 * Пороги уровней и лимит рисков — `backend/app/config/risk.yaml` (уровни в БД пересчитываются при старте API); цвета PDF — `backend/app/config/print.yaml`, тест сверяет их с `tokens.css`. Уровень во frontend — только `data-level`, без инлайновых цветов.
 * В PDF не должно быть реплик диалога: вопросы подписываются номерами (`test_export_pdf_content_snapshot_and_auth`).
 * Дата «сегодня» во фронтенде — `todayISO()` (`src/lib/date.ts`): `toISOString()` даёт UTC и до 03:00 по Москве подставляет вчерашний срез.

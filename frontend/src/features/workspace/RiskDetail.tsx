@@ -5,21 +5,27 @@ import { Button, RiskBadge } from '../../components/ui'
 import type { Risk } from '../../lib/api'
 import { errorText, patch } from '../../lib/api'
 import { keys, useRiskDetail } from '../../lib/queries'
-import { STATUS_RU, scoreLabel } from '../../lib/risk'
+import { useMe } from '../../app/App'
+import { RESOLVED_BY_RU, STATUS_RU, scoreLabel } from '../../lib/risk'
+import { PsInfo } from '../../components/PsInfo'
+import { ClosureForm, VERIFICATION_RU } from './Closure'
 import { useSelection } from '../../lib/selection'
 
-const EVENT_KIND: Record<string, string> = { created: 'Создан', status: 'Статус', score: 'Оценка', evidence: 'Основание' }
-const AUTHOR: Record<string, string> = { system: 'система', user_message: 'по сообщению пользователя', owner: 'владелец' }
+const EVENT_KIND: Record<string, string> = { created: 'Создан', status: 'Статус', score: 'Оценка', evidence: 'Основание', closure: 'Проверка закрытия' }
+const AUTHOR: Record<string, string> = { system: 'система', user_message: 'по сообщению пользователя', owner: 'владелец', closure_user_claim: 'проверка ответа · со слов пользователя', closure_confirmed: 'проверка ответа · подтверждено фактами', owner_override: 'владелец без проверки' }
+const DECISION_RU: Record<string, string> = { close: 'закрыть', keep_open: 'оставить открытым', clarify: 'нужно уточнение', other_risk: 'иная проблема' }
 
 export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: string }) {
   const q = useRiskDetail(riskId)
   const qc = useQueryClient()
   const { openCitation, selectMessage } = useSelection()
-  const [status, setStatus] = useState<'open' | 'in_progress' | 'resolved'>('in_progress')
+  const isOwner = useMe().data?.user.access_level === 'owner'
+  const [status, setStatus] = useState<'open' | 'in_progress'>('in_progress')
+  const [override, setOverride] = useState('')
   const [reason, setReason] = useState('')
   const change = useMutation({
-    mutationFn: (v: { status: string; reason: string; version: number }) => patch<Risk>(`/risks/${riskId}`, v),
-    onSuccess: () => { setReason(''); void qc.invalidateQueries({ queryKey: keys.risk(riskId) }); void qc.invalidateQueries({ queryKey: keys.risks(sessionId) }); void qc.invalidateQueries({ queryKey: keys.graph(sessionId) }) },
+    mutationFn: (v: { status: string; reason: string; version: number; override?: boolean }) => patch<Risk>(`/risks/${riskId}`, v),
+    onSuccess: () => { setReason(''); setOverride(''); void qc.invalidateQueries({ queryKey: keys.risk(riskId) }); void qc.invalidateQueries({ queryKey: keys.risks(sessionId) }); void qc.invalidateQueries({ queryKey: keys.graph(sessionId) }) },
   })
   const [ps, setPs] = useState<{ p: number; s: number; reason: string } | null>(null)
   const rescore = useMutation({
@@ -29,7 +35,7 @@ export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: s
   if (q.isLoading) return <Skeleton lines={6} />
   if (q.isError) return <ErrorNote error={q.error} onRetry={() => q.refetch()} />
   if (!q.data) return null
-  const { risk: r, events, evidence } = q.data
+  const { risk: r, events, evidence, closures = [] } = q.data
   const facts = evidence.filter((e) => e.kind === 'fact')
   const cites = evidence.filter((e) => e.kind === 'obligation' || e.kind === 'consequence')
   const msgs = evidence.filter((e) => e.kind === 'message')
@@ -42,6 +48,7 @@ export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: s
         <div className="flex flex-wrap items-center gap-2">
           <RiskBadge level={r.level} score={r.score} />
           <span className="chip tnum">P{r.p ?? '—'} × S{r.s ?? '—'} = {scoreLabel(r.p, r.s, r.score)}</span>
+          <span className="inline-flex items-center">P<PsInfo what="p" sessionId={sessionId} />S<PsInfo what="s" sessionId={sessionId} /></span>
           <span className="chip">{STATUS_RU[r.status] ?? r.status}</span>
           {r.kind === 'learning' && <span className="chip">Учебный риск</span>}
           {r.category && <span className="chip">{r.category}</span>}
@@ -49,10 +56,8 @@ export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: s
         <p className="hint">Оценка качественная (методика {r.methodology_version}, экспериментальная), это не вероятность штрафа в процентах.{r.mentions > 1 ? ` Упоминался в ${r.mentions} сообщениях, обновлён ${new Date(r.updated_at).toLocaleDateString('ru-RU')}.` : ''}</p>
       </header>
       {r.status === 'needs_clarification' && <Banner tone="warn">Нужно уточнение: {r.clarification ?? 'недостаточно фактов'}. Строка не входит в ранжированную таблицу.</Banner>}
-      {r.resolution_pending && (
-        <Banner tone="warn" action={<Button onClick={() => change.mutate({ status: 'resolved', reason: 'Подтверждено владельцем после сообщения о снятии', version: r.version })}>Снять</Button>}>{r.resolution_pending}</Banner>
-      )}
-      {r.status === 'resolved' && <Banner>{r.resolved_by === 'user_message' ? 'Снят по сообщению пользователя (это не независимая проверка устранения).' : 'Снят вручную.'} Причина: {r.resolution_reason}</Banner>}
+      {r.resolution_pending && <Banner tone="warn"><b>Чтобы закрыть риск, уточните:</b> {r.resolution_pending}</Banner>}
+      {(r.status === 'resolved' || r.status === 'not_applicable') && <Banner>{RESOLVED_BY_RU[r.resolved_by ?? ''] ?? 'Закрыт.'}{r.resolution_reason ? <>. Ответ: «{r.resolution_reason}»</> : null}</Banner>}
       <section><h4 className="font-semibold">Почему такая оценка</h4>
         <p><b>P:</b> {r.p_reason || '—'}{r.bonus_p > 0 && <> Базовая P={r.base_p}; однократный бонус +1 за независимый подтверждающий факт{bonusFacts.length ? `: «${bonusFacts[0]?.label}»` : ''}.</>}</p>
         <p><b>S:</b> {r.s_reason || '—'}</p>
@@ -64,8 +69,8 @@ export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: s
             <button type="button" className="btn" onClick={() => setPs({ p: r.p ?? 3, s: r.s ?? 3, reason: '' })}>Изменить оценку P и S</button>
           ) : (
             <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); rescore.mutate({ ...ps, version: r.version }) }}>
-              <label className="block"><span className="label">P</span><select className="input !w-20" value={ps.p} onChange={(e) => setPs({ ...ps, p: Number(e.target.value) })}>{[1, 2, 3, 4, 5].map((x) => <option key={x}>{x}</option>)}</select></label>
-              <label className="block"><span className="label">S</span><select className="input !w-20" value={ps.s} onChange={(e) => setPs({ ...ps, s: Number(e.target.value) })}>{[1, 2, 3, 4, 5].map((x) => <option key={x}>{x}</option>)}</select></label>
+              <label className="block"><span className="label">P <PsInfo what="p" sessionId={sessionId} /></span><select className="input !w-20" value={ps.p} onChange={(e) => setPs({ ...ps, p: Number(e.target.value) })}>{[1, 2, 3, 4, 5].map((x) => <option key={x}>{x}</option>)}</select></label>
+              <label className="block"><span className="label">S <PsInfo what="s" sessionId={sessionId} /></span><select className="input !w-20" value={ps.s} onChange={(e) => setPs({ ...ps, s: Number(e.target.value) })}>{[1, 2, 3, 4, 5].map((x) => <option key={x}>{x}</option>)}</select></label>
               <label className="block min-w-40 flex-1"><span className="label">Почему</span><input className="input" required maxLength={1000} value={ps.reason} onChange={(e) => setPs({ ...ps, reason: e.target.value })} /></label>
               <button className="btn" type="submit" disabled={!ps.reason.trim() || rescore.isPending}>Сохранить</button>
               <button className="btn" type="button" onClick={() => setPs(null)}>Отмена</button>
@@ -88,12 +93,33 @@ export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: s
       <section><h4 className="font-semibold">История</h4>
         <ol className="space-y-1">{events.map((e) => <li key={e.id} className="tnum"><span className="text-muted">{new Date(e.at).toLocaleString('ru-RU')}</span> · {EVENT_KIND[e.kind] ?? e.kind}{e.from_value || e.to_value ? `: ${e.from_value ?? '—'} → ${e.to_value ?? '—'}` : ''} · {e.reason} <span className="text-muted">({AUTHOR[e.author] ?? e.author})</span></li>)}</ol>
       </section>
+      {closures.length > 0 && (
+        <section><h4 className="font-semibold">Проверки ответа о закрытии</h4>
+          <ol className="mt-1 space-y-1">{closures.map((a) => <li key={a.id}><span className="text-muted tnum">{new Date(a.created_at).toLocaleString('ru-RU')}</span> · «{a.user_answer.slice(0, 120)}» → {a.state === 'decided' ? DECISION_RU[a.decision ?? ''] ?? a.decision : a.state === 'failed' ? 'не выполнена' : 'не применена'}{a.verification ? ` (${VERIFICATION_RU[a.verification]})` : ''}</li>)}</ol>
+        </section>
+      )}
+      {editable && r.status !== 'resolved' && r.status !== 'not_applicable' && (
+        <section className="space-y-1 border-t border-line pt-3">
+          <h4 className="font-semibold">Закрыть риск</h4>
+          <ClosureForm key={r.version} risk={r} sessionId={sessionId} source="detail" />
+        </section>
+      )}
+      {isOwner && editable && r.status !== 'resolved' && r.status !== 'not_applicable' && (
+        <details className="text-small">
+          <summary className="cursor-pointer text-muted">Административно: закрыть без проверки ответа</summary>
+          <form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); change.mutate({ status: 'resolved', reason: override, version: r.version, override: true }) }}>
+            <label className="sr-only" htmlFor={`ov-${r.id}`}>Основание административного закрытия</label>
+            <input id={`ov-${r.id}`} className="input min-w-48 flex-1" value={override} onChange={(e) => setOverride(e.target.value)} placeholder="Основание (записывается в журнал)" required maxLength={1000} />
+            <Button type="submit" variant="danger" disabled={!override.trim() || change.isPending}>Закрыть без проверки</Button>
+          </form>
+        </details>
+      )}
       {editable && (
         <form className="space-y-2 border-t border-line pt-3" onSubmit={(e) => { e.preventDefault(); change.mutate({ status, reason, version: r.version }) }}>
           <h4 className="font-semibold">Изменить статус</h4>
           <div className="flex flex-wrap gap-2">
             <label className="sr-only" htmlFor={`st-${r.id}`}>Новый статус</label>
-            <select id={`st-${r.id}`} className="input !w-40" value={status} onChange={(e) => setStatus(e.target.value as typeof status)}><option value="open">Открыт</option><option value="in_progress">В работе</option><option value="resolved">Снят</option></select>
+            <select id={`st-${r.id}`} className="input !w-40" value={status} onChange={(e) => setStatus(e.target.value as typeof status)}><option value="open">Открыт</option><option value="in_progress">В работе</option></select>
             <label className="sr-only" htmlFor={`rs-${r.id}`}>Причина</label>
             <input id={`rs-${r.id}`} className="input min-w-48 flex-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Причина изменения (обязательно)" required maxLength={1000} />
             <Button variant="primary" type="submit" disabled={!reason.trim() || change.isPending}>Сохранить</Button>

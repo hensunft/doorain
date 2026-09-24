@@ -32,6 +32,24 @@ ACTIVE = ("open", "in_progress")
 CLOSED = ("resolved", "not_applicable")  # not_applicable — «неприменимо ко мне» (dismissed)
 MANUAL_STATUSES = ("open", "in_progress", "resolved", "not_applicable")
 
+_FILLER = {
+    "да", "нет", "ок", "окей", "ладно", "готово", "сделано", "сделал", "сделали", "решено", "решил", "решили", "исправлено", "исправил", "закрыто", "закрыл",
+    "устранено", "устранил", "выполнено", "выполнил", "хорошо", "норм", "нормально", "угу", "ага", "все", "всё", "уже", "done", "ok", "yes", "no",
+}
+NEEDS_DETAIL = "Ответ слишком общий: опишите, что именно сделано, где и когда (например, «опубликовал политику обработки ПДн на странице /privacy»)."
+_VOWELS = set("аеёиоуыэюяaeiouy")
+
+
+def vacuous(answer: str) -> str | None:
+    """Быстрая проверка без модели: пустой, слишком краткий, состоящий из общих слов или бессвязный ответ. None — ответ можно оценивать."""
+    words = re.findall(r"[а-яёa-z]+", answer.lower())
+    letters = "".join(words)
+    if len(words) < 3 or len(letters) < 12 or all(w in _FILLER for w in words):
+        return NEEDS_DETAIL
+    if sum(ch in _VOWELS for ch in letters) / len(letters) < 0.2 or len(set(letters)) < 5:
+        return "Ответ не похож на описание действия. Опишите своими словами, что именно сделано или почему риск к вам не относится."
+    return None
+
 
 def slug(s: str) -> str:
     return re.sub(r"[^a-zа-яё0-9]+", "-", s.lower()).strip("-")[:60] or "general"
@@ -77,6 +95,9 @@ def apply_facts(db: Session, s: ConsultationSession, run_id: uuid.UUID, msg: Mes
     by_key: dict[str, SessionFact] = {}
     novelty: dict[str, str] = {}
     for f in result.fact_candidates:
+        if vacuous(f.statement) is not None:  # «нет», «да» без предмета — не факт
+            log.info("fact candidate dropped: no subject/predicate: %s=%s", f.key, f.value)
+            continue
         cur = db.scalar(select(SessionFact).where(SessionFact.session_id == s.id, SessionFact.key == f.key, SessionFact.status == "active", SessionFact.kind == "user_fact").order_by(SessionFact.created_at.desc()))
         if cur and cur.value == f.value:
             by_key[f.key] = cur
@@ -145,11 +166,11 @@ def _apply_candidate(
     if cand.resolved_by_user or cand.resolution_ambiguous:  # снятие: норма-обязанность не нужна
         r = existing or db.scalar(select(Risk).where(Risk.session_id == s.id, Risk.risk_type == cand.risk_type, Risk.scope_key == scope))
         if r and r.status in ACTIVE:
-            if cand.resolved_by_user and not cand.resolution_ambiguous:
+            if cand.resolved_by_user and not cand.resolution_ambiguous and vacuous(msg.content) is None:
                 _event(db, r, "status", r.status, "resolved", "Снят по сообщению пользователя (не независимая проверка устранения)", "user_message", msg.id)
                 r.status, r.resolved_by, r.resolution_reason, r.resolution_pending, r.closed_at = "resolved", "user_message", "Снят по сообщению пользователя", None, now()
-            else:
-                r.resolution_pending = "Из сообщения неясно, устранён ли риск. Подтвердите снятие вручную."
+            else:  # общая фраза без предмета не закрывает риск: пользователю задаётся уточняющий вопрос
+                r.resolution_pending = "Из сообщения неясно, что именно устранено. Опишите действие (что, где, когда) в блоке риска."
                 _event(db, r, "evidence", None, None, "Неоднозначное сообщение о снятии — нужно подтверждение", "user_message", msg.id)
             r.version += 1
             r.updated_at = now()
@@ -253,12 +274,14 @@ def set_status(db: Session, r: Risk, new: str, reason: str, expected_version: in
         raise ApiError(422, "bad_status", "Статус: open, in_progress, resolved или not_applicable (неприменимо ко мне)")
     if not reason.strip():
         raise ApiError(422, "reason_required", "Укажите причину изменения статуса")
+    if new in CLOSED and author != "owner_override":
+        raise ApiError(409, "closure_check_required", "Закрыть риск можно только через проверку ответа (что именно сделано или почему риск не применим)")
     if r.status == "needs_clarification":
         raise ApiError(409, "needs_clarification", "Риск ожидает уточнения фактов и не оценён: смена статуса недоступна")
     _event(db, r, "status", r.status, new, reason, author)
     r.status = new
     if new in CLOSED:
-        r.resolved_by, r.resolution_reason, r.closed_at = "owner", reason, now()
+        r.resolved_by, r.resolution_reason, r.closed_at = "owner_override", reason, now()
     else:
         r.resolved_by = r.resolution_reason = r.closed_at = None
     r.resolution_pending = None

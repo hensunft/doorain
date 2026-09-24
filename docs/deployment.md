@@ -28,7 +28,7 @@ scripts\doorain.ps1 create-owner owner   # интерактивный ввод �
 
 Ежедневный старт/остановка: `scripts\doorain.ps1 start` / `stop` (тома сохраняются; `down -v` вручную удаляет данные — скрипт этого не делает).
 
-**Чистый старт (данные приложения — с нуля, модели сохраняются).** Владельца можно создать только один раз, поэтому после проверочных прогонов (учётная запись `smoke`, демо-данные) выполните вручную: `docker compose -p doorain down` (без `-v`; остановленные контейнеры тоже удерживают тома), затем `docker volume rm doorain_pgdata doorain_data doorain_qdrant doorain_qdrant_snapshots`, затем `start` и `create-owner`; демо-корпус — `docker compose -p doorain exec worker python -m app.cli load-demo-corpus` (в `api` лимит 1 ГБ, эмбеддинги строятся в `worker`). Тома `doorain_models` и `doorain_ollama` (загруженные модели) не удаляются — повторная загрузка не потребуется. Удаление необратимо: сначала `backup`, если в данных есть что-то нужное.
+**Чистый старт (данные приложения — с нуля, модели сохраняются).** Владельца можно создать только один раз, поэтому после проверочных прогонов (учётная запись `smoke`, демо-данные) выполните вручную: `docker compose -p doorain down` (без `-v`; остановленные контейнеры тоже удерживают тома), затем `docker volume rm doorain_pgdata doorain_data doorain_qdrant doorain_qdrant_snapshots`, затем `start` и `create-owner`. Рабочая база знаний наполняется только настоящими НПА (`kb add`, см. knowledge-base.md); синтетические тестовые акты в рабочий стенд не загружаются. Тома `doorain_models` и `doorain_ollama` (загруженные модели) не удаляются — повторная загрузка не потребуется. Удаление необратимо: сначала `backup`, если в данных есть что-то нужное.
 
 ## Профили compose
 

@@ -48,12 +48,22 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     access_level: Mapped[str] = mapped_column(String(10), default="user")  # owner | user (уровень доступа, не роль диалога)
-    email: Mapped[str | None] = mapped_column(String(200))
+    email: Mapped[str | None] = mapped_column(String(200), unique=True)  # хранится в нижнем регистре; подтверждение письмом не поддерживается
+    first_name: Mapped[str | None] = mapped_column(String(80))
+    last_name: Mapped[str | None] = mapped_column(String(80))
     disclaimer_accepted_at: Mapped[datetime | None]
+    terms_accepted_at: Mapped[datetime | None]  # ознакомление с Политикой и Условиями при регистрации
+    pd_consent_at: Mapped[datetime | None]  # отдельное согласие на обработку персональных данных
+    legal_version: Mapped[str | None] = mapped_column(String(20))  # версия правовых текстов, с которой пользователь согласился
     last_login_at: Mapped[datetime | None]
     disabled_at: Mapped[datetime | None]
     created_at: Mapped[datetime] = _ts()
     password_changed_at: Mapped[datetime] = _ts()
+
+    @property
+    def display_name(self) -> str:
+        """Имя и фамилия для интерфейса; у прежних учётных записей без профиля — логин."""
+        return " ".join(x for x in (self.first_name, self.last_name) if x) or self.username
 
 
 class Invite(Base):
@@ -417,9 +427,38 @@ class RiskStatusEvent(Base):
     from_value: Mapped[str | None] = mapped_column(String(200))
     to_value: Mapped[str | None] = mapped_column(String(200))
     reason: Mapped[str] = mapped_column(Text, default="")
-    author: Mapped[str] = mapped_column(String(20), default="system")  # system | user_message | owner
+    author: Mapped[str] = mapped_column(String(20), default="system")  # system | user_message | owner | closure_user_claim | closure_confirmed | owner_override
     source_message_id: Mapped[uuid.UUID | None]
     at: Mapped[datetime] = _ts()
+
+
+class RiskClosureAttempt(Base):
+    """Проверка ответа о закрытии риска. Хранит исходный ответ, решение, основание, версию методики и модели — для аудита."""
+
+    __tablename__ = "risk_closure_attempts"
+    id: Mapped[uuid.UUID] = _pk()
+    risk_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("risks.id", ondelete="CASCADE"), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(120))
+    source: Mapped[str] = mapped_column(String(12))  # plan | detail
+    user_answer: Mapped[str] = mapped_column(Text)
+    initiated_by: Mapped[str] = mapped_column(String(64))
+    risk_version: Mapped[int] = mapped_column(Integer)  # версия риска, на которой запрошена проверка
+    state: Mapped[str] = mapped_column(String(10), default="pending")  # pending | decided | failed | stale
+    decision: Mapped[str | None] = mapped_column(String(12))  # close | keep_open | clarify | other_risk
+    resolution_kind: Mapped[str | None] = mapped_column(String(16))  # remediated | not_applicable
+    verification: Mapped[str | None] = mapped_column(String(12))  # user_claim | corroborated
+    confidence: Mapped[str | None] = mapped_column(String(8))
+    explanation: Mapped[str] = mapped_column(Text, default="")
+    question: Mapped[str | None] = mapped_column(Text)  # уточняющий вопрос или предложение проверить иной риск в диалоге
+    quote: Mapped[str | None] = mapped_column(Text)  # фрагмент ответа пользователя, на который опирается решение
+    facts: Mapped[list[Any]] = mapped_column(J, default=list)  # использованные факты сессии: ключ и утверждение
+    citation_ids: Mapped[list[Any]] = mapped_column(J, default=list)  # id цитат (Citation), на которые опирается решение
+    model_info: Mapped[dict[str, Any]] = mapped_column(J, default=dict)  # модель, промпт, методика, схема
+    error: Mapped[str | None] = mapped_column(String(300))
+    applied: Mapped[bool] = mapped_column(Boolean, default=False)  # изменил ли результат статус риска
+    created_at: Mapped[datetime] = _ts()
+    finished_at: Mapped[datetime | None]
+    __table_args__ = (UniqueConstraint("risk_id", "idempotency_key"),)
 
 
 # ───────────── задания ─────────────

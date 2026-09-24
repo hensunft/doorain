@@ -8,7 +8,7 @@ import { BlockView, SafeMarkdown } from '../features/workspace/MessageView'
 import type { Block, CitationChip } from '../lib/api'
 import { RiskBadge } from './ui'
 
-const chip: CitationChip = { id: 'c1', marker: 'C1', label: '152-ФЗ', locator: 'ст. 18.1', revision_label: 'ред. 2026-03-01', verified: true, is_demo: false }
+const chip: CitationChip = { id: 'c1', marker: 'C1', label: '152-ФЗ', locator: 'ст. 18.1', revision_label: 'ред. 2026-03-01', verified: true, archived: false }
 const claim = (text: string): Block => ({ id: 'b1', version: 1, kind: 'claim', text, citation_ids: ['c1'], markers: ['C1'], state: 'verified', removed: false }) as Block
 
 afterEach(() => vi.restoreAllMocks())
@@ -56,19 +56,25 @@ describe('BlockView', () => {
     expect(screen.getByText('Со слов пользователя')).toBeInTheDocument()
     expect(screen.getByText('Допущение')).toBeInTheDocument()
   })
+  it('старый факт «нет.» без предмета не показывается как слова пользователя', () => {
+    render(<BlockView block={{ ...claim('Со слов пользователя: нет.'), kind: 'fact' }} chips={[]} onCite={() => undefined} />)
+    expect(screen.queryByText('Со слов пользователя')).toBeNull()
+    expect(screen.getByText(/не учитывается как факт/)).toBeInTheDocument()
+  })
 })
 
 describe('LoginPage', () => {
   const renderLogin = () => render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><LoginPage /></MemoryRouter></QueryClientProvider>)
   it('регистрация только по коду приглашения, публичной нет', () => {
     renderLogin()
-    expect(screen.getByRole('link', { name: /зарегистрироваться по коду приглашения/i })).toHaveAttribute('href', '/register')
-    expect(screen.getByText(/публичной регистрации нет/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Регистрация по приглашению' })).toHaveAttribute('href', '/register')
+    expect(screen.getByText(/только по коду приглашения/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Условия использования' })).toHaveAttribute('href', '/terms')  // правовые ссылки до входа
   })
   it('показывает единое сообщение об ошибке входа', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: 'invalid_credentials', message: 'Неверное имя пользователя или пароль', request_id: 'abc' }), { status: 401 })))
     renderLogin()
-    await userEvent.type(screen.getByLabelText('Имя пользователя'), 'owner')
+    await userEvent.type(screen.getByLabelText('Логин'), 'owner')
     await userEvent.type(screen.getByLabelText('Пароль'), 'wrong-password')
     await userEvent.click(screen.getByRole('button', { name: 'Войти' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Неверное имя пользователя или пароль')

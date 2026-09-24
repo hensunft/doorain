@@ -152,10 +152,6 @@ export function KnowledgeBasePage() {
   const build = useMutation({ mutationFn: () => post('/corpus/generations/build'), onSuccess: () => qc.invalidateQueries({ queryKey: keys.jobs }) })
   const verify = useMutation({ mutationFn: (v: { id: string; date: string }) => patch(`/corpus/revisions/${v.id}`, { verified_at: v.date }), onSuccess: () => { void qc.invalidateQueries({ queryKey: keys.documents }); void qc.invalidateQueries({ queryKey: keys.corpus }) } })
   const search = useMutation({ mutationFn: () => get<SearchHit[]>(`/corpus/search?q=${encodeURIComponent(q)}`), onSuccess: setHits })
-  const removeDemo = useMutation({
-    mutationFn: () => post<{ items: { document: string; action: string }[] }>('/corpus/documents/demo/remove'),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: keys.documents }); void qc.invalidateQueries({ queryKey: keys.corpus }); void qc.invalidateQueries({ queryKey: keys.manifest }) },
-  })
   const c = corpus.data
   const running = jobs.data?.filter((j) => j.status === 'queued' || j.status === 'running') ?? []
   return (
@@ -167,12 +163,6 @@ export function KnowledgeBasePage() {
       {c && !c.empty && (
         <p className="text-small text-muted tnum">Документов: {c.documents} · редакций: {c.revisions} · фрагментов: {c.chunks} · активная generation: {c.active_generation ? `№${c.active_generation.seq}, контрольный поиск ${c.active_generation.control_search['passed'] as number}/${c.active_generation.control_search['checked'] as number}` : 'нет (индекс не построен)'}</p>
       )}
-      {c?.has_demo && (
-        <Banner tone="warn" action={<Button onClick={() => removeDemo.mutate()} disabled={removeDemo.isPending}>{removeDemo.isPending ? 'Убираем…' : 'Убрать демонстрационные данные'}</Button>}>
-          В корпусе есть демонстрационные данные — не нормативная база. Не используйте их для реальных выводов. Документы без ссылок в ответах будут удалены, остальные — исключены из корпуса.
-        </Banner>
-      )}
-      {removeDemo.error && <ErrorNote error={removeDemo.error} />}
       {running.length > 0 && <Banner><Spinner label={`Выполняется: ${running.map((j) => (j.type === 'build_generation' ? `индексация${j.progress['total'] ? ` ${j.progress['done']}/${j.progress['total']}` : ''}` : 'разбор документа')).join(', ')}`} /></Banner>}
       {jobs.data?.find((j) => j.status === 'failed') && <Banner tone="error">Последнее задание завершилось ошибкой: {jobs.data.find((j) => j.status === 'failed')?.error}</Banner>}
       <ImportWizard />
@@ -192,7 +182,7 @@ export function KnowledgeBasePage() {
         {docs.data?.length === 0 && <p className="hint">Документов пока нет.</p>}
         {docs.data?.map((d) => (
           <div key={d.id} className="rounded-lg border border-line p-3 text-small">
-            <p className="font-medium">{d.title} <span className="chip ml-1">{DOC_RU[d.doc_type]}</span>{d.is_demo && <span className="chip risk-medium ml-1">демо</span>}{d.excluded && <span className="chip risk-high ml-1">исключён из корпуса</span>}</p>
+            <p className="font-medium">{d.title} <span className="chip ml-1">{DOC_RU[d.doc_type]}</span>{d.excluded && <span className="chip risk-high ml-1">исключён из корпуса</span>}</p>
             <ul className="mt-2 space-y-1">
               {d.revisions.map((r) => (
                 <li key={r.id} className="flex flex-wrap items-center gap-2 tnum">

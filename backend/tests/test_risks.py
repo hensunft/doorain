@@ -97,7 +97,7 @@ def test_status_change_recolors_graph_and_summary(owner: Api, demo: dict) -> Non
     assert q["risk_level"] == "medium" and q["risk_count"] == 1
     cell = lambda: next(c for c in owner.get(f"/sessions/{sid}/risks/matrix").json() if (c["p"], c["s"]) == (r["p"], r["s"]))  # noqa: E731
     assert cell()["count"] == 1
-    assert owner.patch(f"/risks/{r['id']}", json={"status": "resolved", "reason": "Политика опубликована", "version": r["version"]}).status_code == 200
+    assert owner.patch(f"/risks/{r['id']}", json={"status": "resolved", "reason": "Политика опубликована", "version": r["version"], "override": True}).status_code == 200
     data = _risks(owner, sid)
     assert data["active"] == [] and data["resolved"][0]["closed_at"] and data["summary"]["closed"] == 1
     q = next(n for n in owner.get(f"/sessions/{sid}/graph").json()["nodes"] if n["kind"] == "question")
@@ -120,9 +120,9 @@ def test_matrix_matches_list_and_manual_risk(owner: Api, demo: dict) -> None:
 def test_dismissed_status_needs_reason_and_closes_risk(owner: Api, demo: dict) -> None:
     sid = new_session(owner)
     r = owner.post(f"/sessions/{sid}/risks", json={"title": "Риск для проверки статуса", "p": 2, "s": 2}).json()
-    bad = owner.patch(f"/risks/{r['id']}", json={"status": "dismissed", "reason": "", "version": r["version"]})
+    bad = owner.patch(f"/risks/{r['id']}", json={"status": "dismissed", "reason": "", "version": r["version"], "override": True})
     assert bad.status_code == 422
-    ok = owner.patch(f"/risks/{r['id']}", json={"status": "dismissed", "reason": "Сайта у нас нет", "version": r["version"]}).json()
+    ok = owner.patch(f"/risks/{r['id']}", json={"status": "dismissed", "reason": "Сайта у нас нет", "version": r["version"], "override": True}).json()
     assert ok["status"] == "not_applicable" and ok["closed_at"]
 
 

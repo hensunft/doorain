@@ -4,7 +4,9 @@ import { ErrorNote } from '../../components/States'
 import type { Risk } from '../../lib/api'
 import { errorText, patch, post } from '../../lib/api'
 import { keys } from '../../lib/queries'
-import { LEVEL_RU, STATUS_RU } from '../../lib/risk'
+import { LEVEL_RU, RESOLVED_BY_RU, STATUS_RU } from '../../lib/risk'
+import { PsInfo } from '../../components/PsInfo'
+import { ClosureForm } from './Closure'
 
 type Next = 'open' | 'in_progress' | 'resolved' | 'dismissed'
 const FLOW: { id: Next; label: string }[] = [
@@ -12,6 +14,7 @@ const FLOW: { id: Next; label: string }[] = [
   { id: 'in_progress', label: 'В работе' },
   { id: 'resolved', label: 'Закрыт' },
 ]
+const CLOSING: Next[] = ['resolved', 'dismissed']  // закрытие — только через проверку ответа
 
 /** Карточка риска: полоса уровня слева, бейдж P × S справа, основание моноширинным, переключатель статуса.
  *  Свёрнута по умолчанию — разворачивается кликом; закрытый риск приглушается и уходит в конец списка. */
@@ -83,18 +86,26 @@ export function RiskCard({ risk, sessionId, questions, expanded, selected, highl
           <button type="button" className="btn btn-tertiary" disabled={decide.isPending} onClick={() => decide.mutate('reject')}>Отклонить</button>
         </div>
       )}
+      {!risk.level && <p className="caption mt-1">Не оценён: {risk.clarification ?? 'недостаточно фактов для оценки P и S'}</p>}
       {expanded && (
         <>
+          <p className="body-s mt-2 flex flex-wrap items-center gap-x-1 tnum">
+            <span>P {risk.p ?? '—'}</span><PsInfo what="p" sessionId={sessionId} />
+            <span>× S {risk.s ?? '—'}</span><PsInfo what="s" sessionId={sessionId} />
+            <span>= {risk.score ?? 'не оценён'}</span>
+          </p>
           {risk.recommendation && <p className="body-s mt-2">{risk.recommendation}</p>}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <div className="seg" role="group" aria-label="Статус риска">
               {FLOW.map((s) => (
-                <button key={s.id} type="button" className="seg-item" aria-pressed={risk.status === s.id} disabled={change.isPending} onClick={() => (risk.status === s.id ? undefined : setAsk(s.id))}>{s.label}</button>
+                <button key={s.id} type="button" className="seg-item" aria-pressed={risk.status === s.id} disabled={change.isPending || (closed && s.id === 'resolved')} onClick={() => (risk.status === s.id ? undefined : setAsk(s.id))}>{s.label}</button>
               ))}
             </div>
-            {risk.status !== 'not_applicable' && <button type="button" className="btn btn-tertiary body-s" onClick={() => setAsk('dismissed')}>Неприменимо ко мне</button>}
+            {!closed && <button type="button" className="btn btn-tertiary body-s" onClick={() => setAsk('dismissed')}>Неприменимо ко мне</button>}
           </div>
-          {ask && (
+          {ask && CLOSING.includes(ask) && !closed && <ClosureForm risk={risk} sessionId={sessionId} source="detail" notApplicable={ask === 'dismissed'} onCancel={() => setAsk(null)} />}
+          {closed && risk.resolved_by && <p className="caption mt-2">{RESOLVED_BY_RU[risk.resolved_by] ?? 'закрыт'}</p>}
+          {ask && !CLOSING.includes(ask) && (
             <form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); change.mutate({ status: ask, reason }) }}>
               <label className="sr-only" htmlFor={`rs-${risk.id}`}>Причина изменения статуса</label>
               <input id={`rs-${risk.id}`} className="input min-w-40 flex-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={ask === 'dismissed' ? 'Почему неприменимо (обязательно)' : 'Причина (обязательно)'} required maxLength={1000} autoFocus />

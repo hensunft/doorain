@@ -35,7 +35,7 @@ from ..ingestion.indexer import Cancelled, applicable_revisions, fp_hash
 from ..portrait import graph
 from ..risks import engine
 from ..risks import scales as risk_scales
-from ..risks.methodology import DEMO_NOTICE, RISK_TYPES
+from ..risks.methodology import RISK_TYPES
 from . import prompts, verify
 from .retrieval import retrieve
 
@@ -154,7 +154,14 @@ def _finish_after_answer(db: Session, job: Job, p: Providers, s: Settings, run: 
 
 
 def _refuse(db: Session, job: Job, run: GenerationRun, session: ConsultationSession, msg: Message, emit: _Emit, reason: str, text: str | None = None, topics: list[str] | None = None) -> None:
-    blk = _block(1, "refusal", text or REFUSALS[reason], [], [])
+    body = text or REFUSALS[reason]
+    if reason in ("corpus_empty", "revision_unavailable", "insufficient_grounds") and topics:
+        from ...core.config import get_settings  # noqa: PLC0415
+        from ..ingestion.kb import coverage_gaps  # noqa: PLC0415
+
+        if gaps := coverage_gaps(db, get_settings(), topics):
+            body = f"{body}\n\n{gaps}"
+    blk = _block(1, "refusal", body, [], [])
     emit("answer_delta", {"block": blk})
     asst = Message(session_id=session.id, seq=msg.seq + 1, role="assistant", content=blk["text"], blocks=[blk], run_id=run.id)
     db.add(asst)
@@ -292,8 +299,10 @@ def _answer(db: Session, job: Job, p: Providers, s: Settings, run: GenerationRun
         run.warnings = [*run.warnings, "Ответ дан при неполных основаниях: найденные фрагменты лишь частично соответствуют вопросу"]
         emit("answer_delta", {"block": blocks[0], "provisional": True})
 
+    said = "\n".join([msg.content, *(x["text"] for x in hist if x["role"] == "user")])  # только реплики пользователя
+
     def push(para: str) -> None:
-        ck = verify.check_paragraph(para, sources)
+        ck = verify.check_paragraph(para, sources, said)
         if ck.state == "unsupported":
             state["unsupported"] += 1
             if any(b["kind"] == "notice" and b["state"] == "unsupported" for b in blocks):
@@ -389,13 +398,9 @@ def _currency_notice(cits: list[Citation]) -> tuple[str, list[str]]:
         seen[key] = f"{name} — {when}; {ver}"
         if not sn["verified_at"]:
             warns.append(f"{name}: актуальность редакции не подтверждена")
-        if sn["is_demo"]:
-            warns.append(DEMO_NOTICE)
     text = "Источники и редакции: " + "; ".join(seen.values()) + "."
     if any("не подтверждена" in w for w in warns):
         text += " Актуальность не подтверждена: ответ нельзя считать актуальным на сегодняшнюю дату."
-    if DEMO_NOTICE in warns:
-        text += f" {DEMO_NOTICE}."
     return text, list(dict.fromkeys(warns))
 
 

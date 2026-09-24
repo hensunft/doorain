@@ -155,7 +155,7 @@ def _chips(db: Session, run_id: uuid.UUID | None) -> list[CitationChip]:
     out = []
     for c in db.scalars(select(Citation).where(Citation.run_id == run_id).order_by(Citation.rank)):
         sn = c.snapshot
-        out.append(CitationChip(id=c.id, marker=c.marker, label=sn["short_name"] or sn["act_title"], locator=sn["locator"], revision_label=f"ред. {sn['revision_date']}" if sn["revision_date"] else (f"изд. {sn['edition']}" if sn["edition"] else "дата не указана"), verified=bool(sn["verified_at"]), is_demo=sn["is_demo"]))
+        out.append(CitationChip(id=c.id, marker=c.marker, label=sn["short_name"] or sn["act_title"], locator=sn["locator"], revision_label=f"ред. {sn['revision_date']}" if sn["revision_date"] else (f"изд. {sn['edition']}" if sn["edition"] else "дата не указана"), verified=bool(sn["verified_at"]), archived=bool(sn.get("archived"))))
     return out
 
 

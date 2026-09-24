@@ -5,7 +5,8 @@ import type { Level, PlanStep, Risk, Session } from '../../lib/api'
 import { del, errorText, get, patch, post } from '../../lib/api'
 import { useLayoutMode } from '../../lib/hooks'
 import { keys, useRisks } from '../../lib/queries'
-import { LEVEL_RU } from '../../lib/risk'
+import { LEVEL_RU, RESOLVED_BY_RU } from '../../lib/risk'
+import { ClosureForm } from './Closure'
 import { useSelection } from '../../lib/selection'
 
 type GroupId = 'now' | 'month' | 'watch'
@@ -16,19 +17,9 @@ const GROUPS: { id: GroupId; title: string; hint: string; levels: Level[] }[] = 
 ]
 
 function Step({ risk, sessionId }: { risk: Risk; sessionId: string }) {
-  const qc = useQueryClient()
   const { selectRisk } = useSelection()
-  const [reason, setReason] = useState('')
   const [asking, setAsking] = useState(false)
   const closed = risk.status === 'resolved' || risk.status === 'not_applicable'
-  const close = useMutation({
-    mutationFn: () => patch<Risk>(`/risks/${risk.id}`, { status: 'resolved', reason, version: risk.version }),
-    onSuccess: () => {
-      setAsking(false); setReason('')
-      void qc.invalidateQueries({ queryKey: keys.risks(sessionId) })
-      void qc.invalidateQueries({ queryKey: keys.graph(sessionId) })
-    },
-  })
   return (
     <li>
       <article className={`card card-risk ${closed ? 'opacity-[0.78]' : ''}`} data-level={risk.level ?? 'none'}>
@@ -37,7 +28,7 @@ function Step({ risk, sessionId }: { risk: Risk; sessionId: string }) {
             type="checkbox"
             className="size-5 accent-[var(--brand)]"
             checked={closed}
-            disabled={closed || close.isPending}
+            disabled={closed || asking}
             aria-label={`Отметить шаг выполненным: ${risk.recommendation || risk.title}`}
             onChange={() => setAsking(true)}
           /></label>
@@ -50,15 +41,8 @@ function Step({ risk, sessionId }: { risk: Risk; sessionId: string }) {
                 {closed ? 'риск закрыт' : risk.level ? `${LEVEL_RU[risk.level]} · P×S = ${risk.score}` : 'не оценён'}
               </button>
             </div>
-            {asking && !closed && (
-              <form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); close.mutate() }}>
-                <label className="sr-only" htmlFor={`pl-${risk.id}`}>Что сделано</label>
-                <input id={`pl-${risk.id}`} className="input min-w-40 flex-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Что сделано (обязательно)" required maxLength={1000} autoFocus />
-                <button className="btn" type="submit" disabled={!reason.trim() || close.isPending}>Закрыть риск</button>
-                <button className="btn" type="button" onClick={() => setAsking(false)}>Отмена</button>
-              </form>
-            )}
-            {close.error && <p role="alert" className="body-s mt-1 text-risk-high">{errorText(close.error)}</p>}
+            {closed && risk.resolved_by && <p className="caption mt-1">{RESOLVED_BY_RU[risk.resolved_by] ?? 'закрыт'}</p>}
+            {asking && !closed && <ClosureForm risk={risk} sessionId={sessionId} source="plan" onCancel={() => setAsking(false)} />}
           </div>
         </div>
       </article>

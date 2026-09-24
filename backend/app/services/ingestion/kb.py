@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import random
 import shutil
 import uuid
@@ -21,18 +22,25 @@ from ...core.config import Settings
 from ...core.errors import ApiError
 from ...core.util import norm_ws, now, safe_filename
 from ...db.models import (
+    AuditEvent,
     Chunk,
     ChunkIndex,
     Citation,
+    ConsultationSession,
     CorpusGeneration,
     Document,
     DocumentRevision,
     GenerationRevision,
+    GenerationRun,
+    Message,
+    Risk,
+    RiskEvidence,
 )
 from ...providers.registry import Providers
 from ..rag.retrieval import retrieve
+from ..risks.engine import _event
 from . import importer
-from .indexer import active_generation, applicable_revisions, build_generation
+from .indexer import active_generation, applicable_revisions, build_generation, deactivate_generation
 
 LICENSES = {
     "public_domain_official": "Официальный документ: не является объектом авторского права (п. 6 ст. 1259 ГК РФ)",
@@ -217,20 +225,83 @@ def remove(db: Session, s: Settings, p: Providers, doc_id: uuid.UUID, *, rebuild
     return out
 
 
-def remove_demo(db: Session, s: Settings, p: Providers) -> dict[str, Any]:
-    """Убрать демонстрационные акты: сначала исключаются из корпуса, затем удаляются те, на которые нет ссылок в ответах."""
-    out: list[dict[str, Any]] = []
-    for doc in list(db.scalars(select(Document).where(Document.is_demo.is_(True)))):
+def retire_demo(db: Session, s: Settings, p: Providers, out_dir: Path) -> dict[str, Any]:
+    """Вывести синтетические (тестовые) акты из рабочей базы знаний.
+
+    Порядок: отчёт с резервной копией затронутых строк → основания в прежних ответах, цитатах и рисках помечаются архивными
+    (сообщения не удаляются) → документы без ссылок удаляются, со ссылками исключаются → generation пересобирается либо снимается.
+    Повторный запуск безопасен: демо-актов не останется — ничего не изменится.
+    """
+    demo = list(db.scalars(select(Document).where(Document.is_demo.is_(True))))
+    docs = [d for d in demo if d.excluded_at is None]  # уже выведенные (исключённые) повторно не обрабатываются
+    cits = [c for c in db.scalars(select(Citation).where(Citation.document_id.in_([d.id for d in demo]))) if not c.snapshot.get("archived")] if demo else []
+    if not docs and not cits:
+        return {"items": [], "note": "Тестовых актов в рабочей базе нет", "report": None}
+    # резерв и удаление векторов — по всем тестовым актам, включая исключённые ранее: их векторы могли остаться в Qdrant
+    revs = list(db.scalars(select(DocumentRevision).where(DocumentRevision.document_id.in_([d.id for d in demo]))))
+    chunks = list(db.scalars(select(Chunk).where(Chunk.revision_id.in_([r.id for r in revs])))) if revs else []
+    cit_ids = {c.id for c in cits}
+    runs = list(db.scalars(select(GenerationRun).where(GenerationRun.id.in_({c.run_id for c in cits})))) if cits else []
+    msgs = list(db.scalars(select(Message).where(Message.id.in_([r.assistant_message_id for r in runs if r.assistant_message_id])))) if runs else []
+    ev = list(db.scalars(select(RiskEvidence).where(RiskEvidence.kind.in_(("obligation", "consequence")), RiskEvidence.ref_id.in_(cit_ids)))) if cit_ids else []
+    risks = list(db.scalars(select(Risk).where(Risk.id.in_({e.risk_id for e in ev})))) if ev else []
+    report: dict[str, Any] = {
+        "created_at": now().isoformat(),
+        "documents": [{"id": str(d.id), "title": d.title, "act_number": d.act_number, "short_name": d.short_name, "doc_type": d.doc_type, "excluded_before": d.excluded_at is not None} for d in demo],
+        "revisions": [{"id": str(r.id), "document_id": str(r.document_id), "revision_date": r.revision_date, "checksum": r.checksum, "original_path": r.original_path} for r in revs],
+        "chunks": [{"id": str(c.id), "revision_id": str(c.revision_id), "locator": c.locator, "text": c.text} for c in chunks],  # резервная копия текстов
+        "citations": sorted(str(c) for c in cit_ids),
+        "sessions": sorted({str(c.session_id) for c in cits}),
+        "messages": sorted(str(m.id) for m in msgs),
+        "risks": [{"id": str(r.id), "session_id": str(r.session_id), "status": r.status, "title": r.title} for r in risks],
+    }
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"retired-demo-{now().strftime('%Y%m%d-%H%M%S')}.json"
+    path.write_text(json.dumps(report, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+
+    stamp = now().isoformat()
+    for c in cits:  # снимок цитаты сохраняется, но основание помечается архивным и не считается нормой
+        c.snapshot = {**c.snapshot, "archived": True, "archived_reason": "Источник выведен из базы знаний: тестовый документ", "archived_at": stamp}
+    note = "Источник выведен из базы знаний: ответ опирался на тестовый документ и не является правовым основанием."
+    for m in msgs:
+        if not any(b.get("reason") == "source_archived" for b in (m.blocks or [])):
+            m.blocks = [*(m.blocks or []), {"id": f"b{len(m.blocks or []) + 1}", "version": 1, "kind": "notice", "text": note, "citation_ids": [], "markers": [], "state": "unsupported", "reason": "source_archived"}]
+    by_risk: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for e in db.scalars(select(RiskEvidence).where(RiskEvidence.kind == "obligation", RiskEvidence.risk_id.in_([r.id for r in risks]))) if risks else []:
+        by_risk.setdefault(e.risk_id, set()).add(e.ref_id)
+    for r in risks:
+        if by_risk.get(r.id) and by_risk[r.id] <= cit_ids:  # других норм у риска нет: основание недействительно
+            if r.status in ("open", "in_progress"):
+                r.status, r.clarification = "needs_clarification", "Нормативное основание риска было тестовым и выведено из базы знаний. Задайте вопрос заново после загрузки НПА."
+                r.resolution_pending = None
+            _event(db, r, "evidence", None, None, "Основание выведено из базы знаний (тестовый источник): риск не подтверждён нормативной базой", "system")
+            r.version += 1
+    for sid in {c.session_id for c in cits}:
+        sess = db.get(ConsultationSession, sid)
+        if sess:
+            sess.version += 1
+    db.add(AuditEvent(actor="cli", action="corpus.demo_retired", details={"documents": len(demo), "citations": len(cit_ids), "sessions": len(report["sessions"]), "risks": len(risks), "report": path.name}))
+    db.commit()
+
+    items: list[dict[str, Any]] = []
+    chunk_ids = [c.id for c in chunks]
+    for doc in docs:
         used = citing_sessions(db, doc.id)
         if used:
             set_excluded(db, doc.id, True)
-            out.append({"document": doc.title, "action": "excluded", "cited_in_sessions": len(used)})
+            items.append({"document": doc.title, "action": "excluded", "cited_in_sessions": len(used)})
         else:
-            out.append({"document": doc.title, "action": "removed", **remove(db, s, p, doc.id, rebuild=False)})
-    if out and db.scalar(select(DocumentRevision.id).join(Document, Document.id == DocumentRevision.document_id).where(Document.excluded_at.is_(None)).limit(1)):
-        gen = build_generation(db, p, s, None, "kb remove-demo")
-        return {"items": out, "generation": {"seq": gen.seq, "control_search": gen.control_search}}
-    return {"items": out, "generation": None, "note": "Корпус пуст: загрузите документы и выполните переиндексацию"}
+            items.append({"document": doc.title, "action": "removed", **remove(db, s, p, doc.id, rebuild=False)})
+    for coll in db.scalars(select(CorpusGeneration.collection_name).distinct()):
+        p.vs.delete_points(coll, chunk_ids)  # векторы синтетических актов не должны оставаться в Qdrant
+    if chunk_ids:
+        db.execute(delete(ChunkIndex).where(ChunkIndex.chunk_id.in_(chunk_ids)))
+        db.commit()
+    if db.scalar(select(DocumentRevision.id).join(Document, Document.id == DocumentRevision.document_id).where(DocumentRevision.status == "ready", Document.excluded_at.is_(None)).limit(1)):
+        gen = build_generation(db, p, s, None, "kb retire-demo")
+        return {"items": items, "report": str(path), "generation": {"seq": gen.seq, "control_search": gen.control_search}}
+    deactivate_generation(db)
+    return {"items": items, "report": str(path), "generation": None, "note": "Корпус пуст: загрузите НПА и выполните переиндексацию. До этого сервис честно отказывает в правовых ответах"}
 
 
 def documents(db: Session) -> list[dict[str, Any]]:
@@ -286,3 +357,27 @@ def search(db: Session, s: Settings, p: Providers, query: str, *, limit: int = 1
         "threshold": {"min_rerank_score": s.min_rerank_score, "source": s.threshold_source, "partial_floor": s.min_rerank_score - s.partial_answer_margin},
         "timings_ms": r.timings_ms, "generation": gen.seq, "revisions": len(revs), "hits": rows,
     }
+
+
+def coverage_gaps(db: Session, s: Settings, topics: list[str]) -> str | None:
+    """Темы вопроса, по которым в рабочей базе нет ни одного документа, и акты из манифеста, которые их покрывают.
+    Акты не загружаются автоматически: их добавляет администратор."""
+    from ..risks.methodology import TOPIC_TITLES  # noqa: PLC0415
+
+    covered: set[str] = set()
+    for d in db.scalars(select(Document).where(Document.excluded_at.is_(None))):
+        if s.provider_mode == "test" or not d.is_demo:
+            covered.update(d.topics or [])
+    try:
+        items = load_manifest(s)
+    except (OSError, ApiError):
+        items = []
+    parts = []
+    for t in dict.fromkeys(topics):
+        if t in covered:
+            continue
+        acts = [it["title"] for it in items if t in (it.get("topics") or []) and it.get("layer") == 1][:4]
+        parts.append(f"«{TOPIC_TITLES.get(t, t)}»" + (f" (нужны: {'; '.join(acts)})" if acts else ""))
+    if not parts:
+        return None
+    return "Не покрыты базой знаний темы: " + ", ".join(parts) + ". Эти акты загружает администратор; до этого ответ по теме не даётся."

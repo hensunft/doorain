@@ -26,7 +26,7 @@ export function SourceDrawer() {
       {q.isError && <ErrorNote error={q.error} onRetry={() => q.refetch()} />}
       {c && sn && (
         <div className="space-y-4 text-small">
-          {sn['is_demo'] === true && <Banner tone="warn">Демонстрационные данные — не нормативная база.</Banner>}
+          {sn['archived'] === true && <Banner tone="warn">Источник выведен из базы знаний: основание недействительно и показано только для истории.</Banner>}
           {!sn['verified_at'] && <Banner tone="warn">Актуальность этой редакции не подтверждена: ответ нельзя считать актуальным на сегодняшнюю дату.</Banner>}
           <div>
             <h3>{String(sn['act_title'])}</h3>

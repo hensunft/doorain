@@ -17,7 +17,8 @@ export default defineConfig({
     url: `http://127.0.0.1:${PORT}/api/v1/health/live`,
     reuseExistingServer: false,
     timeout: 120_000,
-    env: { E2E_PASSWORD, E2E_DEMO: '1', E2E_PORT: String(PORT), PYTHONIOENCODING: 'utf-8' },
+    // весь набор идёт с одного IP подряд: рабочий лимит 300 запросов в минуту для стенда поднят
+    env: { E2E_PASSWORD, E2E_DEMO: '1', E2E_PORT: String(PORT), PYTHONIOENCODING: 'utf-8', DOORAIN_API_RATE_PER_MINUTE: '3000' },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } }],
 })

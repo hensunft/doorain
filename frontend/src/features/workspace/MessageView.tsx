@@ -11,6 +11,14 @@ export function SafeMarkdown({ text }: { text: string }) {
   )
 }
 
+const BARE = new Set(['да', 'нет', 'не', 'неизвестно', 'знаю', 'возможно', 'может', 'быть', 'наверное', 'ок', 'ага', 'угу', 'так'])
+export const factBody = (text: string) => text.replace(/^Со слов пользователя\s*[:,—–-]?\s*/i, '').trim()
+/** Факт — утверждение с предметом; зеркало серверной проверки verify.fact_has_subject. */
+export function factHasSubject(body: string) {
+  const words = body.toLowerCase().match(/[а-яёa-z0-9]+/g) ?? []
+  return words.length >= 3 && words.filter((w) => !BARE.has(w)).length >= 2
+}
+
 interface BlockProps {
   block: Block
   chips: CitationChip[]
@@ -27,7 +35,7 @@ function Chips({ block, chips, onCite }: BlockProps) {
           <span className="truncate">{c.label}, {c.locator}</span>
           <span className="text-muted">{c.revision_label}</span>
           {!c.verified && <span className="text-risk-medium" title="Актуальность редакции не подтверждена">?</span>}
-          {c.is_demo && <span className="text-brand">демо</span>}
+          {c.archived && <span className="text-muted">архив</span>}
         </button>
       ))}
     </div>
@@ -43,8 +51,12 @@ export function BlockView({ block, chips, onCite }: BlockProps) {
       return <div role="note" className="flex gap-2 rounded-md bg-sidebar px-3 py-2 text-small text-muted"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden /><p>{block.text}</p></div>
     case 'currency':
       return <div role="note" className="flex gap-2 text-small text-muted"><Info className="mt-0.5 size-4 shrink-0" aria-hidden /><p>{block.text}</p></div>
-    case 'fact':
-      return <div><span className="chip mb-1">Со слов пользователя</span><SafeMarkdown text={block.text.replace(/^Со слов пользователя:\s*/i, '')} /></div>
+    case 'fact': {
+      const body = factBody(block.text)
+      // старые записи до исправления: «нет.» без предмета не показывается как факт пользователя
+      if (!factHasSubject(body)) return <p className="text-small text-muted">Ответ без предмета («{body || '—'}») не учитывается как факт.</p>
+      return <div><span className="chip mb-1">Со слов пользователя</span><SafeMarkdown text={body} /></div>
+    }
     case 'assumption':
       return <div><span className="chip mb-1">Допущение</span><SafeMarkdown text={block.text.replace(/^Допущение:\s*/i, '')} /></div>
     case 'clarification':

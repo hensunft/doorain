@@ -126,8 +126,7 @@ def test_export_pdf_content_snapshot_and_auth(owner: Api, demo: dict) -> None:
     assert "DoorAIn_" in dl.headers["content-disposition"] and ".pdf" in dl.headers["content-disposition"]
     text, pages = _pdf_text(dl.content)
     for must in ("Правовой слепок сессии", "Сводка", "1. Граф-слепок", "2. Риск-менеджмент", "3. Нормативные основания", "Приложение. Методика оценки",
-                 "не заменяют профессиональную юридическую помощь", "Нет опубликованной политики обработки ПДн", "Демонстрационные данные — не нормативная база",
-                 "ДЕМО-1-ФЗ", "Предприниматель", "Вопрос №1", "Вопрос №2", "Матрица рисков 5 × 5", "Тестовый режим", sid):
+                 "не заменяют профессиональную юридическую помощь", "Нет опубликованной политики обработки ПДн", "ДЕМО-1-ФЗ", "Предприниматель", "Вопрос №1", "Вопрос №2", "Матрица рисков 5 × 5", "Тестовый режим", sid):
         assert must in text, must
     # реплики диалога не попадают в документ ни целиком, ни частично; заголовка о диалоге нет
     for replica in ("У нас нет политики обработки", "Нужна ли политика", "диалог", "онлайн-школа"):
@@ -138,7 +137,7 @@ def test_export_pdf_content_snapshot_and_auth(owner: Api, demo: dict) -> None:
     assert {"PlayfairDisplay", "IBMPlexSans", "IBMPlexMono"} <= {f.split("+")[-1].split("-")[0] for f in fonts}, fonts
     # снимок не меняется после последующих изменений сессии и корпуса
     risk = owner.get(f"/sessions/{sid}/risks").json()["active"][0]
-    owner.patch(f"/risks/{risk['id']}", json={"status": "resolved", "reason": "Опубликовали", "version": risk["version"]})
+    owner.patch(f"/risks/{risk['id']}", json={"status": "resolved", "reason": "Опубликовали", "version": risk["version"], "override": True})
     again = owner.get(f"/exports/{ex['id']}/download")
     assert again.content == dl.content
     assert "Закрытые риски" not in _pdf_text(again.content)[0]
@@ -251,10 +250,10 @@ def _big_snapshot(topics: int, per_topic: int, risks: int) -> dict[str, Any]:
         "session": {"id": "00000000-0000-0000-0000-000000000042", "title": "Большая сессия: онлайн-школа", "role": "entrepreneur", "as_of_date": "2026-09-20", "version": 9},
         "summary": {"task": "Консультация в роли «Предприниматель».", "by_level": {"low": 2, "medium": 3, "high": 2, "critical": 1}, "top": rows[:3], "acts_line": "Задействовано нормативных актов: 1."},
         "graph": {"nodes": nodes, "edges": edges}, "risks": rows, "closed": [], "needs_clarification": [],
-        "bases": [{"group": "law", "title": "Федеральный закон «О персональных данных»", "requisites": "№ 152-ФЗ · от 27.07.2006 · ред. от 01.03.2026", "is_demo": False,
+        "bases": [{"group": "law", "title": "Федеральный закон «О персональных данных»", "requisites": "№ 152-ФЗ · от 27.07.2006 · ред. от 01.03.2026", "archived": False,
                    "articles": [{"locator": f"ст. {i} ч. 1", "questions": [i], "risks": []} for i in range(1, 20, 2)]}],
         "scales": scales.load("entrepreneur"), "thresholds": [4, 9, 15], "corpus": {"generation_seq": 3}, "test_mode": False, "versions": {},
-        "disclaimer": "Ответы носят информационный характер", "demo": False,
+        "disclaimer": "Ответы носят информационный характер", "archived": False,
     }
 
 

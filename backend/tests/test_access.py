@@ -20,16 +20,21 @@ def _invite(owner: Api, note: str = "тест") -> str:
     return r.json()["code"]
 
 
-def register(client: TestClient, username: str, code: str, password: str = USER_PW) -> Api:
+def reg_body(username: str, code: str, password: str = USER_PW, **over: Any) -> dict[str, Any]:
+    return {"username": username, "first_name": "Иван", "last_name": "Петров", "email": f"{username}@example.com", "password": password, "password_repeat": password,
+            "invite_code": code, "accept_terms": True, "accept_pd": True, **over}
+
+
+def register(client: TestClient, username: str, code: str, password: str = USER_PW, **over: Any) -> Api:
     api = Api(TestClient(client.app))  # свой клиент: cookie-сессии пользователей не должны перетирать друг друга
-    r = api.c.post("/api/v1/auth/register", json={"username": username, "password": password, "invite_code": code})
+    r = api.c.post("/api/v1/auth/register", json=reg_body(username, code, password, **over))
     assert r.status_code == 201, r.text
     api.csrf = r.json()["csrf_token"]
     return api
 
 
 def test_registration_requires_valid_invite(owner: Api, client: TestClient) -> None:
-    bad = TestClient(client.app).post("/api/v1/auth/register", json={"username": "alice", "password": USER_PW, "invite_code": "нет такого"})
+    bad = TestClient(client.app).post("/api/v1/auth/register", json=reg_body("alice", "нет такого"))
     assert bad.status_code == 403 and bad.json()["code"] == "invalid_invite"
 
     code = _invite(owner)
@@ -37,7 +42,7 @@ def test_registration_requires_valid_invite(owner: Api, client: TestClient) -> N
     me = api.get("/auth/me").json()
     assert me["user"]["access_level"] == "user" and me["user"]["disclaimer_accepted_at"] is None
 
-    again = TestClient(client.app).post("/api/v1/auth/register", json={"username": "bob", "password": USER_PW, "invite_code": code})
+    again = TestClient(client.app).post("/api/v1/auth/register", json=reg_body("bob", code))
     assert again.status_code == 403  # код одноразовый
     assert [i["state"] for i in owner.get("/admin/invites").json()] == ["used"]
 
@@ -149,6 +154,6 @@ def test_registration_is_rate_limited(owner: Api, client: TestClient, monkeypatc
     from app.core.config import reset_settings_cache
 
     reset_settings_cache()
-    body: dict[str, Any] = {"username": "mallory", "password": USER_PW, "invite_code": "перебор"}
+    body: dict[str, Any] = reg_body("mallory", "перебор")
     codes = [TestClient(client.app).post("/api/v1/auth/register", json=body).status_code for _ in range(5)]
     assert codes[0] == 403 and 429 in codes

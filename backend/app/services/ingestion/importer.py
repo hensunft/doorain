@@ -98,6 +98,8 @@ def confirm_import(db: Session, s: Settings, draft_id: uuid.UUID, meta: dict[str
         return db.get(DocumentRevision, draft.revision_id), False  # type: ignore[return-value]
     if draft.status != "ready" or not draft.normalized_path:
         raise ApiError(409, "draft_not_ready", "Документ ещё не разобран либо не поддерживается")
+    if is_demo and s.provider_mode != "test":
+        raise ApiError(403, "demo_forbidden", "Синтетические данные допускаются только в тестовом окружении")
     dt = meta["doc_type"]
     if dt not in ("npa", "textbook", "soft_law"):
         raise ApiError(422, "bad_doc_type", "Тип источника: npa, textbook или soft_law")

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..core.config import Settings
@@ -15,8 +16,11 @@ from ..core.errors import ApiError
 from ..core.security import hash_password, needs_rehash, new_token, token_hash, verify_password
 from ..core.util import now
 from ..db.models import AuthSession, Invite, LoginAttempt, User
+from ..services import legal
 
 MIN_PASSWORD = 12
+_EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,150}\.[^@\s.]{2,}$")
+_NAME = re.compile(r"^[^\W\d_]+(?:[ '\-.][^\W\d_]+)*\.?$")
 
 
 def _safe_key(username: str) -> str:
@@ -51,35 +55,92 @@ def _uname(username: str) -> str:
     return name
 
 
-def create_invite(db: Session, s: Settings, owner_id: uuid.UUID, note: str | None = None) -> tuple[str, Invite]:
+def norm_email(value: str) -> str:
+    email = value.strip().lower()
+    if not _EMAIL.fullmatch(email) or len(email) > 200:
+        raise ApiError(422, "bad_email", "Укажите корректный адрес электронной почты, например name@example.com")
+    return email
+
+
+def person_name(value: str, label: str) -> str:
+    name = " ".join(value.split())
+    if not name or len(name) > 80 or not _NAME.fullmatch(name):
+        raise ApiError(422, "bad_name", f"{label}: только буквы, пробел, дефис, апостроф или точка; не более 80 символов")
+    return name
+
+
+def create_invite(db: Session, s: Settings, owner_id: uuid.UUID, note: str | None = None, ttl_days: int | None = None) -> tuple[str, Invite]:
     """Код показывается один раз: в базе хранится только его хеш."""
     code = new_token()
-    inv = Invite(code_hash=token_hash(code), hint=code[-6:], note=(note or None), created_by=owner_id, expires_at=now() + timedelta(days=s.invite_ttl_days))
+    inv = Invite(code_hash=token_hash(code), hint=code[-6:], note=(note or None), created_by=owner_id, expires_at=now() + timedelta(days=ttl_days or s.invite_ttl_days))
     db.add(inv)
     db.commit()
     return code, inv
 
 
-def register(db: Session, s: Settings, ip: str, ua: str | None, username: str, password: str, invite_code: str) -> tuple[str, AuthContext]:
-    """Регистрация только по коду приглашения: публичной саморегистрации нет."""
+def register(
+    db: Session, s: Settings, ip: str, ua: str | None, *, username: str, first_name: str, last_name: str, email: str,
+    password: str, password_repeat: str, invite_code: str, accept_terms: bool, accept_pd: bool,
+) -> tuple[str, AuthContext]:
+    """Регистрация только по коду приглашения: публичной саморегистрации нет. Код погашается атомарно вместе с созданием учётной записи."""
     _throttle(db, s, ip, f"register:{_safe_key(username)}")
     inv = db.scalar(select(Invite).where(Invite.code_hash == token_hash(invite_code.strip())))
-    ok_invite = bool(inv and inv.used_at is None and inv.revoked_at is None and inv.expires_at > now())
-    if not ok_invite:
+    if not (inv and inv.used_at is None and inv.revoked_at is None and inv.expires_at > now()):
         db.add(LoginAttempt(ip=ip, username_key=f"register:{_safe_key(username)}", success=False))
         db.commit()
-        raise ApiError(403, "invalid_invite", "Код приглашения недействителен, уже использован или истёк")
-    assert inv is not None
-    name = _uname(username)
+        raise ApiError(403, "invalid_invite", "Код приглашения недействителен, уже использован, отозван или истёк")
+    name, first, last, mail = _uname(username), person_name(first_name, "Имя"), person_name(last_name, "Фамилия"), norm_email(email)
     check_password_policy(password)
-    if db.scalar(select(User).where(User.username == name)):
+    if password != password_repeat:
+        raise ApiError(422, "password_mismatch", "Пароль и его повтор не совпадают")
+    if not (accept_terms and accept_pd):
+        raise ApiError(422, "consent_required", "Для регистрации нужно ознакомиться с Политикой и Условиями и дать согласие на обработку персональных данных")
+    if db.scalar(select(User.id).where(User.username == name)):
         raise ApiError(409, "username_taken", "Такой логин уже занят")
-    user = User(username=name, password_hash=hash_password(password), access_level="user")
+    if db.scalar(select(User.id).where(User.email == mail)):
+        raise ApiError(409, "email_taken", "Этот адрес электронной почты уже используется")
+    stamp = now()
+    user = User(username=name, first_name=first, last_name=last, email=mail, password_hash=hash_password(password), access_level="user", terms_accepted_at=stamp, pd_consent_at=stamp, legal_version=legal.version())
     db.add(user)
-    db.flush()
-    inv.used_at, inv.used_by = now(), user.id
-    db.commit()
+    try:
+        db.flush()
+        # Атомарное погашение: условие в самом UPDATE, поэтому два параллельных запроса с одним кодом не создадут две учётные записи.
+        used = db.execute(update(Invite).where(Invite.id == inv.id, Invite.used_at.is_(None), Invite.revoked_at.is_(None), Invite.expires_at > stamp).values(used_at=stamp, used_by=user.id))
+        if used.rowcount != 1:  # type: ignore[attr-defined]
+            db.rollback()
+            raise ApiError(403, "invalid_invite", "Код приглашения недействителен, уже использован, отозван или истёк")
+        db.commit()
+    except IntegrityError as e:  # параллельная регистрация того же логина или адреса
+        db.rollback()
+        raise ApiError(409, "username_taken", "Такой логин или адрес электронной почты уже используется") from e
     return login(db, s, ip, ua, name, password)
+
+
+def update_profile(db: Session, s: Settings, ctx: AuthContext, ip: str, *, first_name: str | None, last_name: str | None, email: str | None, current_password: str | None) -> list[str]:
+    """Имя, фамилия и e-mail. Логин не меняется. Смена e-mail — только с проверкой текущего пароля; адрес письмом не подтверждается."""
+    user, changed = ctx.user, list[str]()
+    if first_name is not None and (v := person_name(first_name, "Имя")) != user.first_name:
+        user.first_name, changed = v, [*changed, "first_name"]
+    if last_name is not None and (v := person_name(last_name, "Фамилия")) != user.last_name:
+        user.last_name, changed = v, [*changed, "last_name"]
+    if email is not None:
+        new = norm_email(email) if email.strip() else None
+        if new != user.email:
+            key = f"profile:{user.username}"
+            _throttle(db, s, ip, key)
+            if not current_password or not verify_password(user.password_hash, current_password):
+                db.add(LoginAttempt(ip=ip, username_key=key, success=False))
+                db.commit()
+                raise ApiError(403, "invalid_credentials", "Для смены адреса электронной почты введите текущий пароль")
+            if new and db.scalar(select(User.id).where(User.email == new, User.id != user.id)):
+                raise ApiError(409, "email_taken", "Этот адрес электронной почты уже используется")
+            user.email, changed = new, [*changed, "email"]
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise ApiError(409, "email_taken", "Этот адрес электронной почты уже используется") from e
+    return changed
 
 
 def accept_disclaimer(db: Session, ctx: AuthContext) -> None:

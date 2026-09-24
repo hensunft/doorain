@@ -7,6 +7,7 @@ import { get } from '../../lib/api'
 import { keys } from '../../lib/queries'
 import { LEVEL_ORDER, LEVEL_RU, STATUS_RU } from '../../lib/risk'
 import { useSelection } from '../../lib/selection'
+import { PsInfo } from '../../components/PsInfo'
 
 type Cell = components['schemas']['MatrixCell']
 
@@ -32,6 +33,7 @@ export function RiskMatrix({ sessionId, risks, thresholds }: { sessionId: string
   const ranges = levelRanges(thresholds)
   return (
     <figure className="mx-auto max-w-sm space-y-3">
+      <p className="caption flex flex-wrap items-center gap-x-1">P — вероятность<PsInfo what="p" sessionId={sessionId} /> · S — последствия<PsInfo what="s" sessionId={sessionId} /></p>
       <div className="grid grid-cols-[1.25rem_auto_repeat(5,minmax(0,1fr))] gap-1" role="grid" aria-label={`Матрица рисков 5 × 5, открытых рисков: ${total}`}>
         <span className="caption row-span-5 flex items-center justify-center [writing-mode:vertical-rl] rotate-180" aria-hidden>вероятность (P)</span>
         {[5, 4, 3, 2, 1].map((p) => (

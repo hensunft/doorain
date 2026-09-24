@@ -109,6 +109,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch Profile
+         * @description Имя, фамилия, e-mail. В журнал пишутся только названия изменённых полей, не значения.
+         */
+        patch: operations["patch_profile_api_v1_auth_profile_patch"];
+        trace?: never;
+    };
     "/api/v1/sessions": {
         parameters: {
             query?: never;
@@ -329,6 +349,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/risk-methodology": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Risk Methodology
+         * @description Пояснение P и S берёт шкалы и пороги отсюда: клиент числа не дублирует.
+         */
+        get: operations["risk_methodology_api_v1_risk_methodology_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/risks": {
         parameters: {
             query?: never;
@@ -366,6 +406,26 @@ export interface paths {
         head?: never;
         /** Patch Risk */
         patch: operations["patch_risk_api_v1_risks__risk_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/risks/{risk_id}/closure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose Closure
+         * @description «Предложить закрытие»: до результата проверки риск остаётся активным. Ответ оценивает модель, результат проверяет сервер.
+         */
+        post: operations["propose_closure_api_v1_risks__risk_id__closure_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/risks/{risk_id}/suggestion/{decision}": {
@@ -639,26 +699,6 @@ export interface paths {
          * @description Исключить документ из корпуса или вернуть. Состав меняется после переиндексации; цитаты прежних ответов не затрагиваются.
          */
         patch: operations["patch_document_api_v1_corpus_documents__document_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/corpus/documents/demo/remove": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Remove Demo
-         * @description Убрать демонстрационные акты: без ссылок — удалить, со ссылками — исключить из корпуса.
-         */
-        post: operations["remove_demo_api_v1_corpus_documents_demo_remove_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/v1/corpus/revisions/{revision_id}/chunks": {
@@ -949,6 +989,26 @@ export interface paths {
         };
         /** Diagnostics */
         get: operations["diagnostics_api_v1_system_diagnostics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Legal Info
+         * @description Без входа: страницы Политики, Условий и Контактов доступны до регистрации.
+         */
+        get: operations["legal_info_api_v1_legal_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1273,8 +1333,11 @@ export interface components {
             revision_label: string;
             /** Verified */
             verified: boolean;
-            /** Is Demo */
-            is_demo: boolean;
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
         };
         /** CitationOut */
         CitationOut: {
@@ -1319,6 +1382,136 @@ export interface components {
             formatted: string;
             /** File Url */
             file_url: string;
+        };
+        /**
+         * ClosureAttemptOut
+         * @description Проверка ответа о закрытии риска. verification: user_claim — «со слов пользователя», corroborated — подтверждено фактами сессии.
+         */
+        ClosureAttemptOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "decided" | "failed" | "stale";
+            /** Decision */
+            decision: ("close" | "keep_open" | "clarify" | "other_risk") | null;
+            /** Resolution Kind */
+            resolution_kind: ("remediated" | "not_applicable") | null;
+            /** Verification */
+            verification: ("user_claim" | "corroborated") | null;
+            /** Confidence */
+            confidence: ("low" | "medium" | "high") | null;
+            /** Explanation */
+            explanation: string;
+            /** Question */
+            question: string | null;
+            /** Quote */
+            quote: string | null;
+            /** Applied */
+            applied: boolean;
+            /** Source */
+            source: string;
+            /** Initiated By */
+            initiated_by: string;
+            /** User Answer */
+            user_answer: string;
+            /** Facts */
+            facts: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Citations
+             * @default []
+             */
+            citations: components["schemas"]["ClosureCitation"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** ClosureCitation */
+        ClosureCitation: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /** ClosureIn */
+        ClosureIn: {
+            /** Version */
+            version: number;
+            /** Answer */
+            answer: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "plan" | "detail";
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /** ClosureResult */
+        ClosureResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "decided" | "failed" | "stale";
+            /** Decision */
+            decision: ("close" | "keep_open" | "clarify" | "other_risk") | null;
+            /** Resolution Kind */
+            resolution_kind: ("remediated" | "not_applicable") | null;
+            /** Verification */
+            verification: ("user_claim" | "corroborated") | null;
+            /** Confidence */
+            confidence: ("low" | "medium" | "high") | null;
+            /** Explanation */
+            explanation: string;
+            /** Question */
+            question: string | null;
+            /** Quote */
+            quote: string | null;
+            /** Applied */
+            applied: boolean;
+            /** Source */
+            source: string;
+            /** Initiated By */
+            initiated_by: string;
+            /** User Answer */
+            user_answer: string;
+            /** Facts */
+            facts: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Citations
+             * @default []
+             */
+            citations: components["schemas"]["ClosureCitation"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            risk: components["schemas"]["RiskOut"];
         };
         /** ConfirmImportIn */
         ConfirmImportIn: {
@@ -1391,8 +1584,6 @@ export interface components {
             generations: components["schemas"]["GenerationOut"][];
             /** Empty */
             empty: boolean;
-            /** Has Demo */
-            has_demo: boolean;
             /** Index Ready */
             index_ready: boolean;
         };
@@ -1466,8 +1657,6 @@ export interface components {
             license_note: string | null;
             /** Source Url */
             source_url: string | null;
-            /** Is Demo */
-            is_demo: boolean;
             /**
              * Excluded
              * @default false
@@ -1676,6 +1865,8 @@ export interface components {
         InviteCreate: {
             /** Note */
             note?: string | null;
+            /** Ttl Days */
+            ttl_days?: number | null;
         };
         /** InviteCreated */
         InviteCreated: {
@@ -1688,6 +1879,8 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+            /** Register Path */
+            register_path: string;
         };
         /** InviteOut */
         InviteOut: {
@@ -1767,6 +1960,30 @@ export interface components {
             filters?: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * LegalOut
+         * @description Данные для публичных страниц Политики, Условий и Контактов. missing — поля оператора, которые нужно заполнить до публичного запуска.
+         */
+        LegalOut: {
+            /** Version */
+            version: string;
+            /** Operator */
+            operator: {
+                [key: string]: string;
+            };
+            /** Missing */
+            missing: string[];
+            /** Owner Can Read User Sessions */
+            owner_can_read_user_sessions: boolean;
+            /** Session Ttl Hours */
+            session_ttl_hours: number;
+            /** Invite Ttl Days */
+            invite_ttl_days: number;
+            /** Login Attempts Days */
+            login_attempts_days: number;
+            /** Disclaimer */
+            disclaimer: string;
         };
         /** LoginIn */
         LoginIn: {
@@ -1921,6 +2138,17 @@ export interface components {
             /** Done */
             done: boolean;
         };
+        /** ProfilePatch */
+        ProfilePatch: {
+            /** First Name */
+            first_name?: string | null;
+            /** Last Name */
+            last_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Current Password */
+            current_password?: string | null;
+        };
         /** QuizAttemptIn */
         QuizAttemptIn: {
             /** Answers */
@@ -1978,10 +2206,22 @@ export interface components {
         RegisterIn: {
             /** Username */
             username: string;
+            /** First Name */
+            first_name: string;
+            /** Last Name */
+            last_name: string;
+            /** Email */
+            email: string;
             /** Password */
             password: string;
+            /** Password Repeat */
+            password_repeat: string;
             /** Invite Code */
             invite_code: string;
+            /** Accept Terms */
+            accept_terms: boolean;
+            /** Accept Pd */
+            accept_pd: boolean;
         };
         /** RevisionOut */
         RevisionOut: {
@@ -2061,6 +2301,11 @@ export interface components {
             events: components["schemas"]["RiskEventOut"][];
             /** Evidence */
             evidence: components["schemas"]["RiskEvidenceOut"][];
+            /**
+             * Closures
+             * @default []
+             */
+            closures: components["schemas"]["ClosureAttemptOut"][];
         };
         /** RiskEventOut */
         RiskEventOut: {
@@ -2104,6 +2349,44 @@ export interface components {
             citation_id?: string | null;
             /** Message Id */
             message_id?: string | null;
+        };
+        /** RiskLevelRange */
+        RiskLevelRange: {
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "low" | "medium" | "high" | "critical";
+            /** Label */
+            label: string;
+            /** Min */
+            min: number;
+            /** Max */
+            max: number;
+        };
+        /**
+         * RiskMethodologyOut
+         * @description Шкалы и пороги оценки из backend-конфигураций (app/config/risk.yaml, services/risks/scales/<роль>.yaml).
+         */
+        RiskMethodologyOut: {
+            /** Version */
+            version: string;
+            /** Role */
+            role: string;
+            /** Measure */
+            measure: string;
+            /** Probability */
+            probability: {
+                [key: string]: string;
+            };
+            /** Severity */
+            severity: {
+                [key: string]: string;
+            };
+            /** Levels */
+            levels: components["schemas"]["RiskLevelRange"][];
+            /** Rules */
+            rules: string[];
         };
         /** RiskOut */
         RiskOut: {
@@ -2229,6 +2512,11 @@ export interface components {
             reason: string;
             /** Version */
             version: number;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
         };
         /** RisksOut */
         RisksOut: {
@@ -2461,8 +2749,6 @@ export interface components {
             corpus_as_of: string | null;
             /** Generation Seq */
             generation_seq: number | null;
-            /** Has Demo */
-            has_demo: boolean;
             /** Worker Alive */
             worker_alive: boolean;
             /** Maintenance */
@@ -2513,6 +2799,8 @@ export interface components {
             id: string;
             /** Username */
             username: string;
+            /** Display Name */
+            display_name: string;
             /** Access Level */
             access_level: string;
             /**
@@ -2540,6 +2828,14 @@ export interface components {
             id: string;
             /** Username */
             username: string;
+            /** Display Name */
+            display_name: string;
+            /** First Name */
+            first_name?: string | null;
+            /** Last Name */
+            last_name?: string | null;
+            /** Email */
+            email?: string | null;
             /**
              * Access Level
              * @enum {string}
@@ -2709,6 +3005,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ChangePasswordIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_profile_api_v1_auth_profile_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfilePatch"];
             };
         };
         responses: {
@@ -3251,6 +3580,37 @@ export interface operations {
             };
         };
     };
+    risk_methodology_api_v1_risk_methodology_get: {
+        parameters: {
+            query?: {
+                role?: "student" | "entrepreneur" | "expert";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskMethodologyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_risks_api_v1_sessions__session_id__risks_get: {
         parameters: {
             query?: never;
@@ -3370,6 +3730,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RiskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    propose_closure_api_v1_risks__risk_id__closure_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                risk_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosureIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClosureResult"];
                 };
             };
             /** @description Validation Error */
@@ -3931,28 +4326,6 @@ export interface operations {
             };
         };
     };
-    remove_demo_api_v1_corpus_documents_demo_remove_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
     revision_chunks_api_v1_corpus_revisions__revision_id__chunks_get: {
         parameters: {
             query?: {
@@ -4483,6 +4856,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Diagnostics"];
+                };
+            };
+        };
+    };
+    legal_info_api_v1_legal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalOut"];
                 };
             };
         };

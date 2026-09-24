@@ -1,4 +1,4 @@
-"""Локальные команды владельца: создание учётной записи, сброс пароля, OpenAPI, демо-корпус. Пароль — только интерактивно."""
+"""Локальные команды владельца: создание учётной записи, сброс пароля, OpenAPI, приглашения, база знаний. Пароль — только интерактивно."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def _kb_parser(sub: argparse._SubParsersAction) -> None:
     ex = kb.add_parser("exclude", help="исключить документ из корпуса или вернуть обратно (данные сохраняются)")
     ex.add_argument("doc_id")
     ex.add_argument("--undo", action="store_true", help="вернуть документ в корпус")
-    kb.add_parser("remove-demo", help="убрать демонстрационные акты: без ссылок — удалить, со ссылками — исключить")
+    kb.add_parser("retire-demo", help="вывести синтетические (тестовые) акты из рабочей базы знаний: отчёт-резерв, архив оснований, пересборка индекса")
     kb.add_parser("doctor", help="чек-лист исправности поиска")
     ev = kb.add_parser("eval", help="прогон эталонного набора вопросов")
     ev.add_argument("--set", dest="golden", default="tests/eval/golden_set.yaml")
@@ -77,8 +77,8 @@ def _kb_run(db: Any, a: argparse.Namespace) -> None:
     elif a.kb_cmd == "exclude":
         d = kb.set_excluded(db, __import__("uuid").UUID(a.doc_id), not a.undo)
         out = {"document": d.title, "excluded": d.excluded_at is not None, "note": "состав корпуса изменится после doorain kb reindex"}
-    elif a.kb_cmd == "remove-demo":
-        out = kb.remove_demo(db, s, p)
+    elif a.kb_cmd == "retire-demo":
+        out = kb.retire_demo(db, s, p, s.data_dir / "retired-demo")
     elif a.kb_cmd == "reindex":
         out = kb.reindex(db, s, p, a.only)
     elif a.kb_cmd == "search":
@@ -111,8 +111,6 @@ def main() -> None:
     sub.add_parser("list-users", help="учётные записи и уровни доступа")
     eo = sub.add_parser("export-openapi", help="записать OpenAPI в JSON-файл")
     eo.add_argument("--out", required=True)
-    dm = sub.add_parser("load-demo-corpus", help="загрузить ДЕМОНСТРАЦИОННЫЕ данные (не нормативная база)")
-    dm.add_argument("--dir", default=str(next((p for p in (Path(__file__).resolve().parents[1] / "fixtures" / "demo", Path(__file__).resolve().parents[2] / "fixtures" / "demo") if p.is_dir()), Path("fixtures/demo"))))
     _kb_parser(sub)
     a = ap.parse_args()
 
@@ -155,10 +153,6 @@ def main() -> None:
             for u in db.scalars(select(User).order_by(User.created_at)):
                 state = "отключён" if u.disabled_at else "активен"
                 print(f"{u.username:<20} {u.access_level:<6} {state:<9} последний вход: {u.last_login_at or '—'}")
-        elif a.cmd == "load-demo-corpus":
-            from .demo import load_demo  # noqa: PLC0415
-
-            print(json.dumps(load_demo(Path(a.dir)), ensure_ascii=False))
     except ApiError as e:
         sys.exit(f"Ошибка: {e.message}")
     finally:

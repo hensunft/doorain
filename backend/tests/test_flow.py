@@ -48,14 +48,14 @@ def test_vertical_scenario_answer_citations_portrait_risk(owner: Api, demo: dict
     claim = next(b for b in ans["blocks"] if b["kind"] == "claim")
     assert claim["markers"] and claim["citation_ids"] and "[C" not in claim["text"]
     cur = next(b for b in ans["blocks"] if b["kind"] == "currency")
-    assert "Демонстрационные данные" in cur["text"] and "ДЕМО-1-ФЗ" in cur["text"]
+    assert "Демонстрационные" not in cur["text"] and "ДЕМО-1-ФЗ" in cur["text"]
     # каждая цитата существует, относится к загруженной редакции и открывает правильный фрагмент
     for chip in ans["citations"]:
         c = owner.get(f"/citations/{chip['id']}").json()
         assert c["snapshot"]["locator"].startswith("ст.") and c["excerpt"] and c["snapshot"]["act_number"].startswith("ДЕМО")
         if c["snapshot"]["act_number"] == "ДЕМО-1-ФЗ":
             assert c["snapshot"]["revision_date"] == "2026-03-01"  # на дату среза 20.09.2026 действует последняя загруженная редакция
-        assert c["formatted"].startswith("«") and "Демонстрационные данные" in c["formatted"]
+        assert c["formatted"].startswith("«") and "Демонстрационные" not in c["formatted"]
     # слепок
     g = owner.get(f"/sessions/{sid}/graph").json()
     kinds = {n["kind"] for n in g["nodes"]}
@@ -264,8 +264,10 @@ def test_manual_status_change_requires_reason_and_version(owner: Api, demo: dict
     ok = owner.patch(p, json={"status": "in_progress", "reason": "Начали работу", "version": risk["version"]})
     assert ok.status_code == 200 and ok.json()["status"] == "in_progress" and ok.json()["version"] == risk["version"] + 1
     assert owner.patch(p, json={"status": "resolved", "reason": "Готово", "version": risk["version"]}).status_code == 409  # устаревшая версия (другая вкладка)
-    done = owner.patch(p, json={"status": "resolved", "reason": "Политика опубликована", "version": ok.json()["version"]}).json()
-    assert done["resolved_by"] == "owner" and done["resolution_reason"] == "Политика опубликована"
+    blocked = owner.patch(p, json={"status": "resolved", "reason": "Политика опубликована", "version": ok.json()["version"]})
+    assert blocked.status_code == 409 and blocked.json()["code"] == "closure_check_required"  # прямой PATCH закрытия обходит проверку ответа
+    done = owner.patch(p, json={"status": "resolved", "reason": "Политика опубликована", "version": ok.json()["version"], "override": True}).json()
+    assert done["resolved_by"] == "owner_override" and done["resolution_reason"] == "Политика опубликована"
 
 
 def test_analysis_failure_keeps_answer_and_retry_has_no_duplicates(owner: Api, demo: dict) -> None:
@@ -387,7 +389,7 @@ def test_expert_direct_quote_is_verified_against_source(owner: Api, demo: dict) 
     assert exact is not None
     db.close()
     txt = owner.get(f"/citations/{ans['citations'][0]['id']}/export")
-    assert txt.status_code == 200 and "attachment" in txt.headers["content-disposition"] and "Происхождение" in txt.text and "Демонстрационные данные" in txt.text
+    assert txt.status_code == 200 and "attachment" in txt.headers["content-disposition"] and "Происхождение" in txt.text and "Демонстрационные" not in txt.text
 
 
 def test_roles_produce_different_answer_forms_from_same_evidence(owner: Api, demo: dict) -> None:

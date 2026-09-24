@@ -86,6 +86,8 @@
   h3 { font-size: var(--display-s); font-weight: 600; line-height: 1.25; }
   p { margin: 0; }
   button, input, select, textarea { font: inherit; color: inherit; }
+  a { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
+  a:hover { color: var(--brand-deep); }
   ::selection { background: var(--brand-tint); color: var(--ink); }
   :focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-chip); }
   * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
@@ -149,8 +151,8 @@
     transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
   }
   .btn::after { content: ""; position: absolute; inset: -4px 0; }
-  .btn:hover:not(:disabled), .btn.is-hover { background: var(--surface-3); }
-  .btn:active:not(:disabled), .btn.is-active { transform: translateY(1px); }
+  .btn:hover:not(:disabled), .btn.is-hover { background: var(--surface-3); border-color: var(--muted); }
+  .btn:active:not(:disabled), .btn.is-active { transform: translateY(1px); background: var(--line-soft); }
   .btn.is-focus { box-shadow: var(--focus-ring); }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
   /* Загрузка: текст остаётся, слева — индикатор в поле кнопки, ширина не меняется */
@@ -162,13 +164,14 @@
   }
   @keyframes btn-spin { to { transform: rotate(360deg); } }
   .btn-primary { background: var(--brand); border-color: var(--brand); color: var(--brand-on); padding: 0 18px; }
-  .btn-primary:hover:not(:disabled), .btn-primary.is-hover { background: var(--brand-deep); border-color: var(--brand-deep); }
+  .btn-primary:hover:not(:disabled), .btn-primary.is-hover, .btn-primary:active:not(:disabled) { background: var(--brand-deep); border-color: var(--brand-deep); }
   .btn-lg { min-height: 44px; }
   .btn-lg::after { inset: 0; }
   .btn-tertiary { border-color: transparent; background: transparent; color: var(--ink-2); padding: 0 8px; }
-  .btn-tertiary:hover:not(:disabled), .btn-tertiary.is-hover { background: transparent; text-decoration: underline; text-underline-offset: 3px; }
+  .btn-tertiary:hover:not(:disabled), .btn-tertiary.is-hover { background: var(--surface-3); text-decoration: underline; text-underline-offset: 3px; }
+  .btn-tertiary:active:not(:disabled) { background: var(--line-soft); }
   .btn-danger { color: var(--risk-high); border-color: var(--risk-high); background: var(--surface); }
-  .btn-danger:hover:not(:disabled), .btn-danger.is-hover { background: var(--risk-high-tint); }
+  .btn-danger:hover:not(:disabled), .btn-danger.is-hover, .btn-danger:active:not(:disabled) { background: var(--risk-high-tint); border-color: var(--risk-high); }
   .btn-danger-solid { color: var(--on-risk); background: var(--risk-high); border-color: var(--risk-high); }
   .btn-danger-solid:hover:not(:disabled), .btn-danger-solid.is-hover { background: var(--risk-critical); border-color: var(--risk-critical); }
   .btn-icon { width: 36px; min-width: 36px; padding: 0; }
@@ -187,7 +190,9 @@
     font-size: var(--body-m); font-weight: 500; cursor: pointer; transition: background-color var(--t-fast) var(--ease);
   }
   .seg-item::after { content: ""; position: absolute; inset: -4px 0; }
-  .seg-item:hover { background: var(--surface); }
+  .seg-item:hover:not(:disabled) { background: var(--surface); }
+  .seg-item:active:not(:disabled) { transform: translateY(1px); }
+  .seg-item:disabled { opacity: 0.45; cursor: not-allowed; }
   .seg-item[aria-selected="true"], .seg-item[aria-pressed="true"] { background: var(--brand); color: var(--brand-on); }
 
   /* Поля ввода */
@@ -196,7 +201,40 @@
     border: 1px solid var(--line-strong); background: var(--surface-alt); color: var(--ink);
     font-size: var(--body-l); transition: border-color var(--t-fast) var(--ease);
   }
-  .input:hover { border-color: var(--gold); }
+  .input:hover:not(:disabled) { border-color: var(--gold); }
+  .input:focus-visible { border-color: var(--gold); }
+  .input:disabled { opacity: 0.6; cursor: not-allowed; background: var(--surface-3); }
+  /* Флажки и радиокнопки: видимая рамка фокуса и понятный курсор в обеих темах */
+  input[type="checkbox"], input[type="radio"] { cursor: pointer; }
+  input[type="checkbox"]:disabled, input[type="radio"]:disabled { cursor: not-allowed; opacity: 0.45; }
+  /* Разделитель зон: курсор и рамка фокуса; линия подсвечивается при наведении и перетаскивании */
+  .splitter:focus-visible { box-shadow: none; }
+  .splitter:focus-visible > span { box-shadow: var(--focus-ring); }
+
+  /* Пояснение P и S: значок «i» 20 px, зона нажатия 32 px; окно не пропадает, пока курсор над ним */
+  .ps-info {
+    position: relative; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin: 0 2px;
+    border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: help; vertical-align: middle;
+    transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  }
+  .ps-info::after { content: ""; position: absolute; inset: -12px; }
+  .ps-info:hover, .ps-info[aria-expanded="true"] { background: var(--surface-3); color: var(--ink); }
+  .ps-info:focus-visible { border-radius: 50%; }
+  .ps-pop {
+    position: fixed; z-index: 60; display: block; padding: var(--space-3);
+    border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface-alt); color: var(--ink);
+    box-shadow: var(--shadow-hover); text-align: left; white-space: normal; font-weight: 400; max-width: min(20rem, calc(100vw - 32px));
+  }
+  .ps-pop::before { content: ""; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; z-index: -1; } /* мост: курсор переходит в окно без закрытия */
+
+  /* Футер: в потоке страницы, не поверх чата и плана */
+  .app-footer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); font-size: var(--body-s); color: var(--muted); }
+  .app-footer a { color: var(--ink-2); text-underline-offset: 3px; }
+  .app-footer a:hover { color: var(--ink); }
+  .legal h2 { margin-top: var(--space-5, 1.5rem); font-size: var(--display-s); }
+  .legal p, .legal li { font-size: var(--body-m); line-height: 1.6; max-width: 76ch; }
+  .legal ul { list-style: disc; margin: var(--space-2) 0 0 1.25rem; }
+  .legal li + li { margin-top: var(--space-1); }
   .input[aria-invalid="true"] { border-color: var(--risk-high); }
   .label { display: block; margin-bottom: var(--space-1); font-size: var(--body-m); font-weight: 500; color: var(--ink-2); }
   .hint { font-size: var(--body-s); color: var(--muted); }

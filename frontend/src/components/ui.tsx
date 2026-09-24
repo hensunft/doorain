@@ -27,10 +27,10 @@ export function RiskBadge({ level, score, compact = false }: { level: Level | nu
   )
 }
 
-export function Field({ label, hint, children, id }: { label: string; hint?: string; children: ReactNode; id: string }) {
+export function Field({ label, hint, children, id, info }: { label: string; hint?: string; children: ReactNode; id: string; info?: ReactNode }) {
   return (
     <div>
-      <label className="label" htmlFor={id}>{label}</label>
+      <span className="flex items-center"><label className="label" htmlFor={id}>{label}</label>{info}</span>
       {children}
       {hint && <p className="hint mt-1">{hint}</p>}
     </div>

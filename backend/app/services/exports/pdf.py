@@ -42,7 +42,7 @@ from ...core.util import now
 from ...db.models import Citation, ConsultationSession, CorpusGeneration, GenerationRun, Risk, RiskEvidence
 from ..portrait import graph
 from ..risks import scales as risk_scales
-from ..risks.methodology import DEMO_NOTICE, DISCLAIMER
+from ..risks.methodology import DISCLAIMER
 from ..risks.scoring import LEVEL_RU, LEVELS
 
 APP = Path(__file__).resolve().parents[2]
@@ -172,7 +172,7 @@ def build_snapshot(db: Session, s: ConsultationSession, options: dict[str, Any],
     def article(c: Citation) -> dict[str, Any]:
         sn = c.snapshot
         title, req = _requisites(sn)
-        act = bases.setdefault(f"{c.document_id}:{c.revision_id}", {"group": _group(sn), "title": title, "requisites": req, "is_demo": bool(sn.get("is_demo")), "articles": {}})
+        act = bases.setdefault(f"{c.document_id}:{c.revision_id}", {"group": _group(sn), "title": title, "requisites": req, "archived": bool(sn.get("archived")), "articles": {}})
         return act["articles"].setdefault(sn.get("locator") or "без локатора", {"locator": sn.get("locator") or "без локатора", "questions": set(), "risks": []})
 
     for c in cites:  # перечень оснований — только из цитат ответов (answer traces), ничего сверх
@@ -234,7 +234,7 @@ def build_snapshot(db: Session, s: ConsultationSession, options: dict[str, Any],
         "test_mode": settings.provider_mode == "test" or any((r.model_info or {}).get("provider") == "test" for r in runs),
         "versions": {"session_version": s.version, "risks": {str(r.id): r.version for r in risks}, "citation_ids": [str(c.id) for c in cites]},
         "disclaimer": DISCLAIMER,
-        "demo": any(a["is_demo"] for a in acts),
+        "archived": any(a["archived"] for a in acts),
     }
 
 
@@ -594,8 +594,8 @@ def _title_page(snap: dict[str, Any], st: dict[str, ParagraphStyle], fw: float) 
                       _table(info, [46 * mm, fw - 46 * mm], header=False), Spacer(1, 8 * mm)]
     if snap["incomplete"]:
         out.append(Paragraph(f"Неполный снимок: {_esc(snap['incomplete_reason'])}", st["banner"]))
-    if snap["demo"]:
-        out.append(Paragraph(DEMO_NOTICE, st["banner"]))
+    if snap["archived"]:
+        out.append(Paragraph("Часть оснований выведена из базы знаний: соответствующие нормы помечены как архивные и не подтверждают риски.", st["banner"]))
     if snap["test_mode"]:
         out.append(Paragraph("Тестовый режим: ответы сформированы без языковой модели (TEST-провайдеры) — документ не отражает качество анализа.", st["banner"]))
     out.append(Paragraph(f"{_esc(snap['disclaimer'])}. Документ носит справочный характер и не является юридическим заключением.", st["muted"]))
@@ -703,7 +703,7 @@ def _bases_block(snap: dict[str, Any], st: dict[str, ParagraphStyle]) -> list[An
             continue
         out.append(Paragraph(gtitle, st["h2"]))
         for a in acts:
-            items: list[Any] = [Paragraph(f"<b>{_esc(a['title'])}</b>" + (" · демонстрационный текст" if a["is_demo"] else ""), st["body"]), Paragraph(_esc(a["requisites"]), st["mono"])]
+            items: list[Any] = [Paragraph(f"<b>{_esc(a['title'])}</b>" + (" · источник выведен из базы знаний" if a["archived"] else ""), st["body"]), Paragraph(_esc(a["requisites"]), st["mono"])]
             for art in a["articles"]:
                 why = []
                 if art["questions"]:

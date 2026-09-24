@@ -9,6 +9,14 @@ export const STATUS_RU: Record<string, string> = {
   needs_clarification: 'Нужно уточнение',
   not_applicable: 'Неприменим',
 }
+/** Кто и как закрыл риск: в UI различаем «со слов пользователя» и подтверждённое фактами. */
+export const RESOLVED_BY_RU: Record<string, string> = {
+  closure_user_claim: 'Закрыт по вашему ответу — со слов пользователя, независимой проверки нет',
+  closure_confirmed: 'Закрыт по ответу, подтверждённому фактами сессии',
+  user_message: 'Снят по сообщению в диалоге — со слов пользователя, независимой проверки нет',
+  owner_override: 'Закрыт владельцем без проверки ответа (записано в журнал)',
+  owner: 'Снят вручную до введения проверки ответа',
+}
 export const ROLE_RU = { student: 'Студент', entrepreneur: 'Предприниматель', expert: 'Эксперт' } as const
 export const NODE_KIND_RU: Record<string, string> = { center: 'Центр', topic: 'Тема', question: 'Вопрос', norm: 'Норма', risk: 'Риск' }
 export const RESULT_RU: Record<string, string> = { answered: 'Есть ответ', refused: 'Отказ', cancelled: 'Отменён', failed: 'Ошибка' }

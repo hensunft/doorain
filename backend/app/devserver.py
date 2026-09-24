@@ -46,7 +46,7 @@ def main() -> None:
     if os.environ.get("E2E_DEMO") == "1":
         from .demo import load_demo
 
-        load_demo(root / "fixtures" / "demo")
+        load_demo(root / "tests" / "fixtures" / "demo")
     import uvicorn
 
     from .main import create_app

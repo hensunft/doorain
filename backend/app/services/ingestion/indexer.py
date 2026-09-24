@@ -10,7 +10,7 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ...core.config import Settings
+from ...core.config import Settings, get_settings
 from ...core.util import now
 from ...db.models import (
     AppState,
@@ -60,9 +60,21 @@ def fp_hash(fp: dict) -> str:
     return hashlib.sha256(json.dumps(fp, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
+def deactivate_generation(db: Session) -> None:
+    """Корпус пуст: активной generation нет, поиск и ответы честно отказывают, пока администратор не загрузит документы."""
+    prev = active_generation(db)
+    if prev:
+        prev.status = "retired"
+    set_state(db, ACTIVE_KEY, {})
+    db.commit()
+
+
 def applicable_revisions(db: Session, gen: CorpusGeneration, as_of: date) -> list[DocumentRevision]:
     """Редакции generation, действующие на as_of: по документу — последняя с effective_from <= as_of и не утратившая силу."""
-    revs = db.scalars(select(DocumentRevision).join(GenerationRevision, GenerationRevision.revision_id == DocumentRevision.id).where(GenerationRevision.generation_id == gen.id)).all()
+    q = select(DocumentRevision).join(GenerationRevision, GenerationRevision.revision_id == DocumentRevision.id).where(GenerationRevision.generation_id == gen.id)
+    if get_settings().provider_mode != "test":  # синтетические акты участвуют в ответах только в тестовом окружении
+        q = q.join(Document, Document.id == DocumentRevision.document_id).where(Document.is_demo.is_(False))
+    revs = db.scalars(q).all()
     best: dict[uuid.UUID, DocumentRevision] = {}
     for r in revs:
         start = r.effective_from or r.revision_date

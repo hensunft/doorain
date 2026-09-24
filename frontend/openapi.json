@@ -185,6 +185,48 @@
     }
    }
   },
+  "/api/v1/auth/profile": {
+   "patch": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Patch Profile",
+    "description": "Имя, фамилия, e-mail. В журнал пишутся только названия изменённых полей, не значения.",
+    "operationId": "patch_profile_api_v1_auth_profile_patch",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProfilePatch"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AuthOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/sessions": {
    "get": {
     "tags": [
@@ -943,6 +985,55 @@
     }
    }
   },
+  "/api/v1/risk-methodology": {
+   "get": {
+    "tags": [
+     "portrait"
+    ],
+    "summary": "Risk Methodology",
+    "description": "Пояснение P и S берёт шкалы и пороги отсюда: клиент числа не дублирует.",
+    "operationId": "risk_methodology_api_v1_risk_methodology_get",
+    "parameters": [
+     {
+      "name": "role",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "enum": [
+        "student",
+        "entrepreneur",
+        "expert"
+       ],
+       "type": "string",
+       "default": "entrepreneur",
+       "title": "Role"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RiskMethodologyOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/sessions/{session_id}/risks": {
    "get": {
     "tags": [
@@ -1115,6 +1206,60 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/RiskOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/risks/{risk_id}/closure": {
+   "post": {
+    "tags": [
+     "portrait"
+    ],
+    "summary": "Propose Closure",
+    "description": "«Предложить закрытие»: до результата проверки риск остаётся активным. Ответ оценивает модель, результат проверяет сервер.",
+    "operationId": "propose_closure_api_v1_risks__risk_id__closure_post",
+    "parameters": [
+     {
+      "name": "risk_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Risk Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ClosureIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ClosureResult"
         }
        }
       }
@@ -1929,30 +2074,6 @@
     }
    }
   },
-  "/api/v1/corpus/documents/demo/remove": {
-   "post": {
-    "tags": [
-     "corpus"
-    ],
-    "summary": "Remove Demo",
-    "description": "Убрать демонстрационные акты: без ссылок — удалить, со ссылками — исключить из корпуса.",
-    "operationId": "remove_demo_api_v1_corpus_documents_demo_remove_post",
-    "responses": {
-     "200": {
-      "description": "Successful Response",
-      "content": {
-       "application/json": {
-        "schema": {
-         "additionalProperties": true,
-         "type": "object",
-         "title": "Response Remove Demo Api V1 Corpus Documents Demo Remove Post"
-        }
-       }
-      }
-     }
-    }
-   }
-  },
   "/api/v1/corpus/revisions/{revision_id}/chunks": {
    "get": {
     "tags": [
@@ -2752,6 +2873,28 @@
     }
    }
   },
+  "/api/v1/legal": {
+   "get": {
+    "tags": [
+     "system"
+    ],
+    "summary": "Legal Info",
+    "description": "Без входа: страницы Политики, Условий и Контактов доступны до регистрации.",
+    "operationId": "legal_info_api_v1_legal_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LegalOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/health/live": {
    "get": {
     "tags": [
@@ -3431,9 +3574,10 @@
       "type": "boolean",
       "title": "Verified"
      },
-     "is_demo": {
+     "archived": {
       "type": "boolean",
-      "title": "Is Demo"
+      "title": "Archived",
+      "default": false
      }
     },
     "type": "object",
@@ -3443,8 +3587,7 @@
      "label",
      "locator",
      "revision_label",
-     "verified",
-     "is_demo"
+     "verified"
     ],
     "title": "CitationChip"
    },
@@ -3533,6 +3676,421 @@
      "file_url"
     ],
     "title": "CitationOut"
+   },
+   "ClosureAttemptOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "state": {
+      "type": "string",
+      "enum": [
+       "pending",
+       "decided",
+       "failed",
+       "stale"
+      ],
+      "title": "State"
+     },
+     "decision": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "close",
+         "keep_open",
+         "clarify",
+         "other_risk"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decision"
+     },
+     "resolution_kind": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "remediated",
+         "not_applicable"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resolution Kind"
+     },
+     "verification": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "user_claim",
+         "corroborated"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Verification"
+     },
+     "confidence": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "low",
+         "medium",
+         "high"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Confidence"
+     },
+     "explanation": {
+      "type": "string",
+      "title": "Explanation"
+     },
+     "question": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Question"
+     },
+     "quote": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Quote"
+     },
+     "applied": {
+      "type": "boolean",
+      "title": "Applied"
+     },
+     "source": {
+      "type": "string",
+      "title": "Source"
+     },
+     "initiated_by": {
+      "type": "string",
+      "title": "Initiated By"
+     },
+     "user_answer": {
+      "type": "string",
+      "title": "User Answer"
+     },
+     "facts": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Facts"
+     },
+     "citations": {
+      "items": {
+       "$ref": "#/components/schemas/ClosureCitation"
+      },
+      "type": "array",
+      "title": "Citations",
+      "default": []
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "state",
+     "decision",
+     "resolution_kind",
+     "verification",
+     "confidence",
+     "explanation",
+     "question",
+     "quote",
+     "applied",
+     "source",
+     "initiated_by",
+     "user_answer",
+     "facts",
+     "created_at",
+     "finished_at"
+    ],
+    "title": "ClosureAttemptOut",
+    "description": "Проверка ответа о закрытии риска. verification: user_claim — «со слов пользователя», corroborated — подтверждено фактами сессии."
+   },
+   "ClosureCitation": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "label"
+    ],
+    "title": "ClosureCitation"
+   },
+   "ClosureIn": {
+    "properties": {
+     "version": {
+      "type": "integer",
+      "title": "Version"
+     },
+     "answer": {
+      "type": "string",
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Answer"
+     },
+     "source": {
+      "type": "string",
+      "enum": [
+       "plan",
+       "detail"
+      ],
+      "title": "Source"
+     },
+     "idempotency_key": {
+      "type": "string",
+      "maxLength": 120,
+      "minLength": 8,
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "title": "Idempotency Key"
+     }
+    },
+    "type": "object",
+    "required": [
+     "version",
+     "answer",
+     "source",
+     "idempotency_key"
+    ],
+    "title": "ClosureIn"
+   },
+   "ClosureResult": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "state": {
+      "type": "string",
+      "enum": [
+       "pending",
+       "decided",
+       "failed",
+       "stale"
+      ],
+      "title": "State"
+     },
+     "decision": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "close",
+         "keep_open",
+         "clarify",
+         "other_risk"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decision"
+     },
+     "resolution_kind": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "remediated",
+         "not_applicable"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resolution Kind"
+     },
+     "verification": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "user_claim",
+         "corroborated"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Verification"
+     },
+     "confidence": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "low",
+         "medium",
+         "high"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Confidence"
+     },
+     "explanation": {
+      "type": "string",
+      "title": "Explanation"
+     },
+     "question": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Question"
+     },
+     "quote": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Quote"
+     },
+     "applied": {
+      "type": "boolean",
+      "title": "Applied"
+     },
+     "source": {
+      "type": "string",
+      "title": "Source"
+     },
+     "initiated_by": {
+      "type": "string",
+      "title": "Initiated By"
+     },
+     "user_answer": {
+      "type": "string",
+      "title": "User Answer"
+     },
+     "facts": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Facts"
+     },
+     "citations": {
+      "items": {
+       "$ref": "#/components/schemas/ClosureCitation"
+      },
+      "type": "array",
+      "title": "Citations",
+      "default": []
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "risk": {
+      "$ref": "#/components/schemas/RiskOut"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "state",
+     "decision",
+     "resolution_kind",
+     "verification",
+     "confidence",
+     "explanation",
+     "question",
+     "quote",
+     "applied",
+     "source",
+     "initiated_by",
+     "user_answer",
+     "facts",
+     "created_at",
+     "finished_at",
+     "risk"
+    ],
+    "title": "ClosureResult"
    },
    "ConfirmImportIn": {
     "properties": {
@@ -3788,10 +4346,6 @@
       "type": "boolean",
       "title": "Empty"
      },
-     "has_demo": {
-      "type": "boolean",
-      "title": "Has Demo"
-     },
      "index_ready": {
       "type": "boolean",
       "title": "Index Ready"
@@ -3805,7 +4359,6 @@
      "active_generation",
      "generations",
      "empty",
-     "has_demo",
      "index_ready"
     ],
     "title": "CorpusOverview"
@@ -3966,10 +4519,6 @@
       ],
       "title": "Source Url"
      },
-     "is_demo": {
-      "type": "boolean",
-      "title": "Is Demo"
-     },
      "excluded": {
       "type": "boolean",
       "title": "Excluded",
@@ -3998,7 +4547,6 @@
      "act_date",
      "license_note",
      "source_url",
-     "is_demo",
      "revisions"
     ],
     "title": "DocumentOut"
@@ -4464,6 +5012,19 @@
        }
       ],
       "title": "Note"
+     },
+     "ttl_days": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 90.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ttl Days"
      }
     },
     "type": "object",
@@ -4483,13 +5044,18 @@
       "type": "string",
       "format": "date-time",
       "title": "Expires At"
+     },
+     "register_path": {
+      "type": "string",
+      "title": "Register Path"
      }
     },
     "type": "object",
     "required": [
      "code",
      "hint",
-     "expires_at"
+     "expires_at",
+     "register_path"
     ],
     "title": "InviteCreated"
    },
@@ -4690,6 +5256,61 @@
     },
     "type": "object",
     "title": "LayoutIn"
+   },
+   "LegalOut": {
+    "properties": {
+     "version": {
+      "type": "string",
+      "title": "Version"
+     },
+     "operator": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "title": "Operator"
+     },
+     "missing": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Missing"
+     },
+     "owner_can_read_user_sessions": {
+      "type": "boolean",
+      "title": "Owner Can Read User Sessions"
+     },
+     "session_ttl_hours": {
+      "type": "integer",
+      "title": "Session Ttl Hours"
+     },
+     "invite_ttl_days": {
+      "type": "integer",
+      "title": "Invite Ttl Days"
+     },
+     "login_attempts_days": {
+      "type": "integer",
+      "title": "Login Attempts Days"
+     },
+     "disclaimer": {
+      "type": "string",
+      "title": "Disclaimer"
+     }
+    },
+    "type": "object",
+    "required": [
+     "version",
+     "operator",
+     "missing",
+     "owner_can_read_user_sessions",
+     "session_ttl_hours",
+     "invite_ttl_days",
+     "login_attempts_days",
+     "disclaimer"
+    ],
+    "title": "LegalOut",
+    "description": "Данные для публичных страниц Политики, Условий и Контактов. missing — поля оператора, которые нужно заполнить до публичного запуска."
    },
    "LoginIn": {
     "properties": {
@@ -5092,6 +5713,60 @@
     ],
     "title": "PlanStepPatch"
    },
+   "ProfilePatch": {
+    "properties": {
+     "first_name": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 80
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "First Name"
+     },
+     "last_name": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 80
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Name"
+     },
+     "email": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Email"
+     },
+     "current_password": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 256
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Current Password"
+     }
+    },
+    "type": "object",
+    "title": "ProfilePatch"
+   },
    "QuizAttemptIn": {
     "properties": {
      "answers": {
@@ -5231,24 +5906,62 @@
       "minLength": 3,
       "title": "Username"
      },
+     "first_name": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "First Name"
+     },
+     "last_name": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Last Name"
+     },
+     "email": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 3,
+      "title": "Email"
+     },
      "password": {
       "type": "string",
       "maxLength": 256,
       "minLength": 1,
       "title": "Password"
      },
+     "password_repeat": {
+      "type": "string",
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Password Repeat"
+     },
      "invite_code": {
       "type": "string",
       "maxLength": 128,
       "minLength": 1,
       "title": "Invite Code"
+     },
+     "accept_terms": {
+      "type": "boolean",
+      "title": "Accept Terms"
+     },
+     "accept_pd": {
+      "type": "boolean",
+      "title": "Accept Pd"
      }
     },
     "type": "object",
     "required": [
      "username",
+     "first_name",
+     "last_name",
+     "email",
      "password",
-     "invite_code"
+     "password_repeat",
+     "invite_code",
+     "accept_terms",
+     "accept_pd"
     ],
     "title": "RegisterIn"
    },
@@ -5474,6 +6187,14 @@
       },
       "type": "array",
       "title": "Evidence"
+     },
+     "closures": {
+      "items": {
+       "$ref": "#/components/schemas/ClosureAttemptOut"
+      },
+      "type": "array",
+      "title": "Closures",
+      "default": []
      }
     },
     "type": "object",
@@ -5608,6 +6329,96 @@
      "label"
     ],
     "title": "RiskEvidenceOut"
+   },
+   "RiskLevelRange": {
+    "properties": {
+     "level": {
+      "type": "string",
+      "enum": [
+       "low",
+       "medium",
+       "high",
+       "critical"
+      ],
+      "title": "Level"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "min": {
+      "type": "integer",
+      "title": "Min"
+     },
+     "max": {
+      "type": "integer",
+      "title": "Max"
+     }
+    },
+    "type": "object",
+    "required": [
+     "level",
+     "label",
+     "min",
+     "max"
+    ],
+    "title": "RiskLevelRange"
+   },
+   "RiskMethodologyOut": {
+    "properties": {
+     "version": {
+      "type": "string",
+      "title": "Version"
+     },
+     "role": {
+      "type": "string",
+      "title": "Role"
+     },
+     "measure": {
+      "type": "string",
+      "title": "Measure"
+     },
+     "probability": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "title": "Probability"
+     },
+     "severity": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "title": "Severity"
+     },
+     "levels": {
+      "items": {
+       "$ref": "#/components/schemas/RiskLevelRange"
+      },
+      "type": "array",
+      "title": "Levels"
+     },
+     "rules": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Rules"
+     }
+    },
+    "type": "object",
+    "required": [
+     "version",
+     "role",
+     "measure",
+     "probability",
+     "severity",
+     "levels",
+     "rules"
+    ],
+    "title": "RiskMethodologyOut",
+    "description": "Шкалы и пороги оценки из backend-конфигураций (app/config/risk.yaml, services/risks/scales/<роль>.yaml)."
    },
    "RiskOut": {
     "properties": {
@@ -5955,6 +6766,11 @@
      "version": {
       "type": "integer",
       "title": "Version"
+     },
+     "override": {
+      "type": "boolean",
+      "title": "Override",
+      "default": false
      }
     },
     "type": "object",
@@ -6477,10 +7293,6 @@
       ],
       "title": "Generation Seq"
      },
-     "has_demo": {
-      "type": "boolean",
-      "title": "Has Demo"
-     },
      "worker_alive": {
       "type": "boolean",
       "title": "Worker Alive"
@@ -6508,7 +7320,6 @@
      "corpus_empty",
      "corpus_as_of",
      "generation_seq",
-     "has_demo",
      "worker_alive",
      "maintenance",
      "provider_mode",
@@ -6634,6 +7445,10 @@
       "type": "string",
       "title": "Username"
      },
+     "display_name": {
+      "type": "string",
+      "title": "Display Name"
+     },
      "access_level": {
       "type": "string",
       "title": "Access Level"
@@ -6692,6 +7507,7 @@
     "required": [
      "id",
      "username",
+     "display_name",
      "access_level",
      "created_at",
      "last_login_at",
@@ -6712,6 +7528,43 @@
      "username": {
       "type": "string",
       "title": "Username"
+     },
+     "display_name": {
+      "type": "string",
+      "title": "Display Name"
+     },
+     "first_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "First Name"
+     },
+     "last_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Name"
+     },
+     "email": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Email"
      },
      "access_level": {
       "type": "string",
@@ -6738,6 +7591,7 @@
     "required": [
      "id",
      "username",
+     "display_name",
      "access_level"
     ],
     "title": "UserOut"

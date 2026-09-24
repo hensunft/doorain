@@ -70,6 +70,22 @@ class AnalysisResult(BaseModel):
     relations: list[Relation] = Field(default_factory=list, max_length=6)
 
 
+class ClosureDecision(BaseModel):
+    """Решение о закрытии риска по ответу пользователя. Сервер проверяет цитату ответа, id норм и фактов, а не верит полям на слово."""
+
+    schema_version: Literal["1"] = SCHEMA_VERSION
+    decision: Literal["close", "keep_open", "clarify", "other_risk"]
+    resolution_kind: Literal["remediated", "not_applicable", "none"] = "none"
+    verification: Literal["user_claim", "corroborated"] = "user_claim"
+    confidence: Literal["low", "medium", "high"]
+    explanation: str = Field(max_length=700, description="Почему принято именно это решение")
+    evidence_quote: str = Field(default="", max_length=300, description="Дословный фрагмент ответа пользователя, на который опирается решение")
+    used_fact_keys: list[str] = Field(default_factory=list, max_length=8, description="Ключи фактов сессии из контекста")
+    citation_ids: list[str] = Field(default_factory=list, max_length=6, description="Идентификаторы норм из списка norms контекста")
+    clarification_question: str | None = Field(default=None, max_length=300, description="Что именно нужно уточнить (для decision=clarify)")
+    other_risk_hint: str | None = Field(default=None, max_length=300, description="Иная проблема, о которой говорит ответ (для decision=other_risk)")
+
+
 class QuizQuestion(BaseModel):
     question: str = Field(max_length=400)
     options: list[str] = Field(min_length=2, max_length=5)

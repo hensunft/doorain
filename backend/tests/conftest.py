@@ -15,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 BACKEND = Path(__file__).resolve().parents[1]
-DEMO_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "demo"
+DEMO_DIR = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "demo"
 PASSWORD = "correct horse battery staple"
 
 

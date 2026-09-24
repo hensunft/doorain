@@ -7,6 +7,7 @@ import type { Risk } from '../../lib/api'
 import { post } from '../../lib/api'
 import { keys, useRisks } from '../../lib/queries'
 import { LEVEL_RU, levelOf } from '../../lib/risk'
+import { PsInfo } from '../../components/PsInfo'
 
 const SCALE = [1, 2, 3, 4, 5]
 
@@ -26,8 +27,8 @@ export function ManualRiskDialog({ sessionId, open, onClose }: { sessionId: stri
         <Field id="mr-t" label="Название — от последствия"><input id="mr-t" className="input" required minLength={3} maxLength={300} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Например: претензии подрядчика к правам на код" /></Field>
         <Field id="mr-d" label="Суть"><textarea id="mr-d" className="input min-h-16" maxLength={500} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field id="mr-p" label="Вероятность P"><select id="mr-p" className="input" value={f.p} onChange={(e) => setF({ ...f, p: Number(e.target.value) })}>{SCALE.map((x) => <option key={x} value={x}>{x}</option>)}</select></Field>
-          <Field id="mr-s" label="Тяжесть S"><select id="mr-s" className="input" value={f.s} onChange={(e) => setF({ ...f, s: Number(e.target.value) })}>{SCALE.map((x) => <option key={x} value={x}>{x}</option>)}</select></Field>
+          <Field id="mr-p" label="Вероятность P" info={<PsInfo what="p" sessionId={sessionId} />}><select id="mr-p" className="input" value={f.p} onChange={(e) => setF({ ...f, p: Number(e.target.value) })}>{SCALE.map((x) => <option key={x} value={x}>{x}</option>)}</select></Field>
+          <Field id="mr-s" label="Тяжесть S" info={<PsInfo what="s" sessionId={sessionId} />}><select id="mr-s" className="input" value={f.s} onChange={(e) => setF({ ...f, s: Number(e.target.value) })}>{SCALE.map((x) => <option key={x} value={x}>{x}</option>)}</select></Field>
         </div>
         <p className="mono-m">P × S = {f.p * f.s}{lv ? ` · ${LEVEL_RU[lv].toLowerCase()}` : ''}</p>
         <Field id="mr-c" label="Последствия"><input id="mr-c" className="input" maxLength={1000} value={f.consequences} onChange={(e) => setF({ ...f, consequences: e.target.value })} /></Field>

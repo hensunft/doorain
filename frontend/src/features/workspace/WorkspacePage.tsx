@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { FileDown, GraduationCap, Repeat, X } from 'lucide-react'
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Dialog } from '../../components/Dialog'
 import { Banner, ErrorNote, Skeleton } from '../../components/States'
@@ -16,6 +16,7 @@ import { ExportDialog, QuizDialog } from './Dialogs'
 import { PortraitPanel } from './PortraitPanel'
 import { RisksPanel } from './RisksPanel'
 import { SourceDrawer } from './SourceDrawer'
+import { Splitter } from './Splitter'
 
 export type PortraitMode = 'map' | 'timeline' | 'plan'
 const MODES: [PortraitMode, string][] = [['map', 'Карта тем'], ['timeline', 'Хронология'], ['plan', 'План-схема']]
@@ -52,7 +53,6 @@ function TopBar({ session, mode, setMode, onExport, onQuiz, showModes = true }: 
           {st?.corpus_empty && <span>Корпус пуст</span>}
           {dev && st && !st.corpus_empty && <span className="mono-m">generation №{st.generation_seq}</span>}
           {model && model.state !== 'ready' && <span className={`chip ${model.state === 'unavailable' ? 'risk-high' : 'risk-medium'}`}>{model.state === 'unavailable' ? 'Модель недоступна' : 'Тестовый режим: не языковая модель'}</span>}
-          {st?.has_demo && <span className="chip risk-medium">Демонстрационные данные — не нормативная база</span>}
           {session.status === 'archived' && <span className="chip">В архиве</span>}
         </p>
         {rename.error && <p role="alert" className="text-small text-risk-high">{errorText(rename.error)}</p>}
@@ -81,33 +81,32 @@ function TopBar({ session, mode, setMode, onExport, onQuiz, showModes = true }: 
   )
 }
 
-/** Три зоны по макету: чат 300 px, слепок — гибкая ширина, риски 360 px. Боковые зоны тянутся мышью или стрелками. */
+const SIDE_MIN = 260
+const SIDE_MAX = 560
+const CENTER_MIN = 360
+const CHROME = 24 + 64  // внутренние отступы сетки и две зоны захвата
+
+/** Три зоны по макету: чат 300 px, слепок — гибкая ширина (не уже 360 px), риски 360 px. Боковые зоны тянутся мышью, касанием или стрелками. */
 function ThreePanels({ chat, portrait, risks }: { chat: React.ReactNode; portrait: React.ReactNode; risks: React.ReactNode }) {
   const [w, setW] = useLocalState<[number, number]>('doorain.zones', [300, 360])
-  const drag = useRef<{ i: 0 | 1; x: number; start: [number, number] } | null>(null)
-  const clamp = (v: number) => Math.max(260, Math.min(560, v))
-  const down = (i: 0 | 1) => (e: PointerEvent) => { drag.current = { i, x: e.clientX, start: [w[0], w[1]] }; (e.target as HTMLElement).setPointerCapture(e.pointerId) }
-  const move = (e: PointerEvent) => {
-    const d = drag.current
-    if (!d) return
-    const dx = e.clientX - d.x
-    setW(d.i === 0 ? [clamp(d.start[0] + dx), d.start[1]] : [d.start[0], clamp(d.start[1] - dx)])
-  }
-  const key = (i: 0 | 1) => (e: KeyboardEvent) => {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-    e.preventDefault()
-    const step = (e.key === 'ArrowRight' ? 20 : -20) * (i === 0 ? 1 : -1)
-    setW(i === 0 ? [clamp(w[0] + step), w[1]] : [w[0], clamp(w[1] + step)])
-  }
-  const Handle = ({ i }: { i: 0 | 1 }) => (
-    <div role="separator" aria-orientation="vertical" aria-label={i === 0 ? 'Изменить ширину диалога' : 'Изменить ширину рисков'} tabIndex={0} onPointerDown={down(i)} onPointerMove={move} onPointerUp={() => { drag.current = null }} onKeyDown={key(i)} className="group flex w-8 cursor-col-resize justify-center bg-page focus-visible:shadow-none"><span className="h-full w-0.5 rounded-full group-hover:bg-line group-focus-visible:bg-gold" /></div>
-  )
+  const box = useRef<HTMLDivElement>(null)
+  const [total, setTotal] = useState(0)
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setTotal(el.clientWidth))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const maxFor = (other: number) => Math.max(SIDE_MIN, Math.min(SIDE_MAX, total ? total - CHROME - CENTER_MIN - other : SIDE_MAX))
+  const left = Math.min(w[0], maxFor(w[1]))
+  const right = Math.min(w[1], maxFor(left))
   return (
-    <div className="grid min-h-0 flex-1 gap-0 bg-page p-3" style={{ gridTemplateColumns: `${w[0]}px 32px minmax(360px, 1fr) 32px ${w[1]}px` }}>
+    <div ref={box} className="grid min-h-0 flex-1 gap-0 bg-page p-3" style={{ gridTemplateColumns: `${left}px 32px minmax(${CENTER_MIN}px, 1fr) 32px ${right}px` }}>
       <section aria-label="Диалог" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{chat}</section>
-      <Handle i={0} />
+      <Splitter label="Изменить ширину диалога" value={left} min={SIDE_MIN} max={maxFor(right)} dir={1} onChange={(v) => setW([v, right])} />
       <section aria-label="Цифровой слепок" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{portrait}</section>
-      <Handle i={1} />
+      <Splitter label="Изменить ширину рисков" value={right} min={SIDE_MIN} max={maxFor(left)} dir={-1} onChange={(v) => setW([left, v])} />
       <section aria-label="Риски" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{risks}</section>
     </div>
   )

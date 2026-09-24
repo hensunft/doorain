@@ -1,8 +1,10 @@
-import { BookOpenText, History, Menu, Palette, PanelLeftClose, PanelLeftOpen, Plus, Settings, ShieldUser } from 'lucide-react'
+import { BookOpenText, History, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, ShieldUser } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
 import { Dialog } from '../components/Dialog'
+import { Footer } from '../components/Footer'
 import { Banner, OfflineBanner } from '../components/States'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { useMe } from './App'
 import { useLayoutMode, useLocalState, useOnline } from '../lib/hooks'
 import { useSessions, useStatus } from '../lib/queries'
@@ -28,7 +30,6 @@ function SidebarNav({ compact, onNavigate }: { compact: boolean; onNavigate?: ()
       <Link to="/" onClick={onNavigate} className={`btn mb-2 no-underline ${compact ? "btn-icon self-center" : ""}`}><Plus className="size-4" aria-hidden />{!compact && 'Новая сессия'}{compact && <span className="sr-only">Новая сессия</span>}</Link>
       <NavLink to="/history" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><History className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Мои сессии</span> : 'Мои сессии'}</NavLink>
       {isOwner && <NavLink to="/kb" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><BookOpenText className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">База знаний</span> : 'База знаний'}</NavLink>}
-      {isOwner && <NavLink to="/styleguide" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><Palette className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Библиотека компонентов</span> : 'Компоненты'}</NavLink>}
       {isOwner && <NavLink to="/admin" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><ShieldUser className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Администрирование</span> : 'Администрирование'}</NavLink>}
       <NavLink to="/settings" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><Settings className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Настройки</span> : 'Настройки'}</NavLink>
       {!compact && (
@@ -48,6 +49,22 @@ function SidebarNav({ compact, onNavigate }: { compact: boolean; onNavigate?: ()
         </div>
       )}
     </nav>
+  )
+}
+
+/** Низ боковой панели: имя пользователя и тема — ниже навигации и списка сессий; в свёрнутом виде — иконки с подписями. */
+function SidebarFooter({ compact, onNavigate }: { compact: boolean; onNavigate?: () => void }) {
+  const user = useMe().data?.user
+  const name = user?.display_name ?? ''
+  const initials = name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  return (
+    <div className={`mt-auto flex shrink-0 gap-2 border-t border-line px-2 pt-2 ${compact ? 'flex-col items-center' : 'items-center justify-between'}`}>
+      <Link to="/settings" onClick={onNavigate} className={`flex min-h-11 min-w-0 items-center gap-2 rounded-md px-1 text-small text-ink no-underline hover:bg-hover ${compact ? 'justify-center' : ''}`} title={compact ? `${name} — профиль и настройки` : 'Профиль и настройки'} aria-label={compact ? `${name}: профиль и настройки` : undefined}>
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-selected text-xs font-semibold" aria-hidden>{initials || '?'}</span>
+        {!compact && <span className="truncate">{name}</span>}
+      </Link>
+      <ThemeToggle compact={compact} />
+    </div>
   )
 }
 
@@ -73,6 +90,7 @@ export function AppShell() {
             </div>
             {compact && !inWorkspace && <button className="btn btn-tertiary btn-icon mx-auto" aria-label="Развернуть панель" onClick={() => setCollapsed(false)}><PanelLeftOpen className="size-4" aria-hidden /></button>}
             <SidebarNav compact={compact} />
+            <SidebarFooter compact={compact} />
           </aside>
         )}
         <div className="flex min-w-0 flex-1 flex-col">
@@ -82,12 +100,13 @@ export function AppShell() {
               <Brand />
             </div>
           )}
-          <main className={`min-h-0 flex-1 ${inWorkspace ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-            <Outlet />
+          <main className={`min-h-0 flex-1 ${inWorkspace ? 'overflow-hidden' : 'flex flex-col overflow-y-auto'}`}>
+            {inWorkspace ? <Outlet /> : <><div className="flex-1"><Outlet /></div><Footer className="border-t border-line px-4 py-3" /></>}
           </main>
+          {inWorkspace && mode !== 'narrow' && <Footer className="border-t border-line bg-page px-4 py-1.5" />}
         </div>
       </div>
-      <Dialog open={menu} onClose={() => setMenu(false)} title="Меню" variant="side"><div className="-mx-3 flex h-full flex-col"><SidebarNav compact={false} onNavigate={() => setMenu(false)} /></div></Dialog>
+      <Dialog open={menu} onClose={() => setMenu(false)} title="Меню" variant="side"><div className="-mx-3 flex h-full flex-col gap-2"><SidebarNav compact={false} onNavigate={() => setMenu(false)} /><SidebarFooter compact={false} onNavigate={() => setMenu(false)} /><Footer className="px-3 pb-2" /></div></Dialog>
     </div>
   )
 }

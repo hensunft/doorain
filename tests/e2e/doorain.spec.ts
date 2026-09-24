@@ -9,8 +9,8 @@ const SHOTS = path.resolve(__dirname, '../../docs/qa')
 async function login(page: Page) {
   await page.goto('/')
   await expect(page).toHaveURL(/\/login/)
-  await page.getByLabel('Имя пользователя').fill('e2e')
-  await page.getByLabel('Пароль').fill(PASSWORD)
+  await page.getByLabel('Логин', { exact: true }).fill('e2e')
+  await page.getByLabel('Пароль', { exact: true }).fill(PASSWORD)
   await page.getByRole('button', { name: 'Войти' }).click()
   await expect(page.getByRole('heading', { name: 'Портрет вашего правового положения' })).toBeVisible()
 }
@@ -32,9 +32,10 @@ test.describe.configure({ mode: 'serial' })
 test('вход обязателен; ошибка входа единообразна; дисклеймер после входа', async ({ page }) => {
   await page.goto('/')
   await expect(page).toHaveURL(/\/login/)
-  await expect(page.getByRole('link', { name: /Зарегистрироваться по коду приглашения/ })).toBeVisible()
-  await page.getByLabel('Имя пользователя').fill('e2e')
-  await page.getByLabel('Пароль').fill('wrong password 123')
+  await expect(page.getByRole('link', { name: 'Регистрация по приглашению' })).toBeVisible()
+  await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Политика обработки персональных данных' })).toBeVisible()  // футер до входа
+  await page.getByLabel('Логин', { exact: true }).fill('e2e')
+  await page.getByLabel('Пароль', { exact: true }).fill('wrong password 123')
   await page.getByRole('button', { name: 'Войти' }).click()
   await expect(page.getByRole('alert')).toContainText('Неверное имя пользователя или пароль')
   await login(page)
@@ -53,7 +54,7 @@ test('вертикальный сценарий: вопрос → ответ с 
   await expect(page.getByRole('log', { name: 'Диалог' })).toBeVisible()
   // честные метки режима
   await expect(page.getByText('Тестовый режим: не языковая модель')).toBeVisible()
-  await expect(page.getByText('Демонстрационные данные — не нормативная база').first()).toBeVisible()
+  await expect(page.getByText(/Демонстрационные данные|ДЕМО-законы/)).toHaveCount(0)  // синтетика тестового стенда не рекламируется в интерфейсе
 
   await ask(page, NO_POLICY)
   const chip = page.getByRole('button', { name: /Открыть источник: ДЕМО-1-ФЗ, ст\. 7/ }).first()
@@ -65,7 +66,7 @@ test('вертикальный сценарий: вопрос → ответ с 
   await chip.press('Enter')
   const drawer = page.getByRole('dialog', { name: 'Источник' })
   await expect(drawer).toBeVisible()
-  await expect(drawer.getByText('Демонстрационные данные — не нормативная база')).toBeVisible()
+  await expect(drawer.getByText(/Демонстрационные данные/)).toHaveCount(0)
   await expect(drawer.getByText('Сохранённая выдержка')).toBeVisible()
   await expect(drawer.getByText('редакция от 2026-03-01').or(drawer.getByText('от 2026-03-01'))).toBeVisible()
   await page.keyboard.press('Escape')
@@ -146,7 +147,6 @@ test('база знаний: демо-маркировка, manifest, сравн
   await login(page)
   await page.getByRole('link', { name: 'База знаний' }).click()
   await expect(page.getByRole('heading', { name: 'База знаний' })).toBeVisible()
-  await expect(page.getByText('демонстрационные данные — не нормативная база', { exact: false }).first()).toBeVisible()
   await expect(page.getByText('Перечень источников из концепции')).toBeVisible()
   await expect(page.getByText('ФЗ № 152-ФЗ «О персональных данных»')).toBeVisible()
   const sel = page.getByLabel('Документ', { exact: true })
@@ -233,7 +233,8 @@ test('пользователь по приглашению: регистраци
   await page.getByRole('link', { name: 'Администрирование' }).click()
   await page.getByLabel('Для кого код').fill('e2e-пользователь')
   await page.getByRole('button', { name: 'Выпустить код' }).click()
-  const code = (await page.locator('code.select-all').innerText()).trim()
+  const code = (await page.locator('code.select-all').first().innerText()).trim()
+  await expect(page.locator('code.select-all').nth(1)).toContainText('/register#code=')  // ссылка для регистрации с кодом во фрагменте
   expect(code.length).toBeGreaterThan(20)
   await page.goto('/settings')
   await page.getByRole('button', { name: 'Выйти' }).click()
@@ -241,19 +242,31 @@ test('пользователь по приглашению: регистраци
   const user = `u${Date.now().toString().slice(-8)}`
   await page.goto('/register')
   await page.getByLabel('Код приглашения').fill(code)
-  await page.getByLabel('Имя пользователя').fill(user)
-  await page.getByLabel('Пароль').fill(PASSWORD)
+  await page.getByLabel('Логин', { exact: true }).fill(user)
+  await page.getByLabel('Имя', { exact: true }).fill('Анна')
+  await page.getByLabel('Фамилия', { exact: true }).fill('Кузнецова')
+  await page.getByLabel('Электронная почта').fill(`${user}@example.com`)
+  await page.getByLabel('Пароль', { exact: true }).fill(PASSWORD)
+  await page.getByLabel('Повтор пароля').fill('другой пароль 9876')
+  await page.getByRole('button', { name: 'Создать учётную запись' }).click()
+  await expect(page.getByText('Пароли не совпадают')).toBeVisible()  // проверка на клиенте, запрос не отправлен
+  await expect(page.getByText('Нужно ознакомиться с Условиями и Политикой')).toBeVisible()
+  await page.getByLabel('Повтор пароля').fill(PASSWORD)
+  await page.getByRole('checkbox', { name: /Я ознакомлен/ }).check()
+  await page.getByRole('checkbox', { name: /Даю согласие на обработку/ }).check()
   await page.getByRole('button', { name: 'Создать учётную запись' }).click()
 
   // дисклеймер показывается до работы и фиксируется
   await expect(page.getByRole('heading', { name: 'Прежде чем начать' })).toBeVisible()
   await expect(page.getByText('не оказывает юридических услуг')).toBeVisible()
-  await expect(page.getByText('видны только вам и владельцу сервиса')).toBeVisible()
+  await expect(page.getByText('Администратор может просматривать обращения для сопровождения сервиса; такие просмотры фиксируются.')).toBeVisible()
+  await expect(page.getByText('Не вводите сведения')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Продолжить' })).toBeDisabled()  // без отметки не пускает
   await page.getByLabel(/Я прочитал/).check()
   await page.getByRole('button', { name: 'Продолжить' }).click()
   await expect(page.getByRole('heading', { name: 'Портрет вашего правового положения' })).toBeVisible()
-  // разделы владельца пользователю не видны
+  // имя из профиля видно в интерфейсе; разделы владельца пользователю не видны
+  await expect(page.getByRole('link', { name: /Анна Кузнецова/ }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: 'Администрирование' })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'База знаний' })).toHaveCount(0)
 
@@ -268,13 +281,30 @@ test('пользователь по приглашению: регистраци
   await expect(page).toHaveURL(/\/login/)
   await page.goto(url)
   await expect(page).toHaveURL(/\/login/)  // чужой (и свой) рабочий стол без входа недоступен
-  await page.getByLabel('Имя пользователя').fill(user)
-  await page.getByLabel('Пароль').fill(PASSWORD)
+  await page.getByLabel('Логин', { exact: true }).fill(user)
+  await page.getByLabel('Пароль', { exact: true }).fill(PASSWORD)
   await page.getByRole('button', { name: 'Войти' }).click()
   await expect(page).toHaveURL(url)  // вход возвращает на запрошенную страницу
   await expect(page.getByRole('log', { name: 'Диалог' }).getByText(NO_POLICY)).toBeVisible()  // сессия открыта в том же состоянии
   await expect(page.getByRole('region', { name: 'Риски' }).getByRole('article').first()).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Прежде чем начать' })).toHaveCount(0)  // дисклеймер уже принят
+
+  // изменение профиля видно сразу и переживает повторный вход; логин неизменяем
+  await page.goto('/settings')
+  await expect(page.getByText(user, { exact: true })).toBeVisible()
+  await page.getByLabel('Имя', { exact: true }).fill('Анастасия')
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await expect(page.getByText('Профиль сохранён.')).toBeVisible()
+  await expect(page.getByRole('link', { name: /Анастасия Кузнецова/ }).first()).toBeVisible()
+  await page.getByLabel('Электронная почта').fill(`new-${user}@example.com`)
+  await page.getByLabel('Пароль для смены почты').fill('неверный пароль 000')
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await expect(page.getByRole('alert')).toContainText('текущий пароль')
+  await page.getByRole('button', { name: 'Выйти' }).click()
+  await page.getByLabel('Логин', { exact: true }).fill(user)
+  await page.getByLabel('Пароль', { exact: true }).fill(PASSWORD)
+  await page.getByRole('button', { name: 'Войти' }).click()
+  await expect(page.getByRole('link', { name: /Анастасия Кузнецова/ }).first()).toBeVisible()
 })
 
 test('слепок: бейдж риска вместо отдельного узла, сводка уровней, экспорт SVG и PNG', async ({ page }) => {
@@ -316,10 +346,11 @@ test('слепок: бейдж риска вместо отдельного уз
   }
 })
 
-test('база знаний: исключение документа и удаление демонстрационных актов', async ({ page }) => {
+test('база знаний: исключение документа обратимо; кнопок и баннеров про «демо» нет', async ({ page }) => {
   await login(page)
   await page.goto('/kb')
-  await expect(page.getByText('В корпусе есть демонстрационные данные')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Документы и редакции' })).toBeVisible()
+  await expect(page.getByText(/демонстрационн/i)).toHaveCount(0)
 
   // исключение документа помечается и обратимо
   const card = page.locator('section').filter({ hasText: 'Документы и редакции' })
@@ -328,13 +359,6 @@ test('база знаний: исключение документа и удал
   await expect(first.getByText('исключён из корпуса')).toBeVisible()
   await first.getByRole('button', { name: 'Вернуть в корпус' }).click()
   await expect(first.getByText('исключён из корпуса')).toHaveCount(0)
-
-  // демо-акты убираются из корпуса: без ссылок — удаляются, со ссылками — исключаются; предупреждение снимается в обоих случаях
-  await page.getByRole('button', { name: 'Убрать демонстрационные данные' }).click()
-  await expect(page.getByText('В корпусе есть демонстрационные данные')).toHaveCount(0)
-  const excluded = await card.getByText('исключён из корпуса').count()
-  const empty = await page.getByRole('heading', { name: 'Корпус пуст' }).count()
-  expect(excluded + empty).toBeGreaterThan(0)
 })
 
 /** Интерактивные элементы, у которых зона нажатия (с учётом невидимого ::after или метки поля) меньше 44 × 44. */
@@ -374,4 +398,96 @@ test('минимализм: нет названия модели, одна пе�
   await page.keyboard.press('Tab')
   const ring = await page.evaluate(() => getComputedStyle(document.activeElement as Element).boxShadow)
   expect(ring).not.toBe('none')
+})
+
+test('разделитель зон: быстрые движения не теряют курсор, после отпускания ширина не меняется, клавиатура и ARIA', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await login(page)
+  await startSession(page)
+  const sep = page.getByRole('separator', { name: 'Изменить ширину диалога' })
+  // боковая панель сворачивается анимацией 150 мс: координаты разделителя берём после её окончания
+  await expect.poll(async () => { const a = (await sep.boundingBox())?.x; await page.waitForTimeout(200); return a === (await sep.boundingBox())?.x }).toBe(true)
+  const width = () => page.evaluate(() => Math.round(document.querySelector('section[aria-label="Диалог"]')!.getBoundingClientRect().width))
+  await expect(sep).toHaveAttribute('aria-valuemin', '260')
+  const box = (await sep.boundingBox())!
+  const x0 = box.x + box.width / 2
+  const y0 = box.y + box.height / 2
+  const w0 = await width()
+  await page.evaluate(() => { (window as unknown as { __h: Element | null }).__h = document.querySelector('[role=separator]') })
+  await page.mouse.move(x0, y0)
+  await page.mouse.down()
+  for (const dx of [60, 140, 220, 120, -40, -120, 30, 90, 180]) await page.mouse.move(x0 + dx, y0 + 5, { steps: 1 })  // быстрые рывки в обе стороны
+  expect(await page.evaluate(() => (window as unknown as { __h: Element | null }).__h === document.querySelector('[role=separator]'))).toBe(true)  // узел не пересоздаётся
+  expect(Math.abs((await width()) - (w0 + 180))).toBeLessThanOrEqual(2)  // ширина следует за курсором до последнего рывка
+  await page.mouse.move(x0 + 250, y0 + 200, { steps: 1 })
+  await page.mouse.up()
+  const released = await width()
+  await expect(sep).toHaveAttribute('aria-valuenow', String(released))
+  for (const dx of [0, 80, -120, 40]) await page.mouse.move(x0 + dx, y0, { steps: 3 })  // кнопка отпущена: движения над разделителем не меняют ширину
+  expect(await width()).toBe(released)
+  await sep.focus()
+  await page.keyboard.press('ArrowLeft')
+  expect(await width()).toBe(released - 20)
+  await page.keyboard.press('Home')
+  expect(await width()).toBe(260)
+})
+
+test('закрытие риска: общая фраза не закрывает, описание действия закрывает с пометкой «со слов пользователя»', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await login(page)
+  await startSession(page)
+  await ask(page, NO_POLICY)
+  await page.getByRole('tab', { name: 'План-схема' }).click()
+  const step = page.getByRole('checkbox', { name: /Отметить шаг выполненным/ }).first()
+  await step.click()
+  const field = page.getByLabel('Что именно сделано').first()
+  await field.fill('готово')
+  await page.getByRole('button', { name: 'Проверить и закрыть' }).first().click()
+  await expect(page.getByText('Нужно уточнение:').first()).toBeVisible()
+  await expect(page.getByText(/Закрыто 0 из 1/)).toBeVisible()
+  await field.fill('Мы опубликовали политику обработки персональных данных на странице сайта /privacy.')
+  await page.getByRole('button', { name: 'Проверить и закрыть' }).first().click()
+  await expect(page.getByText(/Закрыто 1 из 1/)).toBeVisible()
+  await expect(page.getByText(/со слов пользователя, независимой проверки нет/).first()).toBeVisible()
+})
+
+test('пояснение P и S: наведение — подсказка, клик — окно со шкалой из конфигурации, Escape закрывает', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await login(page)
+  await startSession(page)
+  await ask(page, NO_POLICY)
+  const risks = page.getByRole('region', { name: 'Риски' })
+  await risks.getByRole('button', { name: /Нет опубликованной политики/ }).first().click()
+  const info = risks.getByRole('button', { name: 'Что означает P' }).first()
+  await info.hover()
+  await expect(page.getByRole('tooltip')).toContainText('не статистическая вероятность')
+  await info.click()
+  const dlg = page.getByRole('dialog', { name: 'Что означает P' })
+  await expect(dlg).toContainText('Итог P × S')
+  await dlg.hover()
+  await page.waitForTimeout(400)
+  await expect(dlg).toBeVisible()  // курсор в окне — окно не исчезает
+  await page.keyboard.press('Escape')
+  await expect(dlg).toHaveCount(0)
+  await expect(info).toBeFocused()
+})
+
+test('тема внизу боковой панели, без редактора цветов в меню; правовые страницы доступны без входа', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await login(page)
+  await expect(page.getByRole('link', { name: 'Компоненты' })).toHaveCount(0)
+  const nav = page.locator('aside')
+  await nav.getByRole('button', { name: 'Тёмная тема' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await nav.getByRole('button', { name: 'Светлая тема' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await page.goto('/settings')
+  await expect(page.getByRole('group', { name: 'Тема оформления' })).toHaveCount(1)  // один переключатель: в боковой панели
+  await page.getByRole('button', { name: 'Выйти' }).click()
+  for (const [path_, title] of [['/privacy', 'Политика обработки персональных данных'], ['/terms', 'Условия использования'], ['/contacts', 'Контакты']] as const) {
+    await page.goto(path_)
+    await expect(page).toHaveURL(new RegExp(path_))
+    await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible()
+    await expect(page.getByText('не заполнено оператором').first()).toBeVisible()  // реквизиты не выдуманы
+  }
 })

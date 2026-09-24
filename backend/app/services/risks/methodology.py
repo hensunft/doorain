@@ -52,4 +52,3 @@ FACT_STATUS = ("yes", "no", "unknown")
 RELATION_KINDS = ("follow_up_of", "evidences", "conditional")
 
 DISCLAIMER = "Ответы носят информационный характер и не заменяют профессиональную юридическую помощь"
-DEMO_NOTICE = "Демонстрационные данные — не нормативная база"

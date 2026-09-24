@@ -29,7 +29,7 @@ export const useRisks = (id: string) => useQuery({ queryKey: keys.risks(id), que
 export const useRiskDetail = (id: string | null) => useQuery({ queryKey: keys.risk(id ?? ''), queryFn: () => get<RiskDetail>(`/risks/${id}`), enabled: !!id })
 export const useCitation = (id: string | null) => useQuery({ queryKey: keys.citation(id ?? ''), queryFn: () => get<Citation>(`/citations/${id}`), enabled: !!id })
 export const useStatus = () => useQuery({ queryKey: keys.status, queryFn: () => get<SystemStatus>('/system/status'), refetchInterval: 20_000 })
-export const useDiagnostics = () => useQuery({ queryKey: keys.diagnostics, queryFn: () => get<Diagnostics>('/system/diagnostics') })
+export const useDiagnostics = (enabled = true) => useQuery({ queryKey: keys.diagnostics, queryFn: () => get<Diagnostics>('/system/diagnostics'), enabled })
 export const useCorpus = () => useQuery({ queryKey: keys.corpus, queryFn: () => get<CorpusOverview>('/corpus/overview'), refetchInterval: 5_000 })
 export const useManifest = () => useQuery({ queryKey: keys.manifest, queryFn: () => get<ManifestItem[]>('/corpus/manifest') })
 export const useDocuments = () => useQuery({ queryKey: keys.documents, queryFn: () => get<Doc[]>('/corpus/documents') })

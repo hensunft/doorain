@@ -301,10 +301,3 @@ def test_document_can_be_excluded_and_removed(owner: Api, demo: dict) -> None:
     out = owner.delete(f"/corpus/documents/{other['id']}").json()
     assert out["chunks"] > 0 and out["revisions"] == 1
     assert other["id"] not in [d["id"] for d in owner.get("/corpus/documents").json()]
-
-
-def test_remove_demo_clears_corpus_of_fictional_acts(owner: Api, demo: dict) -> None:
-    out = owner.post("/corpus/documents/demo/remove").json()
-    assert {i["action"] for i in out["items"]} == {"removed"} and len(out["items"]) == 3
-    assert owner.get("/corpus/documents").json() == []
-    assert owner.get("/corpus/overview").json()["has_demo"] is False

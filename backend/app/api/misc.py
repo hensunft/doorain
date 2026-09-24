@@ -25,6 +25,7 @@ from ..schemas.api import (
     Diagnostics,
     ExportCreate,
     ExportOut,
+    LegalOut,
     ModelStatus,
     QuizAttemptIn,
     QuizAttemptOut,
@@ -32,7 +33,7 @@ from ..schemas.api import (
     QuizQuestionOut,
     SystemStatus,
 )
-from ..services import jobs, quiz
+from ..services import jobs, legal, quiz
 from ..services.exports import pdf
 from ..services.ingestion.indexer import active_generation, get_state
 from ..services.risks.methodology import DISCLAIMER
@@ -138,6 +139,18 @@ def download_export(export_id: uuid.UUID, ctx: auth.AuthContext = Depends(curren
 
 
 # ───────────── система ─────────────
+@public.get("/legal", response_model=LegalOut)
+def legal_info(s: Settings = Depends(get_settings)) -> LegalOut:
+    """Без входа: страницы Политики, Условий и Контактов доступны до регистрации."""
+    data = legal.load()
+    op = data["operator"]
+    return LegalOut(
+        version=data["version"], operator=op, missing=[k for k, v in op.items() if not v and k != "rkn_notice"],
+        owner_can_read_user_sessions=s.owner_can_read_user_sessions, session_ttl_hours=s.session_ttl_hours, invite_ttl_days=s.invite_ttl_days,
+        login_attempts_days=7, disclaimer=DISCLAIMER,
+    )
+
+
 @public.get("/health/live")
 def live() -> dict[str, str]:
     return {"status": "ok"}
@@ -156,13 +169,11 @@ def status(ctx: auth.AuthContext = Depends(current_user), db: Session = Depends(
     p = get_providers()
     h = p.llm.health()
     gen = active_generation(db)
-    from ..db.models import Document  # noqa: PLC0415
-
     state: Literal["ready", "unavailable", "test_mode"] = "test_mode" if p.is_test else ("ready" if h.ok else "unavailable")
     alive, _ = _worker_alive(db)
     return SystemStatus(
         model=ModelStatus(state=state, name=h.info.get("name") if h.ok else s.ollama_model, detail=h.detail), corpus_empty=gen is None, corpus_as_of=date.today() if gen else None, generation_seq=gen.seq if gen else None,
-        has_demo=bool(db.scalar(select(Document.id).where(Document.is_demo.is_(True), Document.excluded_at.is_(None)).limit(1))), worker_alive=alive or s.env == "test", maintenance=bool(get_state(db, "maintenance").get("on")), provider_mode=s.provider_mode, disclaimer=DISCLAIMER, version=__version__,
+        worker_alive=alive or s.env == "test", maintenance=bool(get_state(db, "maintenance").get("on")), provider_mode=s.provider_mode, disclaimer=DISCLAIMER, version=__version__,
     )
 
 

@@ -1,4 +1,4 @@
-"""ДЕМОНСТРАЦИОННЫЕ данные: вымышленные акты для тестов/e2e/UI. Помечаются is_demo и не являются нормативной базой."""
+"""Синтетические акты ТОЛЬКО для тестов и e2e (provider_mode=test). В рабочую базу не загружаются и в production не попадают."""
 
 from __future__ import annotations
 
@@ -21,6 +21,8 @@ DEMO_META: dict[str, dict[str, Any]] = {
 
 def load_demo(folder: Path, only: list[str] | None = None, build: bool = True) -> dict[str, Any]:
     s = get_settings()
+    if s.provider_mode != "test":
+        raise RuntimeError("Синтетические данные допускаются только в тестовом окружении (DOORAIN_PROVIDER_MODE=test)")
     p = get_providers()
     db = SessionLocal()
     out: dict[str, Any] = {"revisions": [], "note": "Демонстрационные данные — не нормативная база"}

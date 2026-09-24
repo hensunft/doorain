@@ -24,7 +24,11 @@ class LoginIn(BaseModel):
 
 class UserOut(Out):
     id: uuid.UUID
-    username: str
+    username: str  # стабильный идентификатор, не меняется
+    display_name: str  # «Имя Фамилия»; у прежних учётных записей — логин
+    first_name: str | None = None
+    last_name: str | None = None
+    email: str | None = None  # адрес не подтверждается письмом
     access_level: Literal["owner", "user"]
     disclaimer_accepted_at: datetime | None = None
 
@@ -37,18 +41,33 @@ class AuthOut(BaseModel):
 
 class RegisterIn(BaseModel):
     username: str = Field(min_length=3, max_length=64)
+    first_name: str = Field(min_length=1, max_length=80)
+    last_name: str = Field(min_length=1, max_length=80)
+    email: str = Field(min_length=3, max_length=200)
     password: str = Field(min_length=1, max_length=256)
+    password_repeat: str = Field(min_length=1, max_length=256)  # только сверяется, не сохраняется
     invite_code: str = Field(min_length=1, max_length=128)
+    accept_terms: bool  # ознакомление с Политикой и Условиями
+    accept_pd: bool  # отдельное согласие на обработку персональных данных
+
+
+class ProfilePatch(BaseModel):
+    first_name: str | None = Field(default=None, max_length=80)
+    last_name: str | None = Field(default=None, max_length=80)
+    email: str | None = Field(default=None, max_length=200)  # пустая строка — удалить адрес
+    current_password: str | None = Field(default=None, max_length=256)  # обязателен при смене e-mail
 
 
 class InviteCreate(BaseModel):
     note: str | None = Field(default=None, max_length=200)
+    ttl_days: int | None = Field(default=None, ge=1, le=90)  # срок действия; по умолчанию — из настроек
 
 
 class InviteCreated(BaseModel):
     code: str  # показывается один раз: в базе хранится только хеш
     hint: str
     expires_at: datetime
+    register_path: str  # путь регистрации с кодом во фрагменте (#code=…): фрагмент не попадает в журналы сервера
 
 
 class InviteOut(Out):
@@ -66,6 +85,7 @@ class InviteOut(Out):
 class UserAdminOut(Out):
     id: uuid.UUID
     username: str
+    display_name: str
     access_level: str
     created_at: datetime
     last_login_at: datetime | None
@@ -167,7 +187,7 @@ class CitationChip(BaseModel):
     locator: str
     revision_label: str
     verified: bool
-    is_demo: bool
+    archived: bool = False  # источник выведен из базы знаний: основание недействительно
 
 
 class AnswerBlock(BaseModel):
@@ -367,10 +387,49 @@ class RiskEvidenceOut(BaseModel):
     message_id: uuid.UUID | None = None
 
 
+class ClosureCitation(BaseModel):
+    id: uuid.UUID
+    label: str
+
+
+class ClosureAttemptOut(Out):
+    """Проверка ответа о закрытии риска. verification: user_claim — «со слов пользователя», corroborated — подтверждено фактами сессии."""
+
+    id: uuid.UUID
+    state: Literal["pending", "decided", "failed", "stale"]
+    decision: Literal["close", "keep_open", "clarify", "other_risk"] | None
+    resolution_kind: Literal["remediated", "not_applicable"] | None
+    verification: Literal["user_claim", "corroborated"] | None
+    confidence: Literal["low", "medium", "high"] | None
+    explanation: str
+    question: str | None
+    quote: str | None
+    applied: bool
+    source: str
+    initiated_by: str
+    user_answer: str
+    facts: list[dict[str, Any]]
+    citations: list[ClosureCitation] = []
+    created_at: datetime
+    finished_at: datetime | None
+
+
+class ClosureIn(BaseModel):
+    version: int
+    answer: str = Field(min_length=1, max_length=2000)
+    source: Literal["plan", "detail"]
+    idempotency_key: str = Field(min_length=8, max_length=120, pattern=r"^[A-Za-z0-9_.:-]+$")
+
+
+class ClosureResult(ClosureAttemptOut):
+    risk: RiskOut
+
+
 class RiskDetail(BaseModel):
     risk: RiskOut
     events: list[RiskEventOut]
     evidence: list[RiskEvidenceOut]
+    closures: list[ClosureAttemptOut] = []
 
 
 class RiskPatch(BaseModel):
@@ -381,6 +440,7 @@ class RiskPatch(BaseModel):
     s: int | None = Field(default=None, ge=1, le=5)
     reason: str = Field(min_length=1, max_length=1000)
     version: int
+    override: bool = False  # административное закрытие без проверки ответа: только владелец, пишется в журнал
 
 
 class CitationOut(BaseModel):
@@ -462,7 +522,6 @@ class DocumentOut(BaseModel):
     act_date: date | None
     license_note: str | None
     source_url: str | None
-    is_demo: bool
     excluded: bool = False  # исключён из корпуса: не попадает в новые generation
     cited_in_sessions: int = 0  # сколько сессий ссылается на документ: пока > 0, удаление отклоняется
     revisions: list[RevisionOut]
@@ -519,7 +578,6 @@ class CorpusOverview(BaseModel):
     active_generation: GenerationOut | None
     generations: list[GenerationOut]
     empty: bool
-    has_demo: bool
     index_ready: bool
 
 
@@ -602,7 +660,6 @@ class SystemStatus(BaseModel):
     corpus_empty: bool
     corpus_as_of: date | None
     generation_seq: int | None
-    has_demo: bool
     worker_alive: bool
     maintenance: bool
     provider_mode: str
@@ -624,3 +681,35 @@ class Diagnostics(BaseModel):
     disk: dict[str, Any]
     maintenance: bool
     thresholds: dict[str, Any]
+
+
+class LegalOut(BaseModel):
+    """Данные для публичных страниц Политики, Условий и Контактов. missing — поля оператора, которые нужно заполнить до публичного запуска."""
+
+    version: str
+    operator: dict[str, str]
+    missing: list[str]
+    owner_can_read_user_sessions: bool
+    session_ttl_hours: int
+    invite_ttl_days: int
+    login_attempts_days: int
+    disclaimer: str
+
+
+class RiskLevelRange(BaseModel):
+    level: Literal["low", "medium", "high", "critical"]
+    label: str
+    min: int
+    max: int
+
+
+class RiskMethodologyOut(BaseModel):
+    """Шкалы и пороги оценки из backend-конфигураций (app/config/risk.yaml, services/risks/scales/<роль>.yaml)."""
+
+    version: str
+    role: str
+    measure: str
+    probability: dict[int, str]
+    severity: dict[int, str]
+    levels: list[RiskLevelRange]
+    rules: list[str]
