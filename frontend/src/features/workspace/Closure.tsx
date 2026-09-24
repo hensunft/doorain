@@ -65,10 +65,10 @@ export function ClosureForm({ risk, sessionId, source, notApplicable = false, on
           <textarea
             id={id} className="input min-h-20" value={answer} maxLength={2000} required autoFocus
             onChange={(e) => setAnswer(e.target.value)} disabled={check.isPending}
-            placeholder={notApplicable ? 'Например: сайта нет, персональные данные не собираем' : 'Например: опубликовали политику обработки ПДн на странице /privacy 20 сентября'}
+            placeholder={notApplicable ? 'Например: сайта нет, персональные данные не собираем' : 'Например: опубликовали политику обработки персональных данных'}
             aria-describedby={`${id}-hint`}
           />
-          <p id={`${id}-hint`} className="hint">Ответ проверяется: общие фразы («готово», «решено») риск не закрывают. Закрытие отмечается как «со слов пользователя».</p>
+          <p id={`${id}-hint`} className="hint">Достаточно написать, что сделано. Слова «готово» или «решено» без предмета риск не закрывают. Закрытие отмечается как «со слов пользователя».</p>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" loading={check.isPending} disabled={!answer.trim()}>{check.isPending ? 'Проверяем ответ…' : 'Проверить и закрыть'}</Button>
             {onCancel && <Button variant="tertiary" onClick={onCancel} disabled={check.isPending}>Отмена</Button>}

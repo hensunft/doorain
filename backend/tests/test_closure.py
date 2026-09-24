@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
@@ -12,7 +13,7 @@ from tests.conftest import Api, ask, new_session
 from tests.test_access import _invite, register
 
 NO_POLICY = "У нас нет политики обработки персональных данных на сайте."
-GOOD = "Мы опубликовали политику обработки персональных данных на странице сайта /privacy."
+GOOD = "Опубликовали политику обработки персональных данных."
 
 
 def _risk(api: Api, sid: str) -> dict[str, Any]:
@@ -83,7 +84,7 @@ def test_server_rejects_model_close_without_real_quote_or_norm(owner: Api, demo:
     real = llm._closure  # type: ignore[attr-defined]
     _, r = _setup(owner)
     forged = {
-        "quote": lambda ctx: {**real(ctx), "decision": "close", "resolution_kind": "remediated", "evidence_quote": "Мы всё сделали и всё исправили полностью"},
+        "quote": lambda ctx: {**real(ctx), "decision": "remediated", "confidence": "high", "evidence_quote": "Мы всё сделали и всё исправили полностью"},
         "norm": lambda ctx: {**real(ctx), "citation_ids": ["N99"]},
         "low": lambda ctx: {**real(ctx), "confidence": "low"},
     }
@@ -93,6 +94,49 @@ def test_server_rejects_model_close_without_real_quote_or_norm(owner: Api, demo:
         assert body["decision"] == "clarify" and body["applied"] is False and body["risk"]["status"] == "open", name
         assert "отклонено проверкой сервера" in body["explanation"], name
         r = owner.get(f"/risks/{r['id']}").json()["risk"]
+
+
+@pytest.mark.parametrize("answer", ["Опубликовали политику обработки персональных данных", "опубликовали", "Политика опубликована"])
+def test_plain_statement_of_done_action_is_enough(owner: Api, demo: dict, answer: str) -> None:
+    """Достаточно написать, что нужное действие сделано: адрес страницы, дата и документы не требуются."""
+    _, r = _setup(owner)
+    body = _close(owner, r, answer).json()
+    assert body["decision"] == "close" and body["applied"] is True and body["risk"]["status"] == "resolved", body
+    assert body["citations"]  # основание закрытия — норма риска, даже если модель её не назвала
+
+
+@pytest.mark.parametrize("answer", ["ничего пока", "Политику мы ещё не опубликовали, займёмся позже"])
+def test_not_done_yet_keeps_risk_open(owner: Api, demo: dict, answer: str) -> None:
+    _, r = _setup(owner)
+    body = _close(owner, r, answer).json()
+    assert body["decision"] == "keep_open" and body["risk"]["status"] == "open", body
+
+
+def test_model_omissions_are_filled_by_server_not_turned_into_clarification(owner: Api, demo: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Регрессия 24.09: модель решила «закрыть», но не указала норму и цитату — это не повод для уточнения."""
+    from app.providers.registry import get_providers
+
+    llm = get_providers().llm
+    real = llm._closure  # type: ignore[attr-defined]
+    monkeypatch.setattr(llm, "_closure", lambda ctx: {**real(ctx), "citation_ids": [], "evidence_quote": ""})
+    _, r = _setup(owner)
+    body = _close(owner, r, "Опубликовали политику обработки персональных данных на сайте").json()
+    assert body["decision"] == "close" and body["resolution_kind"] == "remediated" and body["citations"] and body["quote"], body
+
+
+def test_closure_context_has_no_texts_of_previous_attempts(owner: Api, demo: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Регрессия 24.09: модель переносила в пояснение детали прежних ответов («на странице … 24 сентября») из истории риска."""
+    from app.providers.registry import get_providers
+
+    llm = get_providers().llm
+    real = llm._closure  # type: ignore[attr-defined]
+    seen: list[dict[str, Any]] = []
+    monkeypatch.setattr(llm, "_closure", lambda ctx: (seen.append(ctx), real(ctx))[1])
+    _, r = _setup(owner)
+    _close(owner, r, "На странице контактов в сентябре что-то поменяли на сайте")
+    r = owner.get(f"/risks/{r['id']}").json()["risk"]
+    _close(owner, r, "ничего пока")
+    assert "сентябр" not in json.dumps(seen[-1], ensure_ascii=False) and all(set(e) == {"at", "kind", "from", "to"} for e in seen[-1]["status_history"])
 
 
 def test_corroborated_only_with_real_session_facts(owner: Api, demo: dict, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -218,6 +262,7 @@ def test_vacuous_chat_message_does_not_close_a_risk(owner: Api, demo: dict, monk
     real = llm._analyze  # type: ignore[attr-defined]
     sid, r = _setup(owner)
     monkeypatch.setattr(llm, "_analyze", lambda ctx: {**real({**ctx, "question": "Мы уже опубликовали политику обработки персональных данных на сайте."}), "message_id": ctx["message_id"]})
-    ask(owner, sid, "политика готово")
+    monkeypatch.setattr(llm, "_classify", lambda ctx: {"in_scope": True, "topics": ["personal_data"], "rewritten_query": "политика обработки персональных данных", "clarification": None, "mixed": False})
+    ask(owner, sid, "готово")  # общее слово без предмета
     data = owner.get(f"/sessions/{sid}/risks").json()
     assert data["resolved"] == [] and data["active"][0]["id"] == r["id"] and data["active"][0]["resolution_pending"]

@@ -13,7 +13,7 @@ import { useSelection } from '../../lib/selection'
 
 const EVENT_KIND: Record<string, string> = { created: 'Создан', status: 'Статус', score: 'Оценка', evidence: 'Основание', closure: 'Проверка закрытия' }
 const AUTHOR: Record<string, string> = { system: 'система', user_message: 'по сообщению пользователя', owner: 'владелец', closure_user_claim: 'проверка ответа · со слов пользователя', closure_confirmed: 'проверка ответа · подтверждено фактами', owner_override: 'владелец без проверки' }
-const DECISION_RU: Record<string, string> = { close: 'закрыть', keep_open: 'оставить открытым', clarify: 'нужно уточнение', other_risk: 'иная проблема' }
+const DECISION_RU: Record<string, string> = { close: 'Закрыт', keep_open: 'Остаётся открытым', clarify: 'Нужно уточнение', other_risk: 'Описана другая проблема' }
 
 export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: string }) {
   const q = useRiskDetail(riskId)
@@ -91,11 +91,16 @@ export function RiskDetail({ riskId, sessionId }: { riskId: string; sessionId: s
         <ul className="mt-1 flex flex-col gap-1">{msgs.map((m) => <li key={m.ref_id}><button type="button" className="btn btn-tertiary h-auto !justify-start whitespace-normal !px-0 text-left" onClick={() => m.message_id && selectMessage(m.message_id)}>Вопрос: {m.label}</button></li>)}</ul>
       </section>
       <section><h4 className="font-semibold">История</h4>
-        <ol className="space-y-1">{events.map((e) => <li key={e.id} className="tnum"><span className="text-muted">{new Date(e.at).toLocaleString('ru-RU')}</span> · {EVENT_KIND[e.kind] ?? e.kind}{e.from_value || e.to_value ? `: ${e.from_value ?? '—'} → ${e.to_value ?? '—'}` : ''} · {e.reason} <span className="text-muted">({AUTHOR[e.author] ?? e.author})</span></li>)}</ol>
+        <ol className="space-y-1">{events.map((e) => <li key={e.id} className="tnum"><span className="text-muted">{new Date(e.at).toLocaleString('ru-RU')}</span> · {EVENT_KIND[e.kind] ?? e.kind}{e.to_value ? `: ${STATUS_RU[e.to_value] ?? e.to_value}` : ''}{e.from_value ? ` (было: ${STATUS_RU[e.from_value] ?? e.from_value})` : ''} · {e.reason} <span className="text-muted">({AUTHOR[e.author] ?? e.author})</span></li>)}</ol>
       </section>
       {closures.length > 0 && (
         <section><h4 className="font-semibold">Проверки ответа о закрытии</h4>
-          <ol className="mt-1 space-y-1">{closures.map((a) => <li key={a.id}><span className="text-muted tnum">{new Date(a.created_at).toLocaleString('ru-RU')}</span> · «{a.user_answer.slice(0, 120)}» → {a.state === 'decided' ? DECISION_RU[a.decision ?? ''] ?? a.decision : a.state === 'failed' ? 'не выполнена' : 'не применена'}{a.verification ? ` (${VERIFICATION_RU[a.verification]})` : ''}</li>)}</ol>
+          <ol className="mt-1 space-y-2">{closures.map((a) => (
+            <li key={a.id}>
+              <span className="text-muted tnum">{new Date(a.created_at).toLocaleString('ru-RU')}</span> · «{a.user_answer.slice(0, 120)}»
+              <span className="block"><b>{a.state === 'decided' ? DECISION_RU[a.decision ?? ''] ?? a.decision : a.state === 'failed' ? 'Проверка не выполнена' : 'Не применено'}</b>{a.verification ? ` — ${VERIFICATION_RU[a.verification]}` : ''}{a.decision === 'clarify' && a.question ? `. ${a.question}` : ''}</span>
+            </li>
+          ))}</ol>
         </section>
       )}
       {editable && r.status !== 'resolved' && r.status !== 'not_applicable' && (

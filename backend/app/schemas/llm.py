@@ -74,8 +74,9 @@ class ClosureDecision(BaseModel):
     """Решение о закрытии риска по ответу пользователя. Сервер проверяет цитату ответа, id норм и фактов, а не верит полям на слово."""
 
     schema_version: Literal["1"] = SCHEMA_VERSION
-    decision: Literal["close", "keep_open", "clarify", "other_risk"]
-    resolution_kind: Literal["remediated", "not_applicable", "none"] = "none"
+    decision: Literal["remediated", "not_applicable", "keep_open", "clarify", "other_risk"] = Field(
+        description="remediated — нужное действие выполнено; not_applicable — проблема к пользователю не относится; keep_open — ещё не сделано; clarify — неясно, что сделано; other_risk — ответ о другой проблеме",
+    )
     verification: Literal["user_claim", "corroborated"] = "user_claim"
     confidence: Literal["low", "medium", "high"]
     explanation: str = Field(max_length=700, description="Почему принято именно это решение")

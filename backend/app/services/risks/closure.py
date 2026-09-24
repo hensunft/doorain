@@ -72,35 +72,59 @@ def _call(p: Providers, ctx: dict[str, Any]) -> tuple[ClosureDecision, dict[str,
 
 
 def _judge(d: ClosureDecision, answer: str, norms: dict[str, Citation], facts: dict[str, SessionFact], need_norm: bool) -> dict[str, Any]:
-    """Серверная проверка решения модели. «Закрыть» допускается только при выполнении всех условий, иначе решение понижается до уточнения."""
-    cites = [n for n in dict.fromkeys(d.citation_ids) if n in norms]
+    """Серверная проверка решения модели. «Закрыть» допускается только при выполнении всех условий, иначе решение понижается до уточнения.
+    Пропуски модели, не меняющие смысла, сервер восполняет сам: вид закрытия — «устранено», основание — нормы самого риска,
+    цитата — весь короткий ответ. Выдуманные цитата или id норм — признак галлюцинации: такое решение не принимается."""
+    given = list(dict.fromkeys(d.citation_ids))
+    cites = [n for n in given if n in norms]
     used = [k for k in dict.fromkeys(d.used_fact_keys) if k in facts]
     quote = d.evidence_quote.strip()
-    quote_ok = len(quote) >= 8 and norm_ws(quote) in norm_ws(answer)
-    decision, kind, note = d.decision, d.resolution_kind, ""
+    if not quote and len(answer) <= 300:
+        quote = answer
+    quote_ok = bool(quote) and norm_ws(quote) in norm_ws(answer)
+    closing = d.decision in ("remediated", "not_applicable")
+    decision, kind, note = ("close" if closing else d.decision), (d.decision if closing else None), ""
     if decision == "close":
-        if kind == "none" or d.confidence == "low":
-            note = "уверенность недостаточна" if d.confidence == "low" else "не указан вид закрытия"
+        if d.confidence == "low":
+            note = "уверенность недостаточна"
         elif not quote_ok:
             note = "решение не опирается на дословный фрагмент вашего ответа"
-        elif need_norm and not cites:
-            note = "решение не связано с нормой, на которой основан риск"
+        elif given and not cites:
+            note = "решение ссылается на норму, которой нет у риска"
+        elif need_norm and not norms:
+            note = "у риска нет действующего нормативного основания"
         elif (msg := vacuous(answer)) is not None:
             note = msg
         if note:
             decision = "clarify"
+        elif not cites:
+            cites = list(norms)  # основание закрытия — нормы самого риска
     if decision == "other_risk" and not (d.other_risk_hint or "").strip():
         decision, note = "clarify", "не названа иная проблема"
     question = (d.clarification_question or "").strip() or None
-    if decision == "clarify" and not question:
-        question = "Что именно сделано, где и когда это можно проверить?"
+    if decision == "clarify" and (not question or note):
+        question = "Что именно сделано по этому риску? Напишите своими словами."
     verification = "corroborated" if decision == "close" and used else "user_claim"
     expl = d.explanation.strip() or "Пояснение не получено."
-    if note and d.decision == "close":
+    if note and closing:
         expl += f" Решение «закрыть» отклонено проверкой сервера: {note}."
     if decision == "other_risk":
         question = (d.other_risk_hint or "").strip()
     return {"decision": decision, "kind": kind if decision == "close" else None, "verification": verification if decision == "close" else None, "confidence": d.confidence, "explanation": expl, "question": question, "quote": quote if quote_ok else None, "cites": cites, "facts": used}
+
+
+def context(db: Session, r: Risk, sess: ConsultationSession, norms: list[dict[str, Any]], answer: str) -> tuple[dict[str, Any], dict[str, SessionFact]]:
+    """Контекст модели. Из истории — только статусы и оценки: тексты прежних ответов модель переносила в пояснение."""
+    rows = db.scalars(select(SessionFact).where(SessionFact.session_id == r.session_id, SessionFact.status == "active", SessionFact.kind == "user_fact").order_by(SessionFact.created_at.desc()).limit(20)).all()
+    hist = db.scalars(select(RiskStatusEvent).where(RiskStatusEvent.risk_id == r.id, RiskStatusEvent.kind.in_(("created", "status", "score"))).order_by(RiskStatusEvent.at.desc()).limit(10)).all()
+    ctx = {
+        "risk": {"title": r.title, "scenario": r.scenario, "conditions": r.conditions, "consequences": r.consequences, "recommendation": r.recommendation, "status": r.status, "p": r.p, "s": r.s},
+        "norms": norms,
+        "session_facts": [{"key": f.key, "value": f.value, "statement": f.statement} for f in rows],
+        "status_history": [{"at": e.at.isoformat(), "kind": e.kind, "from": e.from_value, "to": e.to_value} for e in reversed(hist)],
+        "user_answer": answer, "role": sess.role,
+    }
+    return ctx, {f.key: f for f in rows}
 
 
 def _fail(db: Session, a: RiskClosureAttempt, r: Risk, msg: str, error: str) -> RiskClosureAttempt:
@@ -163,17 +187,8 @@ def _evaluate(db: Session, p: Providers, s: Settings, r: Risk, a: RiskClosureAtt
         if not norms:
             return _fail(db, a, r, "Нормативное основание риска недоступно (источник выведен из базы знаний), поэтому ответ нельзя проверить.", "basis_unavailable")
     if (msg := vacuous(answer)) is not None:  # бессмысленный ответ не отправляется модели и не может закрыть риск
-        return _finish(db, a, r, sess, {"decision": "clarify", "kind": None, "verification": None, "confidence": "high", "explanation": msg, "question": "Что именно сделано, где и когда это можно проверить?", "quote": None, "cites": [], "facts": []}, {}, {})
-    rows = db.scalars(select(SessionFact).where(SessionFact.session_id == r.session_id, SessionFact.status == "active", SessionFact.kind == "user_fact").order_by(SessionFact.created_at.desc()).limit(20)).all()
-    facts = {f.key: f for f in rows}
-    hist = db.scalars(select(RiskStatusEvent).where(RiskStatusEvent.risk_id == r.id).order_by(RiskStatusEvent.at.desc()).limit(10)).all()
-    ctx = {
-        "risk": {"title": r.title, "scenario": r.scenario, "conditions": r.conditions, "consequences": r.consequences, "recommendation": r.recommendation, "status": r.status, "p": r.p, "s": r.s},
-        "norms": norms,
-        "session_facts": [{"key": f.key, "value": f.value, "statement": f.statement} for f in rows],
-        "status_history": [{"at": e.at.isoformat(), "kind": e.kind, "from": e.from_value, "to": e.to_value, "reason": e.reason[:200], "author": e.author} for e in reversed(hist)],
-        "user_answer": answer, "role": sess.role,
-    }
+        return _finish(db, a, r, sess, {"decision": "clarify", "kind": None, "verification": None, "confidence": "high", "explanation": msg, "question": "Что именно сделано по этому риску? Напишите своими словами.", "quote": None, "cites": [], "facts": []}, {}, {})
+    ctx, facts = context(db, r, sess, norms, answer)
     try:
         d, meta = _call(p, ctx)
     except ProviderError as e:

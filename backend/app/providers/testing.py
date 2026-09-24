@@ -157,15 +157,15 @@ class TestLLM:
 
     def _closure(self, ctx: dict[str, Any]) -> dict[str, Any]:
         """Шаблонная оценка ответа о закрытии риска: только для тестов, качества модели не характеризует."""
-        ans = ctx.get("user_answer", "")
+        ans = ctx.get("user_answer", "").strip()
         norms = [n["id"] for n in ctx.get("norms", []) if n.get("role") == "obligation"][:1]
-        res: dict[str, Any] = {"schema_version": "1", "decision": "clarify", "resolution_kind": "none", "verification": "user_claim", "confidence": "high", "explanation": "Из ответа не видно, что именно сделано.", "evidence_quote": "", "used_fact_keys": [], "citation_ids": [], "clarification_question": "Что именно сделано, где и когда это можно проверить?", "other_risk_hint": None}
-        if re.search(r"не (буду|собираюсь|планирую)|пока нет|ещ[её] не", ans, flags=re.I):
-            res.update(decision="keep_open", explanation="По вашим словам, действие ещё не выполнено.", clarification_question=None)
-        elif m := re.search(r"(опубликовал\w*|разместил\w*|заключил\w*|устранил\w*|удалил\w*|получил\w*|уведомил\w*|внедрил\w*|подписал\w*|оформил\w*)[^.!?]{8,}", ans, flags=re.I):
-            res.update(decision="close", resolution_kind="remediated", explanation="По вашим словам, названо конкретное действие, устраняющее условие риска.", evidence_quote=m.group(0), citation_ids=norms, clarification_question=None)
+        res: dict[str, Any] = {"schema_version": "1", "decision": "clarify", "verification": "user_claim", "confidence": "high", "explanation": "Из ответа не видно, что именно сделано.", "evidence_quote": "", "used_fact_keys": [], "citation_ids": [], "clarification_question": "Что именно сделано по этому риску?", "other_risk_hint": None}
+        if re.search(r"не (буду|собираюсь|планирую)|пока нет|ещ[её] не|ничего пока|пока ничего|займ[её]мся позже", ans, flags=re.I):
+            res.update(decision="keep_open", evidence_quote=ans, explanation="По вашим словам, действие ещё не выполнено.", clarification_question=None)
+        elif re.search(r"опубликова\w*|разместил\w*|заключил\w*|устранил\w*|удалил\w*|получил\w*|уведомил\w*|внедрил\w*|подписал\w*|оформил\w*", ans, flags=re.I):
+            res.update(decision="remediated", explanation="По вашим словам, нужное действие выполнено.", evidence_quote=ans, citation_ids=norms, clarification_question=None)
         elif m := re.search(r"(сайта у нас нет|нет сайта|не (собира|обрабатыва)\w+ (персональн|пдн|данн)[^.!?]*|не относится ко мне|не применимо[^.!?]*)", ans, flags=re.I):
-            res.update(decision="close", resolution_kind="not_applicable", explanation="По вашим словам, условия риска к вам не относятся.", evidence_quote=m.group(0), citation_ids=norms, clarification_question=None)
+            res.update(decision="not_applicable", explanation="По вашим словам, условия риска к вам не относятся.", evidence_quote=m.group(0), citation_ids=norms, clarification_question=None)
         elif re.search(r"реклам\w*[^.!?]*блогер", ans, flags=re.I):
             res.update(decision="other_risk", explanation="Ответ описывает иную проблему, а не устранение исходной.", other_risk_hint="Размещение рекламы у блогеров без маркировки", clarification_question=None)
         return res

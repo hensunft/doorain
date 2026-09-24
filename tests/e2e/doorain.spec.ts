@@ -445,7 +445,7 @@ test('закрытие риска: общая фраза не закрывает
   await page.getByRole('button', { name: 'Проверить и закрыть' }).first().click()
   await expect(page.getByText('Нужно уточнение:').first()).toBeVisible()
   await expect(page.getByText(/Закрыто 0 из 1/)).toBeVisible()
-  await field.fill('Мы опубликовали политику обработки персональных данных на странице сайта /privacy.')
+  await field.fill('Опубликовали политику обработки персональных данных')
   await page.getByRole('button', { name: 'Проверить и закрыть' }).first().click()
   await expect(page.getByText(/Закрыто 1 из 1/)).toBeVisible()
   await expect(page.getByText(/со слов пользователя, независимой проверки нет/).first()).toBeVisible()
