@@ -9,6 +9,7 @@ import {
   useStore,
   type Edge,
   type Node,
+  type NodeChange,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { ArrowLeft, Download, Maximize2, RotateCcw, Search, SlidersHorizontal } from 'lucide-react'
@@ -32,6 +33,8 @@ const defaultFilters: GraphFilters = { topic: '', kinds: { question: true, norm:
 const KIND_ORDER: Record<GraphNode['kind'], number> = { center: 0, topic: 1, question: 2, norm: 3, risk: 4 }
 // ponytail: уровни детализации включаются на больших графах; маленький слепок читается целиком при любом зуме.
 const LOD_FROM_NODES = 20
+// Снятие наведения откладывается: при переходе через зазор между соседними узлами карта не «моргает» затемнением.
+const HOVER_OUT_MS = 80
 
 interface Hover { id: string; x: number; y: number }
 
@@ -111,7 +114,12 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   const [hover, setHover] = useState<Hover | null>(null)
   const [drawer, setDrawer] = useState<string | null>(null)
   const positions = useRef<Positions>({ ...(graph.positions as Positions) })
-  const [, force] = useState(0)
+  const [moved, force] = useState(0)
+  // Замеры узлов: React Flow сбрасывает размеры у каждого нового объекта узла без measured и прячет его (visibility: hidden)
+  // до повторного замера — курсор «проваливается» на фон, приходит mouseleave, и карта мерцает при неподвижном курсоре.
+  const sizes = useRef(new Map<string, { width: number; height: number }>())
+  const hoverId = useRef<string | null>(null)
+  const hoverOut = useRef<number | undefined>(undefined)
   const timer = useRef<number | undefined>(undefined)
   const box = useRef<HTMLDivElement>(null)
   const nums = useMemo(() => questionNumbers(graph), [graph])
@@ -148,7 +156,7 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   }, [graph, filters, nums])
 
   const visible = useMemo(() => graph.nodes.filter((n) => !hidden.has(n.id)).sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || (nums.get(a.id) ?? 0) - (nums.get(b.id) ?? 0)), [graph.nodes, hidden, nums])
-  const layout = useMemo(() => radialLayout(graph, visible, positions.current), [graph, visible])
+  const layout = useMemo(() => radialLayout(graph, visible, positions.current), [graph, visible, moved]) // eslint-disable-line react-hooks/exhaustive-deps -- позиции лежат в ref: moved пересчитывает раскладку после перетаскивания и «Разложить заново»
 
   const persist = useCallback((f: GraphFilters) => {
     window.clearTimeout(timer.current)
@@ -178,6 +186,7 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
       id: n.id,
       type: n.kind,
       position: layout[n.id] ?? { x: 0, y: 0 },
+      measured: sizes.current.get(n.id),
       hidden: !visibleAt(n.kind, lod),
       ariaLabel: NODE_TITLE(n),
       data: {
@@ -235,6 +244,25 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
     const ids = [...nodesForRisk(graph, sel.riskId)].filter((id) => layout[id])
     if (ids.length) void rf.fitView({ nodes: ids.map((id) => ({ id })), padding: 0.4, duration: 500, maxZoom: 1.3 })
   }, [sel.riskId, graph, layout, rf])
+
+  const onNodesChange = useCallback((changes: NodeChange<Node<PData>>[]) => {
+    let drag = false
+    for (const c of changes) {
+      if (c.type === 'dimensions' && c.dimensions) sizes.current.set(c.id, c.dimensions)
+      if (c.type === 'position' && c.position) { positions.current = { ...positions.current, [c.id]: c.position }; drag = true }
+    }
+    if (drag) force((x) => x + 1)
+  }, [])
+  useEffect(() => () => window.clearTimeout(hoverOut.current), [])
+  // Состояние наведения меняется только при смене узла; отложенное снятие отменяется новым наведением.
+  const hoverNode = (id: string | null, x = 0, y = 0) => {
+    window.clearTimeout(hoverOut.current)
+    if (id === hoverId.current) return
+    hoverId.current = id
+    setHover(id ? { id, x, y } : null)
+    const rid = id ? graph.nodes.find((n) => n.id === id && n.kind === 'risk')?.data['risk_id'] : undefined
+    setHoverRisks(rid ? [String(rid)] : null)
+  }
 
   const activate = useCallback((id: string) => {
     const n = graph.nodes.find((x) => x.id === id)
@@ -325,15 +353,14 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
           nodesConnectable={false} deleteKeyCode={null} aria-label="Карта тем: цифровой слепок сессии"
           onNodeClick={(_, n) => activate(n.id)}
           onNodeDoubleClick={(_, n) => { if (graph.nodes.find((x) => x.id === n.id)?.kind === 'topic') setF({ ...filters, topic: n.id }) }}
+          onNodesChange={onNodesChange}
           onNodeMouseEnter={(ev, n) => {
             const r = box.current?.getBoundingClientRect()
-            if (r) setHover({ id: n.id, x: ev.clientX - r.left, y: ev.clientY - r.top })
-            const rid = graph.nodes.find((x) => x.id === n.id && x.kind === 'risk')?.data['risk_id']
-            if (rid) setHoverRisks([String(rid)])
+            if (r) hoverNode(n.id, ev.clientX - r.left, ev.clientY - r.top)
           }}
-          onNodeMouseLeave={() => { setHover(null); setHoverRisks(null) }}
+          onNodeMouseLeave={() => { window.clearTimeout(hoverOut.current); hoverOut.current = window.setTimeout(() => hoverNode(null), HOVER_OUT_MS) }}
           onNodeDragStop={(_, n) => { positions.current = { ...positions.current, [n.id]: n.position }; force((x) => x + 1); persist(filters) }}
-          onPaneClick={() => { clear(); setHover(null) }}
+          onPaneClick={() => { clear(); hoverNode(null) }}
         >
           <Background gap={22} size={1.2} color={cssVar('--line')} />
           <Controls showInteractive={false} />

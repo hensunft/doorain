@@ -1,4 +1,4 @@
-import { BookOpenText, History, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, ShieldUser } from 'lucide-react'
+import { BookOpenText, History, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, ShieldUser, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
 import { Dialog } from '../components/Dialog'
@@ -26,7 +26,7 @@ function SidebarNav({ compact, onNavigate }: { compact: boolean; onNavigate?: ()
   const item = 'flex min-h-11 items-center gap-2 rounded-md px-2 py-1.5 text-small no-underline text-ink hover:bg-hover'
   const active = 'bg-selected font-medium'
   return (
-    <nav aria-label="Основная навигация" className="flex min-h-0 flex-1 flex-col gap-1 px-2">
+    <nav aria-label="Основная навигация" className="flex flex-1 flex-col gap-1 px-2">
       <Link to="/" onClick={onNavigate} className={`btn mb-2 no-underline ${compact ? "btn-icon self-center" : ""}`}><Plus className="size-4" aria-hidden />{!compact && 'Новая сессия'}{compact && <span className="sr-only">Новая сессия</span>}</Link>
       <NavLink to="/history" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><History className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">Мои сессии</span> : 'Мои сессии'}</NavLink>
       {isOwner && <NavLink to="/kb" onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : ''}`}><BookOpenText className="size-4 shrink-0" aria-hidden />{compact ? <span className="sr-only">База знаний</span> : 'База знаний'}</NavLink>}
@@ -52,16 +52,22 @@ function SidebarNav({ compact, onNavigate }: { compact: boolean; onNavigate?: ()
   )
 }
 
-/** Низ боковой панели: имя пользователя и тема — ниже навигации и списка сессий; в свёрнутом виде — иконки с подписями. */
+/** Низ боковой панели в два ряда: профиль (подпись «Профиль» целиком, имя — второй строкой) и под ним тема.
+ *  В свёрнутом виде — аватар с именем «Профиль и настройки» в aria-label и видимой подсказкой при наведении и фокусе. */
 function SidebarFooter({ compact, onNavigate }: { compact: boolean; onNavigate?: () => void }) {
   const user = useMe().data?.user
-  const name = user?.display_name ?? ''
-  const initials = name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  const name = user?.display_name?.trim() ?? ''
+  const initials = name.split(/\s+/).filter(Boolean).map((w) => [...w][0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className={`mt-auto flex shrink-0 gap-2 border-t border-line px-2 pt-2 ${compact ? 'flex-col items-center' : 'items-center justify-between'}`}>
-      <Link to="/settings" onClick={onNavigate} className={`flex min-h-11 min-w-0 items-center gap-2 rounded-md px-1 text-small text-ink no-underline hover:bg-hover ${compact ? 'justify-center' : ''}`} title={compact ? `${name} — профиль и настройки` : 'Профиль и настройки'} aria-label={compact ? `${name}: профиль и настройки` : undefined}>
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-selected text-xs font-semibold" aria-hidden>{initials || '?'}</span>
-        {!compact && <span className="truncate">{name}</span>}
+    <div className={`mt-auto flex shrink-0 flex-col gap-1 border-t border-line px-2 pt-2 ${compact ? 'items-center' : ''}`}>
+      <Link to="/settings" onClick={onNavigate} className={`group relative flex min-h-11 min-w-0 items-center gap-2 rounded-md px-1 text-small text-ink no-underline hover:bg-hover ${compact ? 'justify-center' : ''}`} aria-label={compact ? 'Профиль и настройки' : undefined}>
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-selected text-xs font-semibold" aria-hidden>{initials || <UserRound className="size-4" />}</span>
+        {compact ? <span className="side-tip" aria-hidden>Профиль и настройки</span> : (
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="font-medium">Профиль</span>
+            {name && <span className="truncate text-xs text-muted" title={name}>{name}</span>}
+          </span>
+        )}
       </Link>
       <ThemeToggle compact={compact} />
     </div>

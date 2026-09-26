@@ -491,3 +491,67 @@ test('тема внизу боковой панели, без редактора
     await expect(page.getByText('не заполнено оператором').first()).toBeVisible()  // реквизиты не выдуманы
   }
 })
+
+test('карта: неподвижный курсор над узлом — один enter, узлы не прячутся, viewport не прыгает; перетаскивание сдвигает узел', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await login(page)
+  await startSession(page)
+  await ask(page, NO_POLICY)
+  const node = page.locator('.react-flow__node-question').first()
+  await expect(node).toBeVisible()
+  await page.waitForTimeout(600)  // вписывание карты после первого замера
+  // Регрессия 26.09: каждое наведение пересоздавало объекты узлов без measured, React Flow прятал их (visibility: hidden)
+  // до повторного замера — курсор «проваливался» на фон, шёл mouseleave, и карта мерцала без движения мыши.
+  await page.evaluate(() => {
+    const w = window as unknown as { __hov: string[] }
+    w.__hov = []
+    const flow = document.querySelector('.react-flow')!
+    const edge = (e: Event, kind: string) => { const n = (e.target as Element).closest('.react-flow__node'); if (n && !n.contains((e as MouseEvent).relatedTarget as Node)) w.__hov.push(kind) }
+    flow.addEventListener('mouseover', (e) => edge(e, 'enter'), true)
+    flow.addEventListener('mouseout', (e) => edge(e, 'leave'), true)
+    new MutationObserver((ms) => { for (const m of ms) if ((m.target as HTMLElement).style.visibility === 'hidden') w.__hov.push('hidden') })
+      .observe(document.querySelector('.react-flow__nodes')!, { attributes: true, subtree: true, attributeFilter: ['style'] })
+  })
+  const viewport = page.locator('.react-flow__viewport')
+  const before = await viewport.getAttribute('style')
+  const box = (await node.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await expect(page.locator('.tooltip-card')).toBeVisible()
+  await page.waitForTimeout(2000)
+  expect(await page.evaluate(() => (window as unknown as { __hov: string[] }).__hov)).toEqual(['enter'])
+  await expect(page.locator('.tooltip-card')).toBeVisible()
+  expect(await viewport.getAttribute('style')).toBe(before)
+
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2 + 40, { steps: 10 })
+  await page.mouse.up()
+  const moved = (await node.boundingBox())!
+  expect(moved.x - box.x).toBeGreaterThan(40)
+  expect(await page.evaluate(() => (window as unknown as { __hov: string[] }).__hov)).not.toContain('hidden')
+})
+
+test('нижняя кнопка профиля: «Профиль» целиком, длинное имя — второй строкой; в свёрнутой панели — имя в aria-label и видимая подсказка', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await login(page)
+  const { csrf_token } = await (await page.request.get('/api/v1/auth/me')).json()
+  const res = await page.request.patch('/api/v1/auth/profile', { headers: { 'X-CSRF-Token': csrf_token, Origin: new URL(page.url()).origin }, data: { first_name: 'Александра-Виктория', last_name: 'Константинопольская-Длинноимённая' } })
+  expect(res.ok()).toBeTruthy()
+  await page.goto('/history')
+  const aside = page.locator('aside')
+  const link = aside.getByRole('link', { name: /^Профиль/ })
+  const label = link.getByText('Профиль', { exact: true })
+  await expect(label).toBeVisible()
+  expect(await label.evaluate((e) => e.scrollWidth <= e.clientWidth && e.getBoundingClientRect().width > 40)).toBe(true)  // не «П…»
+  const full = 'Александра-Виктория Константинопольская-Длинноимённая'
+  await expect(link).toHaveAccessibleName(`Профиль ${full}`)
+  await expect(link.getByText(full)).toHaveAttribute('title', full)
+  await expect(aside.getByRole('group', { name: 'Тема оформления' })).toBeVisible()  // тема — отдельным рядом, не отнимает ширину
+  expect((await aside.getByRole('group', { name: 'Тема оформления' }).boundingBox())!.y).toBeGreaterThan((await link.boundingBox())!.y + 30)
+
+  await aside.getByRole('button', { name: 'Свернуть панель' }).click()
+  const compact = aside.getByRole('link', { name: 'Профиль и настройки' })
+  await expect(compact).toBeVisible()
+  await compact.hover()
+  await expect(compact.getByText('Профиль и настройки')).toBeVisible()
+  await aside.getByRole('button', { name: 'Развернуть панель' }).click()
+})
