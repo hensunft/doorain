@@ -19,7 +19,7 @@ export function DisclaimerGate({ accepted, children }: { accepted: boolean; chil
   })
   if (accepted) return <>{children}</>
   return (
-    <AuthFrame title="Прежде чем начать" width={560}>
+    <AuthFrame title="Прежде чем начать">
       <div className="body-m space-y-3">
         <p>DoorAIn отвечает <strong>только по загруженной базе знаний</strong> и указывает источник каждого вывода. Сервис не оказывает юридических услуг: ответы носят информационный характер и не заменяют юридическую консультацию.</p>
         <p>Оценка рисков выполняется по экспериментальной методике и не является юридическим заключением.</p>

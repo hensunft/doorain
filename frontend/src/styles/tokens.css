@@ -1,10 +1,13 @@
 /* Единственный источник правды по цвету, типографике, геометрии, глубине, стеклу и движению.
    В компонентах не должно быть литеральных цветов и размеров — только эти переменные.
    Принцип: интерфейс — стекло (навигация, панели управления, меню, диалоги), правовая реальность — твёрдая (диалог, карта, факты).
-   Тёмная тема — основная: [data-theme="dark"] или prefers-color-scheme, если пользователь не выбрал тему явно.
+   Тёмная тема — графитовая: [data-theme="dark"] или системная тёмная, если пользователь не выбрал тему явно.
+   Оба тёмных блока ниже совпадают построчно (проверяет styles/acceptance.test.ts).
    Светлая тема — «бумажная»; её значения совпадают с печатной палитрой PDF (backend/app/config/print.yaml, тест сверяет). */
 
 :root {
+  color-scheme: light;
+
   /* Поверхности */
   --bg: #f4efe7;
   --surface: #fbf8f3;
@@ -21,7 +24,7 @@
   --ink: #1f1917;
   --ink-2: #463c36;
   --muted: #5f554e;
-  --faint: #857a70;
+  --faint: #70655c; /* ≥ 4.5:1 на фоне, стекле и подложках: подписи-overline и футер — это текст */
 
   /* Бренд: бордовый — подпись DoorAIn, бронза/шампань — связи, реквизиты, фокус */
   --brand: #6b1f33;
@@ -29,6 +32,7 @@
   --brand-tint: #f1e3e6;
   --brand-on: #fffaf6; /* текст на бордовом */
   --brand-glow: rgba(107, 31, 51, 0.16);
+  --brand-line: var(--brand); /* обводка и индикатор выбранного; в тёмной теме — светлее заливки */
   --gold: #a8865a;
   --link: #6b1f33;
   --link-hover: #551828;
@@ -64,6 +68,8 @@
   --glass-edge: rgba(70, 45, 30, 0.1);
   --glass-hi: rgba(255, 255, 255, 0.75);
   --glass-blur: 22px;
+  --glass-filter: blur(var(--glass-blur)) saturate(140%); /* единый рецепт стекла; без поддержки или при «уменьшить прозрачность» — none */
+  --backdrop-filter: blur(4px); /* фон под модальным окном */
   /* Элементы управления: вторичные кнопки, дорожка переключателя, чипы */
   --control: #fffdf9;
   --control-hover: #f1eadf;
@@ -73,11 +79,12 @@
   --ambient-2: rgba(168, 134, 90, 0.09);
   --spot: rgba(255, 255, 255, 0.55); /* световое пятно в центре карты */
 
-  /* Мрамор медальона «Вы» и символов (тёмный камень в обеих темах) */
+  /* Медальон «Вы» и символы ролей: тёмный камень и бронзовые весы (одинаковы в обеих темах) */
   --marble-hi: #4a3f39;
   --marble-lo: #120e0c;
   --marble-vein: #cbbba6;
   --marble-relief: #e9dfd2;
+  --marble-metal: rgba(122, 92, 58, 1); /* тень бронзы весов */
 
   /* Геометрия */
   --r-chip: 8px;
@@ -130,128 +137,135 @@
   --tracking-wide: 0.12em;
 }
 
-/* Тёмная тема — эспрессо-чёрный, графит, приглушённый бордовый, слоновая кость. Применяется по выбору пользователя либо по системной настройке. */
-:root[data-theme="dark"],
-:root:not([data-theme="light"]) {
-  color-scheme: light;
-}
-
+/* Тёмная тема — тёплый графит (не почти чёрный): нейтральная основа делает бордовый акцентом, а не цветом панелей.
+   Бордовый: --brand — заливка действия (белый текст ≥ 4.5:1), --brand-line — обводка и индикатор (≥ 3:1), --link — текст. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #0c0908;
-    --surface: #14100e;
-    --surface-2: #18130f;
-    --surface-3: #221c18;
-    --surface-alt: #1a1512;
-    --line: rgba(236, 214, 190, 0.1);
-    --line-soft: rgba(236, 214, 190, 0.06);
-    --line-strong: rgba(236, 214, 190, 0.18);
-    --ink: #eee6da;
-    --ink-2: #d3c8b9;
-    --muted: #a69a8b;
-    --faint: #857a6e;
-    --brand: #7b2437;
-    --brand-deep: #8f2c42;
-    --brand-tint: rgba(163, 55, 84, 0.2);
-    --brand-on: #fbf3ef;
-    --brand-glow: rgba(168, 57, 90, 0.34);
-    --gold: #c2a57c;
-  --link: #e0909f;
-  --link-hover: #eee6da;
-    --link: #e0909f;
-    --link-hover: #eee6da;
-    --gold-tint: rgba(194, 165, 124, 0.13);
-    --risk-none: #6a635b;
-    --risk-none-tint: rgba(150, 140, 128, 0.13);
+    --bg: #202126;
+    --surface: #292b30;
+    --surface-2: #26282d;
+    --surface-3: #303238;
+    --surface-alt: #2d2f35;
+    --line: rgba(243, 240, 237, 0.12);
+    --line-soft: rgba(243, 240, 237, 0.07);
+    --line-strong: rgba(243, 240, 237, 0.22);
+    --ink: #f3f0ed;
+    --ink-2: #dcd8d3;
+    --muted: #b9b5b1;
+    --faint: #a09b96;
+    --brand: #9d3d56;
+    --brand-deep: #b04a65;
+    --brand-line: #c06b80;
+    --brand-tint: rgba(192, 107, 128, 0.18);
+    --brand-on: #ffffff;
+    --brand-glow: rgba(192, 107, 128, 0.3);
+    --gold: #d7b18b;
+    --gold-tint: rgba(215, 177, 139, 0.13);
+    --link: #e2a0af;
+    --link-hover: #f3f0ed;
+    --risk-none: #6f6b66;
+    --risk-none-tint: rgba(160, 155, 150, 0.13);
     --risk-low: #6f685e;
     --risk-low-tint: rgba(170, 160, 145, 0.14);
-    --risk-low-ink: #b9b0a1;
+    --risk-low-ink: #bdb4a6;
     --risk-mid: #b88a4a;
     --risk-mid-tint: rgba(196, 150, 85, 0.16);
+    --risk-mid-ink: #dcb57e;
     --risk-high: #a33754;
-    --risk-high-tint: rgba(163, 55, 84, 0.22);
-    --risk-high-ink: #e0909f;
+    --risk-high-tint: rgba(192, 107, 128, 0.2);
+    --risk-high-ink: #e8a3b1;
     --risk-critical: #b8412e;
     --risk-critical-tint: rgba(200, 75, 55, 0.2);
-    --risk-critical-ink: #ee8f7b;
+    --risk-critical-ink: #f09682;
     --on-risk-mid: #1b1309;
-    --on-risk: #fbf3ef;
-    --hatch-dark: rgba(238, 230, 218, 0.18);
-    --hatch-light: rgba(12, 9, 8, 0.3);
-  --hatch-faint: rgba(238, 230, 218, 0.07);
-    --hatch-faint: rgba(238, 230, 218, 0.07);
-    --risk-mid-ink: #d7b079;
+    --on-risk: #fbf6f3;
+    --hatch-dark: rgba(243, 240, 237, 0.18);
+    --hatch-light: rgba(24, 25, 29, 0.3);
+    --hatch-faint: rgba(243, 240, 237, 0.07);
     --chip-norm-ink: var(--gold);
-    --glass: rgba(26, 20, 17, 0.62);
-    --glass-strong: rgba(24, 19, 16, 0.9);
-    --glass-edge: rgba(255, 236, 214, 0.09);
-    --glass-hi: rgba(255, 240, 222, 0.07);
-    --control: rgba(236, 214, 190, 0.05);
-    --control-hover: rgba(236, 214, 190, 0.1);
-    --sheen: rgba(255, 236, 220, 0.12);
-    --ambient-1: rgba(123, 36, 55, 0.2);
-    --ambient-2: rgba(194, 165, 124, 0.06);
-    --spot: rgba(236, 214, 190, 0.05);
-    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-2: 0 14px 36px -10px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.35);
-    --shadow-3: 0 34px 90px -20px rgba(0, 0, 0, 0.85), 0 6px 18px rgba(0, 0, 0, 0.4);
-    --backdrop: rgba(5, 3, 2, 0.6);
+    --glass: rgba(48, 50, 56, 0.58);
+    --glass-strong: rgba(44, 46, 52, 0.9);
+    --glass-edge: rgba(255, 255, 255, 0.12);
+    --glass-hi: rgba(255, 255, 255, 0.09);
+    --control: rgba(243, 240, 237, 0.06);
+    --control-hover: rgba(243, 240, 237, 0.11);
+    --sheen: rgba(255, 255, 255, 0.14);
+    --ambient-1: rgba(157, 61, 86, 0.26);
+    --ambient-2: rgba(215, 177, 139, 0.07);
+    --spot: rgba(243, 240, 237, 0.05);
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.28);
+    --shadow-2: 0 14px 36px -10px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.22);
+    --shadow-3: 0 34px 90px -20px rgba(0, 0, 0, 0.62), 0 6px 18px rgba(0, 0, 0, 0.28);
+    --backdrop: rgba(16, 17, 20, 0.55);
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0c0908;
-  --surface: #14100e;
-  --surface-2: #18130f;
-  --surface-3: #221c18;
-  --surface-alt: #1a1512;
-  --line: rgba(236, 214, 190, 0.1);
-  --line-soft: rgba(236, 214, 190, 0.06);
-  --line-strong: rgba(236, 214, 190, 0.18);
-  --ink: #eee6da;
-  --ink-2: #d3c8b9;
-  --muted: #a69a8b;
-  --faint: #857a6e;
-  --brand: #7b2437;
-  --brand-deep: #8f2c42;
-  --brand-tint: rgba(163, 55, 84, 0.2);
-  --brand-on: #fbf3ef;
-  --brand-glow: rgba(168, 57, 90, 0.34);
-  --gold: #c2a57c;
-  --gold-tint: rgba(194, 165, 124, 0.13);
-  --risk-none: #6a635b;
-  --risk-none-tint: rgba(150, 140, 128, 0.13);
+  --bg: #202126;
+  --surface: #292b30;
+  --surface-2: #26282d;
+  --surface-3: #303238;
+  --surface-alt: #2d2f35;
+  --line: rgba(243, 240, 237, 0.12);
+  --line-soft: rgba(243, 240, 237, 0.07);
+  --line-strong: rgba(243, 240, 237, 0.22);
+  --ink: #f3f0ed;
+  --ink-2: #dcd8d3;
+  --muted: #b9b5b1;
+  --faint: #a09b96;
+  --brand: #9d3d56;
+  --brand-deep: #b04a65;
+  --brand-line: #c06b80;
+  --brand-tint: rgba(192, 107, 128, 0.18);
+  --brand-on: #ffffff;
+  --brand-glow: rgba(192, 107, 128, 0.3);
+  --gold: #d7b18b;
+  --gold-tint: rgba(215, 177, 139, 0.13);
+  --link: #e2a0af;
+  --link-hover: #f3f0ed;
+  --risk-none: #6f6b66;
+  --risk-none-tint: rgba(160, 155, 150, 0.13);
   --risk-low: #6f685e;
   --risk-low-tint: rgba(170, 160, 145, 0.14);
-  --risk-low-ink: #b9b0a1;
+  --risk-low-ink: #bdb4a6;
   --risk-mid: #b88a4a;
   --risk-mid-tint: rgba(196, 150, 85, 0.16);
+  --risk-mid-ink: #dcb57e;
   --risk-high: #a33754;
-  --risk-high-tint: rgba(163, 55, 84, 0.22);
-  --risk-high-ink: #e0909f;
+  --risk-high-tint: rgba(192, 107, 128, 0.2);
+  --risk-high-ink: #e8a3b1;
   --risk-critical: #b8412e;
   --risk-critical-tint: rgba(200, 75, 55, 0.2);
-  --risk-critical-ink: #ee8f7b;
+  --risk-critical-ink: #f09682;
   --on-risk-mid: #1b1309;
-  --on-risk: #fbf3ef;
-  --hatch-dark: rgba(238, 230, 218, 0.18);
-  --hatch-light: rgba(12, 9, 8, 0.3);
-  --risk-mid-ink: #d7b079;
+  --on-risk: #fbf6f3;
+  --hatch-dark: rgba(243, 240, 237, 0.18);
+  --hatch-light: rgba(24, 25, 29, 0.3);
+  --hatch-faint: rgba(243, 240, 237, 0.07);
   --chip-norm-ink: var(--gold);
-  --glass: rgba(26, 20, 17, 0.62);
-  --glass-strong: rgba(24, 19, 16, 0.9);
-  --glass-edge: rgba(255, 236, 214, 0.09);
-  --glass-hi: rgba(255, 240, 222, 0.07);
-  --control: rgba(236, 214, 190, 0.05);
-  --control-hover: rgba(236, 214, 190, 0.1);
-  --sheen: rgba(255, 236, 220, 0.12);
-  --ambient-1: rgba(123, 36, 55, 0.2);
-  --ambient-2: rgba(194, 165, 124, 0.06);
-  --spot: rgba(236, 214, 190, 0.05);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 14px 36px -10px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.35);
-  --shadow-3: 0 34px 90px -20px rgba(0, 0, 0, 0.85), 0 6px 18px rgba(0, 0, 0, 0.4);
-  --backdrop: rgba(5, 3, 2, 0.6);
+  --glass: rgba(48, 50, 56, 0.58);
+  --glass-strong: rgba(44, 46, 52, 0.9);
+  --glass-edge: rgba(255, 255, 255, 0.12);
+  --glass-hi: rgba(255, 255, 255, 0.09);
+  --control: rgba(243, 240, 237, 0.06);
+  --control-hover: rgba(243, 240, 237, 0.11);
+  --sheen: rgba(255, 255, 255, 0.14);
+  --ambient-1: rgba(157, 61, 86, 0.26);
+  --ambient-2: rgba(215, 177, 139, 0.07);
+  --spot: rgba(243, 240, 237, 0.05);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-2: 0 14px 36px -10px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.22);
+  --shadow-3: 0 34px 90px -20px rgba(0, 0, 0, 0.62), 0 6px 18px rgba(0, 0, 0, 0.28);
+  --backdrop: rgba(16, 17, 20, 0.55);
+}
+
+/* Стекло без размытия: браузер без backdrop-filter — плотное стекло; «уменьшить прозрачность» и принудительные цвета —
+   непрозрачная поверхность. Тройной :root перебивает тёмные блоки выше. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root:root:root { --glass: var(--glass-strong); }
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  :root:root:root { --glass: var(--surface); --glass-strong: var(--surface); --glass-filter: none; --backdrop-filter: none; }
 }

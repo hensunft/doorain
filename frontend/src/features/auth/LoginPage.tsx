@@ -3,6 +3,7 @@ import { UserPlus } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Footer } from '../../components/Footer'
+import { DoorMark } from '../../components/DoorMark'
 import { Medallion } from '../../components/Medallion'
 import { Banner } from '../../components/States'
 import { Field } from '../../components/ui'
@@ -10,22 +11,23 @@ import { ApiError, errorText, post, setCsrf } from '../../lib/api'
 import type { components } from '../../lib/api-types'
 import { keys } from '../../lib/queries'
 
-/** Экран входа и регистрации: слева — медальон правовой личности «до того, как портрет станет цифровым» (на узком экране скрыт),
- *  справа — форма на стеклянной поверхности; футер с правовыми ссылками в потоке. */
-export function AuthFrame({ title, width = 420, children }: { title: string; width?: number; children: ReactNode }) {
+/** Экран входа и регистрации: слева — медальон с весами (декоративный, на узком экране скрыт), справа — форма на стекле.
+ *  Обе колонки фиксированной ширины, пара центрирована в окне; карточка входа и регистрации одной ширины — при переходе
+ *  между маршрутами форма не сдвигается. Футер — в потоке, под формой. */
+export function AuthFrame({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col gap-6 px-4 py-8">
-      <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 lg:grid-cols-[minmax(0,1fr)_auto]">
-        <div className="hidden flex-col items-center gap-10 text-center lg:flex">
+      <div className="grid flex-1 grid-cols-[minmax(0,30rem)] items-center justify-center gap-16 lg:grid-cols-[24rem_30rem] xl:gap-24">
+        <div className="hidden flex-col items-center gap-10 text-center lg:flex" data-testid="auth-art">
           <div className="portrait-light"><Medallion size={320} /></div>
-          <div className="max-w-sm space-y-3">
+          <div className="space-y-3">
             <p className="overline">Цифровой правовой портрет</p>
-            <p className="serif text-[28px] font-semibold leading-tight text-ink">Правовой портрет — до того, как он станет цифровым</p>
+            <p className="serif text-[28px] font-semibold leading-tight text-ink">Правовое положение — на одних весах: факты, нормы, риски</p>
             <p className="body-m text-muted">Каждый ответ опирается на источники, а сессия складывается в карту вашего правового положения: обязанности, связи, риски.</p>
           </div>
         </div>
-        <div className="glass w-full justify-self-center rounded-[var(--r-zone)] p-6 sm:p-8" style={{ maxWidth: width }}>
-          <p className="flex items-center gap-2"><img src="/favicon.svg" alt="" className="size-7" /><span className="serif text-[24px] font-semibold">DoorAIn</span></p>
+        <div className="glass w-full max-w-[30rem] rounded-[var(--r-zone)] p-6 sm:p-8" data-testid="auth-card">
+          <p className="flex items-center gap-2"><DoorMark className="size-7" /><span className="serif text-[24px] font-semibold">DoorAIn</span></p>
           <h1 className="display-m mt-6">{title}</h1>
           <div className="mt-5">{children}</div>
         </div>

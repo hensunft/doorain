@@ -154,7 +154,7 @@ export function ChatPanel({ session, draft, setDraft }: { session: Session; draf
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <p className="overline px-4 pt-3.5">Правовой диалог</p>
-      <div ref={listRef} onScroll={onScroll} role="log" aria-label="Диалог" aria-live="polite" className="relative min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-3">
+      <div ref={listRef} onScroll={onScroll} role="log" aria-label="Диалог" aria-live="polite" className="relative min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-3 [mask-image:linear-gradient(transparent,black_14px)]">
         {msgs.isLoading && <Skeleton lines={5} />}
         {msgs.isError && <ErrorNote error={msgs.error} onRetry={() => msgs.refetch()} />}
         {msgs.data && rows.length === 0 && (

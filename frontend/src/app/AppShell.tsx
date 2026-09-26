@@ -2,6 +2,7 @@ import { BookOpenText, History, Menu, PanelLeftClose, PanelLeftOpen, Plus, Setti
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
 import { Dialog } from '../components/Dialog'
+import { DoorMark } from '../components/DoorMark'
 import { Footer } from '../components/Footer'
 import { Banner, OfflineBanner } from '../components/States'
 import { ThemeToggle } from '../components/ThemeToggle'
@@ -13,7 +14,7 @@ import { ROLE_RU } from '../lib/risk'
 function Brand({ compact }: { compact?: boolean }) {
   return (
     <Link to="/" className="flex min-h-11 items-center gap-2 px-2 no-underline" aria-label="DoorAIn — на главную">
-      <img src="/favicon.svg" alt="" className="size-6" />
+      <DoorMark className="size-6" />
       {!compact && <span className="serif text-[19px] font-semibold text-ink">DoorAIn</span>}
     </Link>
   )

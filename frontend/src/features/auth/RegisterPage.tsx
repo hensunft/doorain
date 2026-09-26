@@ -68,7 +68,7 @@ export function RegisterPage() {
     </Field>
   )
   return (
-    <AuthFrame title="Регистрация по приглашению" width={520}>
+    <AuthFrame title="Регистрация по приглашению">
       <form onSubmit={submit} noValidate className="space-y-4" aria-label="Регистрация">
         {field('code', 'ic', 'Код приглашения', { required: true, autoComplete: 'off', 'aria-invalid': code === 'invalid_invite' || !!show('code') || undefined }, 'Код выдаёт администратор; он действует один раз')}
         {field('username', 'ru', 'Логин', { required: true, autoComplete: 'username', maxLength: 64 }, 'Постоянный идентификатор для входа: латиница, цифры, точка, дефис, подчёркивание. Изменить его позже нельзя')}

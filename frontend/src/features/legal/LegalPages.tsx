@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Footer } from '../../components/Footer'
+import { DoorMark } from '../../components/DoorMark'
 import { Banner, ErrorNote, Skeleton } from '../../components/States'
 import { get } from '../../lib/api'
 import type { components } from '../../lib/api-types'
@@ -24,7 +25,7 @@ function LegalFrame({ title, children }: { title: string; children: (d: Legal) =
   return (
     <div className="min-h-dvh bg-page px-4 py-8">
       <article className="legal zone mx-auto max-w-3xl space-y-3 !p-6 sm:!p-8">
-        <p className="flex items-center gap-2"><img src="/favicon.svg" alt="" className="size-6" /><Link to="/" className="display-s no-underline text-ink">DoorAIn</Link></p>
+        <p className="flex items-center gap-2"><DoorMark className="size-6" /><Link to="/" className="display-s no-underline text-ink">DoorAIn</Link></p>
         <h1 className="display-m">{title}</h1>
         {q.isLoading && <Skeleton lines={8} />}
         {q.isError && <ErrorNote error={q.error} onRetry={() => q.refetch()} />}

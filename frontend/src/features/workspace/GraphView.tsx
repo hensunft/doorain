@@ -248,7 +248,8 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   const onNodesChange = useCallback((changes: NodeChange<Node<PData>>[]) => {
     let drag = false
     for (const c of changes) {
-      if (c.type === 'dimensions' && c.dimensions) sizes.current.set(c.id, c.dimensions)
+      // первый замер узла тоже пересобирает узлы: мини-карта рисует только узлы с measured в пользовательском объекте
+      if (c.type === 'dimensions' && c.dimensions) { drag ||= !sizes.current.has(c.id); sizes.current.set(c.id, c.dimensions) }
       if (c.type === 'position' && c.position) { positions.current = { ...positions.current, [c.id]: c.position }; drag = true }
     }
     if (drag) force((x) => x + 1)

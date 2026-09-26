@@ -219,6 +219,43 @@ test('снимки страниц для визуального контроля
   await page.screenshot({ path: path.join(SHOTS, 'welcome-390.png'), fullPage: true })
 })
 
+test('вход и регистрация: пара «медальон + форма» по центру, форма не сдвигается между маршрутами, без горизонтального скролла', async ({ page }) => {
+  fs.mkdirSync(SHOTS, { recursive: true })
+  const geo = () => page.evaluate(() => {
+    const art = document.querySelector('[data-testid=auth-art]')!.getBoundingClientRect()
+    const card = document.querySelector('[data-testid=auth-card]')!.getBoundingClientRect()
+    return { vw: innerWidth, sw: document.documentElement.scrollWidth, card: [card.left, card.right], left: art.width ? art.left : card.left }
+  })
+  // 720 и 1152 — ширина 1440 при масштабе 200 % и 125 %
+  for (const w of [375, 720, 768, 1024, 1152, 1280, 1440, 1920]) {
+    await page.setViewportSize({ width: w, height: 900 })
+    const card: Record<string, number[]> = {}
+    for (const route of ['/login', '/register']) {
+      await page.goto(route)
+      await expect(page.getByTestId('auth-card')).toBeVisible()
+      const g = await geo()
+      expect(g.sw, `${route} @${w}: горизонтальная прокрутка`).toBeLessThanOrEqual(g.vw)
+      expect(Math.abs(g.left - (g.vw - g.card[1]!)), `${route} @${w}: поля слева и справа от композиции`).toBeLessThanOrEqual(1)
+      card[route] = g.card
+      if (w === 1440 || w === 375) await page.screenshot({ path: path.join(SHOTS, `${route.slice(1)}-${w}.png`), fullPage: true })
+    }
+    expect(card['/register'], `@${w}: форма сдвигается при переходе «Вход ↔ Регистрация»`).toEqual(card['/login'])
+  }
+})
+
+test('стекло: без размытия при «уменьшить прозрачность» и принудительных цветах — непрозрачная поверхность', async ({ page }) => {
+  await page.goto('/login')
+  const card = page.getByTestId('auth-card')
+  const style = () => card.evaluate((e) => { const c = getComputedStyle(e); return { filter: c.backdropFilter, bg: c.backgroundColor } })
+  expect((await style()).filter).toContain('blur')
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'reduce' }] })
+  expect(await style()).toEqual({ filter: 'none', bg: expect.stringMatching(/^rgb\(/) })  // rgb без альфы — плотный фон
+  await cdp.send('Emulation.setEmulatedMedia', { features: [] })
+  await page.emulateMedia({ forcedColors: 'active' })
+  expect((await style()).filter).toBe('none')
+})
+
 test('выход завершает сессию: защищённые страницы недоступны', async ({ page }) => {
   await login(page)
   await page.getByRole('link', { name: 'Настройки' }).click()
@@ -477,10 +514,31 @@ test('тема внизу боковой панели, без редактора
   await login(page)
   await expect(page.getByRole('link', { name: 'Компоненты' })).toHaveCount(0)
   const nav = page.locator('aside')
+  // знак-дверь перекрашивается вместе с темой без перезагрузки и после неё: контраст коробки с фоном ≥ 3:1
+  const door = () => page.evaluate(() => {
+    const lum = (c: string) => {
+      const [r, g, b] = c.match(/[\d.]+/g)!.slice(0, 3).map((v) => { const x = Number(v) / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4 })
+      return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+    }
+    const token = (v: string) => { const el = document.createElement('i'); el.style.color = `var(${v})`; document.body.append(el); const c = getComputedStyle(el).color; el.remove(); return c }
+    const stroke = getComputedStyle(document.querySelector('a[aria-label="DoorAIn — на главную"] svg path')!).stroke
+    return Math.min(...['--bg', '--surface'].map((v) => { const [a, b] = [lum(stroke), lum(token(v))].sort((x, y) => y - x); return (a! + 0.05) / (b! + 0.05) }))
+  })
   await nav.getByRole('button', { name: 'Тёмная тема' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  expect(await door()).toBeGreaterThanOrEqual(3)
+  await page.reload()
+  await expect(page.getByRole('link', { name: 'DoorAIn — на главную' })).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')  // выбор пережил перезагрузку
+  expect(await door()).toBeGreaterThanOrEqual(3)
   await nav.getByRole('button', { name: 'Светлая тема' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  expect(await door()).toBeGreaterThanOrEqual(3)
+  await nav.getByRole('button', { name: 'Как в системе' }).click()
+  for (const colorScheme of ['dark', 'light'] as const) {
+    await page.emulateMedia({ colorScheme })
+    expect(await door(), `системная тема ${colorScheme}`).toBeGreaterThanOrEqual(3)
+  }
   await page.goto('/settings')
   await expect(page.getByRole('group', { name: 'Тема оформления' })).toHaveCount(1)  // один переключатель: в боковой панели
   await page.getByRole('button', { name: 'Выйти' }).click()

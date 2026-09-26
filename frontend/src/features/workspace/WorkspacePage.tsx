@@ -107,7 +107,7 @@ function ThreePanels({ chat, portrait, risks }: { chat: React.ReactNode; portrai
       <Splitter label="Изменить ширину диалога" value={left} min={SIDE_MIN} max={maxFor(right)} dir={1} onChange={(v) => setW([v, right])} />
       <section aria-label="Цифровой слепок" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{portrait}</section>
       <Splitter label="Изменить ширину рисков" value={right} min={SIDE_MIN} max={maxFor(left)} dir={-1} onChange={(v) => setW([left, v])} />
-      <section aria-label="Риски" className="zone glass min-h-0 min-w-0 overflow-hidden !p-0">{risks}</section>
+      <section aria-label="Риски" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{risks}</section>
     </div>
   )
 }
@@ -136,7 +136,7 @@ function Inner({ session }: { session: Session }) {
       {mode === 'mid' && (
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(320px,46fr)_minmax(320px,54fr)]">
           <section aria-label="Диалог" className="zone m-3 mr-1.5 min-h-0 min-w-0 overflow-hidden !p-0">{chat}</section>
-          <section className="zone glass m-3 ml-1.5 flex min-h-0 min-w-0 flex-col overflow-hidden !p-0" aria-label="Портрет и риски">
+          <section className="zone m-3 ml-1.5 flex min-h-0 min-w-0 flex-col overflow-hidden !p-0" aria-label="Портрет и риски">
             <div role="tablist" aria-label="Правая панель" className="flex gap-1 border-b border-line-soft px-3 py-2">{tabBtn('portrait', 'Портрет', right === 'portrait', () => setRight('portrait'))}{tabBtn('risks', 'Риски', right === 'risks', () => setRight('risks'))}</div>
             <div className={`min-h-0 flex-1 ${right === 'portrait' ? '' : 'hidden'}`}>{portrait}</div>
             <div className={`min-h-0 flex-1 ${right === 'risks' ? '' : 'hidden'}`}>{risks}</div>

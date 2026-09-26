@@ -23,4 +23,18 @@ describe('приёмка оформления', () => {
     expect(bad).toEqual([])
     expect(sources['/src/styles/index.css']).not.toMatch(/@import\s+url\(\s*['"]?https?:/)
   })
+
+  it('тёмная тема одинакова при системной и явно выбранной; повторных объявлений нет', () => {
+    const css = sources['/src/styles/tokens.css']!.replace(/\/\*[\s\S]*?\*\//g, '')
+    const decls = (sel: string) => {
+      const body = css.slice(css.indexOf(sel) + sel.length).match(/\{([^}]*)\}/)![1]!
+      return body.split(';').map((d) => d.trim()).filter(Boolean)
+    }
+    const system = decls(':root:not([data-theme="light"])')
+    const explicit = decls(':root[data-theme="dark"]')
+    expect(system.length).toBeGreaterThan(40)
+    expect(explicit).toEqual(system)
+    const names = (ds: string[]) => ds.map((d) => d.split(':')[0])
+    for (const block of [system, decls(':root {')]) expect(new Set(names(block)).size).toBe(block.length)
+  })
 })

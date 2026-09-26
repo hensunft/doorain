@@ -118,16 +118,18 @@
   [data-level="critical"] { --level: var(--risk-critical); --level-tint: var(--risk-critical-tint); --level-ink: var(--risk-critical-ink);
     --level-hatch: repeating-linear-gradient(45deg, transparent 0 3px, var(--hatch) 3px 4px), repeating-linear-gradient(-45deg, transparent 0 3px, var(--hatch) 3px 4px); }
 
-  /* Стекло — материал интерфейса: навигация, панели управления, меню, диалоги, подсказки, диагностический слой рисков.
-     Правовое содержание (диалог, карта, карточки) — твёрдые поверхности. */
+  /* Стекло — материал плавающего управляющего слоя: навигация, панель сессии, вкладки, меню, подсказки, диалоги,
+     элементы управления картой. Под ним виден настоящий фон (окружающий свет, карта). Правовое содержание — диалог,
+     карта, риски, формы, таблицы — твёрдые поверхности (.zone). Стекло в стекло не вкладывается.
+     glass — панели над фоном; glass-strong — всплывающее над содержимым (меню, подсказки, диалоги). */
   .glass {
     background: var(--glass); border: 1px solid var(--glass-edge);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%); backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
     box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-2);
   }
   .glass-strong {
     background: var(--glass-strong); border: 1px solid var(--glass-edge);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%); backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
     box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-2);
   }
 
@@ -185,7 +187,7 @@
   .btn:active:not(:disabled), .btn.is-active { transform: translateY(1px) scale(0.99); }
   .btn.is-focus { box-shadow: var(--focus-ring); }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-  .btn[aria-pressed="true"] { background: var(--brand-tint); border-color: color-mix(in srgb, var(--brand) 55%, transparent); }
+  .btn[aria-pressed="true"] { background: var(--brand-tint); border-color: color-mix(in srgb, var(--brand-line) 60%, transparent); }
   /* Загрузка: текст остаётся, слева — индикатор в поле кнопки, ширина не меняется */
   .btn[aria-busy="true"] { cursor: progress; }
   .btn[aria-busy="true"]:disabled { opacity: 1; }
@@ -230,7 +232,7 @@
   .seg-item:disabled { opacity: 0.45; cursor: not-allowed; }
   .seg-item[aria-selected="true"], .seg-item[aria-pressed="true"] {
     background: var(--brand-tint); color: var(--ink);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 55%, transparent), 0 0 20px -6px var(--brand-glow);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand-line) 60%, transparent), 0 0 20px -6px var(--brand-glow);
   }
 
   /* Поля ввода */
@@ -263,7 +265,7 @@
   .ps-pop {
     position: fixed; z-index: 60; display: block; padding: var(--space-3);
     border-radius: var(--r-card); background: var(--glass-strong); border: 1px solid var(--glass-edge); color: var(--ink);
-    -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
     box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-2); text-align: left; white-space: normal; font-weight: 400; max-width: min(20rem, calc(100vw - 32px));
     animation: pop-in var(--t-fast) var(--ease);
   }
@@ -277,16 +279,16 @@
   .nav-item:hover { background: var(--control-hover); color: var(--ink); }
   .nav-item.is-active, .nav-item[aria-current="page"] {
     color: var(--ink); font-weight: 500; background: linear-gradient(90deg, var(--brand-tint), transparent 110%);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 30%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand-line) 35%, transparent);
   }
   .nav-item.is-active::before, .nav-item[aria-current="page"]::before {
-    content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--brand-deep); box-shadow: 0 0 10px var(--brand-glow);
+    content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--brand-line); box-shadow: 0 0 10px var(--brand-glow);
   }
   /* Подсказка к значку свёрнутой боковой панели: видна при наведении и фокусе клавиатуры, не только через title */
   .side-tip {
     position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%); z-index: 50; padding: 5px 10px;
     border-radius: var(--r-chip); background: var(--glass-strong); border: 1px solid var(--glass-edge); color: var(--ink); font-size: var(--body-s); white-space: nowrap;
-    -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); box-shadow: var(--shadow-2);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-2);
     pointer-events: none; visibility: hidden;
   }
   .group:hover > .side-tip, .group:focus-visible > .side-tip { visibility: visible; }
@@ -309,7 +311,7 @@
   .zone.glass { background: var(--glass); box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-2); }
   details > .zone, .zone.absolute {
     background: var(--glass-strong); border: 1px solid var(--glass-edge); border-radius: var(--r-card);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%); backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
     box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-2) !important; animation: pop-in var(--t-fast) var(--ease);
   }
   .card { background: var(--surface-alt); border: 1px solid var(--line-soft); border-radius: var(--r-card); padding: var(--space-4); box-shadow: inset 0 1px 0 var(--glass-hi); transition: border-color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
@@ -350,7 +352,7 @@
     position: relative; padding: 10px 14px 10px 16px; border-radius: var(--r-card); background: var(--control); border: 1px solid var(--line-soft);
     color: var(--ink); font-size: var(--body-m); font-weight: 500; line-height: 1.5; transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
   }
-  .bubble-user::before { content: ""; position: absolute; left: -1px; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--brand-deep); box-shadow: 0 0 10px var(--brand-glow); }
+  .bubble-user::before { content: ""; position: absolute; left: -1px; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--brand-line); box-shadow: 0 0 10px var(--brand-glow); }
   button.bubble-user:hover { background: var(--control-hover); border-color: var(--line); }
   .bubble-agent { color: var(--ink); font-size: var(--body-m); line-height: 1.6; padding: 0 2px; }
   .msg-label { display: flex; align-items: center; gap: var(--space-2); margin-bottom: 6px; }
@@ -379,7 +381,7 @@
   /* Карточка наведения — стекло с тонкой полосой уровня */
   .tooltip-card {
     background: var(--glass-strong); border: 1px solid var(--glass-edge); border-radius: var(--r-card); overflow: hidden;
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%); backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
     box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-2); animation: pop-in var(--t-fast) var(--ease);
   }
   .tooltip-card::before { content: ""; display: block; height: 2px; background: linear-gradient(90deg, var(--level, var(--risk-none)), transparent); }
@@ -402,8 +404,8 @@
   .prose-answer strong { font-weight: 600; }
   .prose-answer code { font-family: var(--font-mono); font-size: var(--mono-m); background: var(--gold-tint); padding: 0 0.25em; border-radius: 3px; }
   /* Диалоги — стекло над затемнённым и размытым фоном; появление — мягкая пружина */
-  dialog { background: var(--glass-strong); color: var(--ink); -webkit-backdrop-filter: blur(28px) saturate(140%); backdrop-filter: blur(28px) saturate(140%); box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-3); }
-  dialog::backdrop { background: var(--backdrop); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+  dialog { background: var(--glass-strong); color: var(--ink); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-3); }
+  dialog::backdrop { background: var(--backdrop); -webkit-backdrop-filter: var(--backdrop-filter); backdrop-filter: var(--backdrop-filter); }
   dialog[open] { animation: dialog-in var(--t-base) var(--spring); }
   dialog.drawer[open] { animation: drawer-in var(--t-base) var(--ease); }
 
@@ -460,8 +462,8 @@
   .role-card:hover { transform: translateY(-2px); border-color: var(--line); }
   .role-card[data-on="true"] {
     transform: translateY(-4px); background: radial-gradient(120% 90% at 50% 0%, var(--brand-tint), transparent 70%), var(--glass);
-    border-color: color-mix(in srgb, var(--brand-deep) 70%, transparent);
-    box-shadow: inset 0 1px 0 var(--glass-hi), 0 0 0 1px color-mix(in srgb, var(--brand) 25%, transparent), 0 22px 50px -18px var(--brand-glow), var(--shadow-2);
+    border-color: color-mix(in srgb, var(--brand-line) 70%, transparent);
+    box-shadow: inset 0 1px 0 var(--glass-hi), 0 0 0 1px color-mix(in srgb, var(--brand-line) 25%, transparent), 0 22px 50px -18px var(--brand-glow), var(--shadow-2);
   }
   .role-card:has(:focus-visible) { box-shadow: var(--focus-ring); }
   .role-card .role-title { font-size: var(--display-s); font-weight: 600; letter-spacing: -0.012em; transition: color var(--t-base) var(--ease); color: var(--ink-2); }
@@ -493,11 +495,11 @@
 /* React Flow: линии и элементы управления в токенах темы; панель управления и мини-карта — стекло */
 .react-flow__attribution { display: none; }
 .react-flow__edge-path { stroke: var(--line-strong); stroke-width: 1; }
-.react-flow__controls { border-radius: 12px; overflow: hidden; border: 1px solid var(--glass-edge); background: var(--glass); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-2) !important; }
+.react-flow__controls { border-radius: 12px; overflow: hidden; border: 1px solid var(--glass-edge); background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-2) !important; }
 .react-flow__controls-button { border: 0 !important; border-bottom: 1px solid var(--line-soft) !important; background: transparent; color: var(--ink-2); fill: var(--ink-2); }
 .react-flow__controls-button:last-child { border-bottom: 0 !important; }
 .react-flow__controls-button:hover { background: var(--control-hover); color: var(--ink); fill: var(--ink); }
-.react-flow__minimap { background: var(--glass); border: 1px solid var(--glass-edge); border-radius: 12px; overflow: hidden; -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); box-shadow: var(--shadow-2); }
+.react-flow__minimap { background: var(--glass); border: 1px solid var(--glass-edge); border-radius: 12px; overflow: hidden; -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-2); }
 
 /* Класс .overline совпадает с утилитой Tailwind (text-decoration: overline): метка не должна перечёркиваться сверху.
    Правило вне слоёв — сильнее утилит. */

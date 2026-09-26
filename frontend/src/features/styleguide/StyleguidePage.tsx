@@ -1,5 +1,6 @@
 import { Download, Landmark, Search } from 'lucide-react'
 import { useState } from 'react'
+import { DoorMark } from '../../components/DoorMark'
 import { Medallion } from '../../components/Medallion'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { Banner, EmptyState, ErrorNote, Skeleton } from '../../components/States'
@@ -26,7 +27,8 @@ const STATES = [['', 'покой'], ['is-hover', 'наведение'], ['is-act
 const SURFACES: [string, string][] = [
   ['--bg', 'холст страницы'], ['--surface', 'панели и зоны'], ['--surface-2', 'полотно графа'],
   ['--surface-3', 'выделенные блоки'], ['--surface-alt', 'карточки'],
-  ['--brand', 'центр слепка, кнопки'], ['--gold', 'нить диалога, фокус'],
+  ['--brand', 'заливка главного действия'], ['--brand-line', 'обводка и индикатор выбранного'], ['--link', 'ссылки'],
+  ['--gold', 'бронза: реквизиты, связи, фокус'],
 ]
 
 export function StyleguidePage() {
@@ -44,7 +46,7 @@ export function StyleguidePage() {
         <ThemeToggle />
       </header>
 
-      <Row title="Палитра" hint="Значения меняются вместе с темой — переменные одни и те же.">
+      <Row title="Палитра" hint="Значения меняются вместе с темой — переменные одни и те же. Тёмная тема — тёплый графит, бордовый — только акцент. Переключатель темы — внизу боковой панели.">
         {SURFACES.map(([v, use]) => (
           <div key={v} className="w-36">
             <div className="h-12 rounded-lg border border-line" style={{ background: `var(${v})` }} />
@@ -69,11 +71,18 @@ export function StyleguidePage() {
         </div>
       </Row>
 
-      <Row title="Материалы" hint="Интерфейс — стекло (навигация, панели управления, меню, диалоги); правовая реальность — твёрдая поверхность. Медальон «Вы» — якорь портрета.">
-        <div className="glass w-56 rounded-[var(--r-zone)] p-4"><p className="overline">glass</p><p className="body-s mt-1">Панель инструментов, боковая навигация, слой рисков</p></div>
-        <div className="glass-strong w-56 rounded-[var(--r-card)] p-4"><p className="overline">glass-strong</p><p className="body-s mt-1">Меню, подсказки, диалоги</p></div>
-        <div className="zone w-56"><p className="overline">zone</p><p className="body-s mt-1">Диалог, карта — твёрдое содержание</p></div>
-        <div className="flex items-center gap-4"><Medallion size={96} /><span className="role-coin" aria-hidden><Landmark className="size-[18px]" /></span></div>
+      <Row title="Материалы" hint="Стекло — плавающий управляющий слой: под ним виден настоящий фон. Правовое содержание — твёрдая поверхность. Стекло в стекло не вкладывается; без размытия и при «уменьшить прозрачность» стекло становится плотным.">
+        <div className="flex flex-wrap gap-3 rounded-[var(--r-zone)] p-4" style={{ background: 'radial-gradient(circle at 18% 30%, var(--brand-glow), transparent 55%), radial-gradient(circle at 82% 70%, var(--gold-tint), transparent 60%), var(--bg)' }}>
+          <div className="glass w-56 rounded-[var(--r-zone)] p-4"><p className="overline">glass</p><p className="body-s mt-1">Боковая навигация, панель сессии, вкладки, управление картой</p></div>
+          <div className="glass-strong w-56 rounded-[var(--r-card)] p-4"><p className="overline">glass-strong</p><p className="body-s mt-1">Меню, подсказки, диалоги — поверх содержимого</p></div>
+          <div className="zone w-56"><p className="overline">zone</p><p className="body-s mt-1">Диалог, карта, риски, формы — твёрдое содержание</p></div>
+        </div>
+      </Row>
+
+      <Row title="Знаки" hint="Дверь — цветом текста темы, ручка — --brand-line (24 и 28 px). Медальон — весы правового положения в 96, 120 и 320 px: центр карты «Вы» и экран входа. Символ роли — монета.">
+        <DoorMark className="size-6" /><DoorMark className="size-7" />
+        <Medallion size={96} /><Medallion size={120} />
+        <span className="role-coin" aria-hidden><Landmark className="size-[18px]" /></span>
       </Row>
 
       <Row title="Типографика">
