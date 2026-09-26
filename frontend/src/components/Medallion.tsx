@@ -9,6 +9,10 @@ const LINKS: [number, number][] = [[0, 1], [1, 2], [2, 3], [1, 4], [4, 2], [0, 5
 
 /** Правый/левый подвес с чашей: две нити от конца коромысла и чаша-полусфера. */
 const pan = (x: number) => `M ${x - 20} 113 H ${x + 20} Q ${x + 18} 128 ${x} 129 Q ${x - 18} 128 ${x - 20} 113 Z`
+/** Качание (CSS-переменные --beam и --pan, градусы; задаёт узел «Вы» на карте, по умолчанию 0): коромысло вращается вокруг оси,
+ *  подвес — вокруг конца коромысла; поворот подвеса компенсирует наклон коромысла, чтобы чаша висела по своему углу --pan. */
+const BEAM = { transform: 'rotate(var(--beam, 0deg))', transformOrigin: '100px 66px' }
+const HANG = (x: number) => ({ transform: 'rotate(calc(var(--pan, 0deg) - var(--beam, 0deg)))', transformOrigin: `${x}px 67px` })
 
 /** Медальон правового положения: бронзовые весы рельефом на тёмном камне, бордовый ореол и цифровой слой.
  *  Символ права, а не портрет и не государственная эмблема. Детализация зависит от размера: в 96–120 px — только
@@ -81,28 +85,32 @@ export function Medallion({ size = 96, halo = true, className = '', title }: { s
           {DOTS.filter((d) => fine || !d[3]).map(([x, y, r]) => <circle key={`${x}-${y}`} cx={x} cy={y} r={fine ? r : r * 1.7} opacity={Math.max(0.35, 1.1 - (x - 110) / 90)} />)}
         </g>
 
-        {/* Весы: навершие, коромысло с осью, стойка, ступенчатое основание, две нити и чаша с каждой стороны */}
+        {/* Весы: навершие, стойка, ступенчатое основание; коромысло с двумя подвесами (нити + чаша) качается; ось — поверх */}
         <g filter={u('relief')} fill={u('metal')}>
           <circle cx="100" cy="50" r="4.5" />
-          <path d="M 44 65 L 100 61.5 L 156 65 L 156 69 L 100 71 L 44 69 Z" />
-          <circle cx="46" cy="67" r="3.4" />
-          <circle cx="154" cy="67" r="3.4" />
-          <circle cx="100" cy="66" r="6.5" />
           <path d="M 97 70 H 103 L 104.5 146 H 95.5 Z" />
           <path d="M 90 146 H 110 L 112.5 151 H 87.5 Z" />
           <path d="M 80 151 H 120 L 125 159 H 75 Z" />
-          <path d={pan(46)} />
-          <path d={pan(154)} />
-        </g>
-        <g fill="none" style={{ stroke: 'var(--gold)' }} strokeWidth={thread} strokeLinecap="round">
-          <path d="M 46 69 L 27.5 113 M 46 69 L 64.5 113" />
-          <path d="M 154 69 L 135.5 113 M 154 69 L 172.5 113" />
+          <g style={BEAM}>
+            <path d="M 44 65 L 100 61.5 L 156 65 L 156 69 L 100 71 L 44 69 Z" />
+            <circle cx="46" cy="67" r="3.4" />
+            <circle cx="154" cy="67" r="3.4" />
+            {[46, 154].map((x) => (
+              <g key={x} style={HANG(x)}>
+                <path d={pan(x)} />
+                <path d={`M ${x} 69 L ${x - 18.5} 113 M ${x} 69 L ${x + 18.5} 113`} fill="none" style={{ stroke: 'var(--gold)' }} strokeWidth={thread} strokeLinecap="round" />
+              </g>
+            ))}
+          </g>
+          <circle cx="100" cy="66" r="6.5" />
         </g>
         {fine && (
           <g fill="none" style={{ stroke: 'var(--marble-lo)' }} strokeOpacity="0.55" strokeWidth="0.8" strokeLinecap="round">
             {/* гравировка: осевая линия коромысла, кромки чаш, ось и ступени основания */}
-            <path d="M 50 66.8 L 100 64.5 L 150 66.8" />
-            <path d="M 27 113 H 65 M 135 113 H 173" />
+            <g style={BEAM}>
+              <path d="M 50 66.8 L 100 64.5 L 150 66.8" />
+              {[46, 154].map((x) => <path key={x} style={HANG(x)} d={`M ${x - 19} 113 H ${x + 19}`} />)}
+            </g>
             <circle cx="100" cy="66" r="2.6" />
             <path d="M 92 151 H 108 M 80 159 H 120" />
           </g>

@@ -23,7 +23,7 @@ import { LEVEL_ORDER, LEVEL_RU, ROLE_RU } from '../../lib/risk'
 import { nodesForRisk, riskIdsForNode, useSelection } from '../../lib/selection'
 import { cssVar } from '../../lib/theme'
 import { download, NODE_TITLE, svgToPng, toSvg } from './graphExport'
-import { branchOf, countersText, dialogThread, lodFor, questionNumbers, radialLayout, short, topicCounters, visibleAt, type Positions } from './graphModel'
+import { BOX, branchOf, countersText, dialogThread, growth, lodFor, questionNumbers, radialLayout, separate, short, topicCounters, visibleAt, type Positions, type SizeOf } from './graphModel'
 import { nodeTypes, type PData } from './GraphNodes'
 import { ReasoningDrawer } from './ReasoningDrawer'
 
@@ -118,6 +118,7 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   // Замеры узлов: React Flow сбрасывает размеры у каждого нового объекта узла без measured и прячет его (visibility: hidden)
   // до повторного замера — курсор «проваливается» на фон, приходит mouseleave, и карта мерцает при неподвижном курсоре.
   const sizes = useRef(new Map<string, { width: number; height: number }>())
+  const pinned = useRef(new Set<string>()) // последние перетащенные узлы: раздвижка их не сдвигает
   const hoverId = useRef<string | null>(null)
   const hoverOut = useRef<number | undefined>(undefined)
   const timer = useRef<number | undefined>(undefined)
@@ -156,7 +157,17 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   }, [graph, filters, nums])
 
   const visible = useMemo(() => graph.nodes.filter((n) => !hidden.has(n.id)).sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || (nums.get(a.id) ?? 0) - (nums.get(b.id) ?? 0)), [graph.nodes, hidden, nums])
-  const layout = useMemo(() => radialLayout(graph, visible, positions.current), [graph, visible, moved]) // eslint-disable-line react-hooks/exhaustive-deps -- позиции лежат в ref: moved пересчитывает раскладку после перетаскивания и «Разложить заново»
+  // Узлы не залезают друг на друга: после раскладки все видимые узлы раздвигаются по замеренным размерам (капсула темы —
+  // с учётом масштаба), включая сохранённые позиции; не двигается только то, что пользователь только что перетащил.
+  const layout = useMemo(() => {
+    const size: SizeOf = (n) => {
+      const m = sizes.current.get(n.id), k = n.kind === 'topic' ? growth(n.weight) : 1
+      return m ? { w: m.width, h: m.height, k } : { ...BOX[n.kind], k }
+    }
+    const out = radialLayout(graph, visible, positions.current, size)
+    separate(visible, out, pinned.current, size)
+    return out
+  }, [graph, visible, moved]) // eslint-disable-line react-hooks/exhaustive-deps -- позиции и размеры лежат в ref: moved пересчитывает раскладку после замера, перетаскивания и «Разложить заново»
 
   const persist = useCallback((f: GraphFilters) => {
     window.clearTimeout(timer.current)
@@ -164,9 +175,9 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   }, [sessionId])
   const setF = (f: GraphFilters) => { setFilters(f); persist(f) }
 
-  // Новые узлы получают позицию один раз и сохраняются: следующий ответ не перетряхивает слепок.
+  // Новые узлы получают позицию один раз и сохраняются (следующий ответ не перетряхивает слепок); раздвинутые — тоже.
   useEffect(() => {
-    const fresh = Object.keys(layout).filter((id) => !positions.current[id])
+    const fresh = Object.entries(layout).filter(([id, p]) => positions.current[id]?.x !== p.x || positions.current[id]?.y !== p.y)
     if (!fresh.length) return
     positions.current = { ...positions.current, ...layout }
     persist(filters)
@@ -247,11 +258,17 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
 
   const onNodesChange = useCallback((changes: NodeChange<Node<PData>>[]) => {
     let drag = false
+    const dragged = new Set<string>()
     for (const c of changes) {
-      // первый замер узла тоже пересобирает узлы: мини-карта рисует только узлы с measured в пользовательском объекте
-      if (c.type === 'dimensions' && c.dimensions) { drag ||= !sizes.current.has(c.id); sizes.current.set(c.id, c.dimensions) }
-      if (c.type === 'position' && c.position) { positions.current = { ...positions.current, [c.id]: c.position }; drag = true }
+      // новый или изменившийся замер пересобирает узлы: мини-карта рисует только узлы с measured, раздвижка берёт реальный размер
+      if (c.type === 'dimensions' && c.dimensions) {
+        const was = sizes.current.get(c.id)
+        drag ||= !was || Math.abs(was.width - c.dimensions.width) > 1 || Math.abs(was.height - c.dimensions.height) > 1
+        sizes.current.set(c.id, c.dimensions)
+      }
+      if (c.type === 'position' && c.position) { positions.current = { ...positions.current, [c.id]: c.position }; dragged.add(c.id); drag = true }
     }
+    if (dragged.size) pinned.current = dragged
     if (drag) force((x) => x + 1)
   }, [])
   useEffect(() => () => window.clearTimeout(hoverOut.current), [])
@@ -290,7 +307,7 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
     if (png) download(`doorain-portrait-${stamp}.png`, png)
   }, [graph, visible, layout])
 
-  const relayout = () => { positions.current = {}; force((x) => x + 1); persist(filters) }
+  const relayout = () => { positions.current = {}; pinned.current = new Set(); force((x) => x + 1); persist(filters) }
   const topics = graph.nodes.filter((n) => n.kind === 'topic')
   const topicTitle = topics.find((t) => t.id === filters.topic)?.label
   const onlyHigh = filters.minLevel === 'high'

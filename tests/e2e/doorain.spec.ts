@@ -588,6 +588,54 @@ test('карта: неподвижный курсор над узлом — од
   expect(await page.evaluate(() => (window as unknown as { __hov: string[] }).__hov)).not.toContain('hidden')
 })
 
+test('карта: узлы не залезают друг на друга (и после перетаскивания); весы «Вы» качаются при перемещении и успокаиваются', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await login(page)
+  await startSession(page)
+  const qs = [NO_POLICY, 'Мы собираем e-mail и телефоны покупателей через форму заказа.', 'Размещаем рекламу у блогеров, нужна ли маркировка?']
+  for (const [i, q] of qs.entries()) {
+    await ask(page, q)
+    await expect(page.locator('.react-flow__node-question')).toHaveCount(i + 1)  // ответ получен, узел на карте
+    await expect(page.getByLabel('Ваш вопрос')).toBeEnabled()
+  }
+  await page.waitForTimeout(800)
+  // видимые прямоугольники узлов (с масштабом капсулы темы и подписями) попарно не пересекаются
+  const overlaps = () => page.evaluate(() => {
+    const rects = [...document.querySelectorAll('.react-flow__node')].filter((n) => getComputedStyle(n).visibility !== 'hidden').map((n) => {
+      const parts = [...n.querySelectorAll('.gn > :not(.react-flow__handle)')].map((c) => c.getBoundingClientRect()).filter((r) => r.width && r.height)
+      return { id: `${/node-(\w+)/.exec(n.className)?.[1]}:${n.textContent?.slice(0, 16)}@${Math.round(parts[0]?.left ?? 0)},${Math.round(parts[0]?.top ?? 0)}`, l: Math.min(...parts.map((r) => r.left)), t: Math.min(...parts.map((r) => r.top)), r: Math.max(...parts.map((r) => r.right)), b: Math.max(...parts.map((r) => r.bottom)) }
+    })
+    const bad: string[] = []
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+      const a = rects[i]!, b = rects[j]!
+      if (a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1) bad.push(`${a.id} × ${b.id}`)
+    }
+    return bad
+  })
+  expect(await overlaps()).toEqual([])
+
+  const medal = page.locator('.react-flow__node-center .gn-center')
+  const pan = () => medal.evaluate((e) => Math.abs(parseFloat(e.style.getPropertyValue('--pan') || '0')))
+  const c = (await medal.boundingBox())!
+  await page.mouse.move(c.x + c.width / 2, c.y + c.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(c.x + c.width / 2 + 160, c.y + c.height / 2 - 30, { steps: 12 })
+  expect(await pan()).toBeGreaterThan(3)  // чаши отстают от движения
+  await page.mouse.up()
+  await expect.poll(pan, { timeout: 8000 }).toBe(0)  // колебания затухают
+  expect(await overlaps()).toEqual([])
+
+  // вопрос, брошенный поверх темы, остаётся где брошен, а соседи раздвигаются
+  const q = (await page.locator('.react-flow__node-question').first().boundingBox())!
+  const t = (await page.locator('.react-flow__node-topic').first().boundingBox())!
+  await page.mouse.move(q.x + q.width / 2, q.y + q.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2, { steps: 15 })
+  await page.mouse.up()
+  await page.waitForTimeout(400)
+  expect(await overlaps()).toEqual([])
+})
+
 test('нижняя кнопка профиля: «Профиль» целиком, длинное имя — второй строкой; в свёрнутой панели — имя в aria-label и видимая подсказка', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await login(page)

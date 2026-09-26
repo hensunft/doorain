@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Graph } from '../../lib/api'
-import { BOX, branchOf, countersText, dialogThread, lodFor, normParts, questionNumbers, radialLayout, separate, topicCounters, visibleAt } from './graphModel'
+import { BOX, branchOf, countersText, dialogThread, lodFor, normParts, questionNumbers, radialLayout, separate, swingPush, swingStep, topicCounters, visibleAt } from './graphModel'
 
 const n = (id: string, kind: Graph['nodes'][number]['kind'], extra: Partial<Graph['nodes'][number]> = {}) =>
   ({ id, kind, label: id, weight: 1, risk_level: null, resolved_level: null, risk_count: 0, data: {}, ...extra }) as Graph['nodes'][number]
@@ -68,6 +68,31 @@ describe('модель слепка', () => {
       const px = pos[x.id]!, py = pos[y.id]!
       expect(px.x + W <= py.x || py.x + W <= px.x || px.y + H <= py.y || py.y + H <= px.y).toBe(true)
     }
+  })
+
+  it('раздвижка по видимым размерам: масштаб капсулы темы и сохранённые позиции тоже раздвигаются', () => {
+    const ts = [n('a', 'topic'), n('b', 'topic'), n('c', 'question')]
+    const pos = { a: { x: 0, y: 0 }, b: { x: 10, y: 40 }, c: { x: 20, y: 30 } }  // все «сохранены» внахлёст
+    const size = (x: Graph['nodes'][number]) => (x.kind === 'topic' ? { w: 200, h: 50, k: 1.4 } : { w: 180, h: 56 })
+    separate(ts, pos, new Set(['a']), size)
+    expect(pos.a).toEqual({ x: 0, y: 0 })  // перетащенный пользователем остаётся на месте
+    const rect = (id: 'a' | 'b' | 'c'): [number, number, number, number] => { const s = size(ts.find((x) => x.id === id)!), k = s.k ?? 1; const cx = pos[id].x + s.w / 2, cy = pos[id].y + s.h / 2; return [cx - (s.w * k) / 2, cy - (s.h * k) / 2, cx + (s.w * k) / 2, cy + (s.h * k) / 2] }
+    for (const [x, y] of [['a', 'b'], ['a', 'c'], ['b', 'c']] as const) {
+      const [a1, b1, c1, d1] = rect(x), [a2, b2, c2, d2] = rect(y)
+      expect(c1 <= a2 || c2 <= a1 || d1 <= b2 || d2 <= b1, `${x} и ${y} пересекаются`).toBe(true)
+    }
+  })
+
+  it('весы: сдвиг вправо отклоняет чаши, колебания затухают и весы успокаиваются', () => {
+    const s = { pan: 0, panV: 0, beam: 0, beamV: 0 }
+    swingPush(s, 30)
+    swingStep(s, 0.016)
+    expect(s.pan).toBeGreaterThan(0)
+    let frames = 0, crossed = false
+    while (swingStep(s, 0.016) && frames < 2000) { frames++; crossed ||= s.pan < 0 }
+    expect(crossed).toBe(true)  // качается через середину, а не просто возвращается
+    expect(frames * 0.016).toBeLessThan(8)
+    expect(Math.abs(s.pan)).toBeLessThan(0.05)
   })
 
   it('подпись нормы для шестиугольника', () => {

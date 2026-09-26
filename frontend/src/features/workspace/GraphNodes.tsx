@@ -1,9 +1,9 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
-import type { CSSProperties } from 'react'
+import { useEffect, useRef, type CSSProperties } from 'react'
 import { Medallion } from '../../components/Medallion'
 import type { GraphNode, Level } from '../../lib/api'
 import { levelVar } from '../../lib/risk'
-import { growth, normParts, short } from './graphModel'
+import { growth, normParts, short, swingPush, swingStep, type Swing } from './graphModel'
 
 export interface PData extends Record<string, unknown> {
   kind: GraphNode['kind']
@@ -51,11 +51,39 @@ function Diamond({ data, style }: { data: PData; style?: CSSProperties }) {
   return <span className="gn-diamond" style={style} aria-hidden><span>{data.count}</span></span>
 }
 
-/** «Вы» — якорь портрета: медальон правовой личности (мрамор, стеклянный ореол), под ним роль и тема сессии. */
-function CenterNode({ data }: NodeProps<Node<PData>>) {
+/** Весы качаются, когда узел двигают: каждый сдвиг по x толкает маятник чаш, затухание считается в requestAnimationFrame,
+ *  углы пишутся в CSS-переменные --pan/--beam элемента (без перерисовки React). При prefers-reduced-motion весы неподвижны. */
+function useSwing(x: number) {
+  const ref = useRef<HTMLDivElement>(null)
+  const st = useRef({ x, raf: 0, t: 0, s: { pan: 0, panV: 0, beam: 0, beamV: 0 } as Swing })
+  useEffect(() => {
+    const m = st.current
+    const dx = x - m.x
+    m.x = x
+    if (!dx || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    swingPush(m.s, dx)
+    if (m.raf) return
+    m.t = performance.now()
+    const tick = (now: number) => {
+      const going = swingStep(m.s, Math.min(0.033, (now - m.t) / 1000))
+      m.t = now
+      if (!going) m.s = { pan: 0, panV: 0, beam: 0, beamV: 0 }
+      ref.current?.style.setProperty('--pan', `${m.s.pan.toFixed(2)}deg`)
+      ref.current?.style.setProperty('--beam', `${m.s.beam.toFixed(2)}deg`)
+      m.raf = going ? requestAnimationFrame(tick) : 0
+    }
+    m.raf = requestAnimationFrame(tick)
+  }, [x])
+  useEffect(() => () => cancelAnimationFrame(st.current.raf), [])
+  return ref
+}
+
+/** «Вы» — якорь портрета: медальон с весами (при перетаскивании чаши качаются), под ним роль и тема сессии. */
+function CenterNode({ data, positionAbsoluteX }: NodeProps<Node<PData>>) {
+  const swing = useSwing(positionAbsoluteX)
   return (
     <Shell data={data}>
-      <div className="gn-center"><Medallion size={120} /></div>
+      <div className="gn-center" ref={swing}><Medallion size={120} /></div>
       <span className="serif mt-1.5 text-[17px] font-semibold leading-none">Вы</span>
       <span className="overline mt-1">{data.role}</span>
       <span className="caption mt-0.5 max-w-[180px] truncate">{short(data.label, 40)}</span>

@@ -90,7 +90,7 @@ export const BOX: Record<GraphNode['kind'], { w: number; h: number }> = {
 
 /** Радиальная раскладка: центр в середине, темы по окружности, вопросы — дугой снаружи своей темы, нормы — ещё дальше.
  *  Уже размещённые узлы (keep) не двигаются: новые узлы не перетряхивают граф. */
-export function radialLayout(graph: Graph, visible: GraphNode[], keep: Positions): Positions {
+export function radialLayout(graph: Graph, visible: GraphNode[], keep: Positions, size?: SizeOf): Positions {
   const ids = new Set(visible.map((n) => n.id))
   const topics = visible.filter((n) => n.kind === 'topic')
   const T = Math.max(1, topics.length)
@@ -147,13 +147,19 @@ export function radialLayout(graph: Graph, visible: GraphNode[], keep: Positions
     const b = BOX[n.kind]
     out[n.id] = { x: Math.round(p.x - b.w / 2), y: Math.round(p.y - b.h / 2) }
   }
-  separate(visible, out, new Set(Object.keys(keep)))
+  separate(visible, out, new Set(Object.keys(keep)), size)
   return out
 }
 
-/** Раздвигает пересекающиеся прямоугольники узлов; закреплённые (уже размещённые) узлы не двигаются.
+/** Размер узла для раздвижки: w × h — рамка узла (от неё считается центр), k — видимый масштаб содержимого (капсула темы). */
+export type SizeOf = (n: GraphNode) => { w: number; h: number; k?: number }
+const boxOf: SizeOf = (n) => BOX[n.kind]
+
+/** Раздвигает пересекающиеся узлы по их видимым прямоугольникам (центр + масштаб); закреплённые узлы не двигаются.
+ *  Сдвиг — по оси наименьшего перекрытия, поровну между двумя свободными узлами.
  *  ponytail: O(n²) за проход, до 60 проходов — достаточно для слепка в сотни узлов; при тысячах нужен пространственный индекс. */
-export function separate(nodes: GraphNode[], pos: Positions, fixed: Set<string>, gap = 10): void {
+export function separate(nodes: GraphNode[], pos: Positions, fixed: Set<string>, size: SizeOf = boxOf, gap = 12): void {
+  const dim = nodes.map((n) => { const s = size(n), k = s.k ?? 1; return { w: s.w, h: s.h, hw: (s.w * k) / 2, hh: (s.h * k) / 2 } })
   for (let iter = 0; iter < 60; iter++) {
     let moved = false
     for (let i = 0; i < nodes.length; i++) {
@@ -161,18 +167,19 @@ export function separate(nodes: GraphNode[], pos: Positions, fixed: Set<string>,
         const a = nodes[i]!, b = nodes[j]!
         const pa = pos[a.id], pb = pos[b.id]
         if (!pa || !pb || (fixed.has(a.id) && fixed.has(b.id))) continue
-        const A = BOX[a.kind], B = BOX[b.kind]
-        const dx = Math.min(pa.x + A.w, pb.x + B.w) - Math.max(pa.x, pb.x) + gap
-        const dy = Math.min(pa.y + A.h, pb.y + B.h) - Math.max(pa.y, pb.y) + gap
+        const A = dim[i]!, B = dim[j]!
+        const ax = pa.x + A.w / 2, ay = pa.y + A.h / 2, bx = pb.x + B.w / 2, by = pb.y + B.h / 2
+        const dx = A.hw + B.hw + gap - Math.abs(ax - bx)
+        const dy = A.hh + B.hh + gap - Math.abs(ay - by)
         if (dx <= 0 || dy <= 0) continue
         moved = true
         const horizontal = dx < dy
-        const sign = horizontal ? Math.sign(pa.x + A.w / 2 - (pb.x + B.w / 2)) || 1 : Math.sign(pa.y + A.h / 2 - (pb.y + B.h / 2)) || 1
-        const shift = (horizontal ? dx : dy) / (fixed.has(a.id) || fixed.has(b.id) ? 1 : 2)
+        const sign = horizontal ? Math.sign(ax - bx) || 1 : Math.sign(ay - by) || 1
+        const shift = Math.ceil((horizontal ? dx : dy) / (fixed.has(a.id) || fixed.has(b.id) ? 1 : 2))
         const move = (id: string, s: number) => {
           if (fixed.has(id)) return
           const p = pos[id]!
-          pos[id] = horizontal ? { x: Math.round(p.x + s * shift), y: p.y } : { x: p.x, y: Math.round(p.y + s * shift) }
+          pos[id] = horizontal ? { x: p.x + s * shift, y: p.y } : { x: p.x, y: p.y + s * shift }
         }
         move(a.id, sign)
         move(b.id, -sign)
@@ -180,6 +187,20 @@ export function separate(nodes: GraphNode[], pos: Positions, fixed: Set<string>,
     }
     if (!moved) return
   }
+}
+
+/** Качание весов «Вы»: чаши — затухающий маятник (угол pan), коромысло — затухающая пружина (угол beam), в градусах.
+ *  push(dx) — толчок от перемещения узла на dx: чаши отстают от движения, коромысло отвечает меньше и в другую сторону. */
+export interface Swing { pan: number; panV: number; beam: number; beamV: number }
+export const swingPush = (s: Swing, dx: number): void => { s.panV += dx * 3; s.beamV -= dx }
+export function swingStep(s: Swing, dt: number): boolean {
+  s.panV += (-81 * s.pan - 2.4 * s.panV) * dt
+  s.pan += s.panV * dt
+  if (Math.abs(s.pan) > 32) { s.pan = Math.sign(s.pan) * 32; s.panV = 0 } // упор: скорость гасится, а не копится у предела
+  s.beamV += (-49 * s.beam - 3 * s.beamV) * dt
+  s.beam += s.beamV * dt
+  if (Math.abs(s.beam) > 10) { s.beam = Math.sign(s.beam) * 10; s.beamV = 0 }
+  return Math.abs(s.pan) + Math.abs(s.panV) + Math.abs(s.beam) + Math.abs(s.beamV) > 0.05 // ещё качается
 }
 
 /** Короткая подпись нормы для шестиугольника: номер акта сверху, статья снизу («152» / «ст. 22»). */

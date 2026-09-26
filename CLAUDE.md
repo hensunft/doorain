@@ -58,6 +58,7 @@ python evals/run_eval.py --user owner --split holdout   # DOORAIN_EVAL_PASSWORD 
 * Пороги уровней и лимит рисков — `backend/app/config/risk.yaml` (уровни в БД пересчитываются при старте API); цвета PDF — `backend/app/config/print.yaml`, тест сверяет их с `tokens.css`. Уровень во frontend — только `data-level`, без инлайновых цветов.
 * В PDF не должно быть реплик диалога: вопросы подписываются номерами (`test_export_pdf_content_snapshot_and_auth`).
 * Дата «сегодня» во фронтенде — `todayISO()` (`src/lib/date.ts`): `toISOString()` даёт UTC и до 03:00 по Москве подставляет вчерашний срез.
+* Раздвижка узлов карты (`separate`) идёт по размерам из `onNodesChange` (`sizes`) на каждой пересборке раскладки; новый или изменившийся замер вызывает пересборку (иначе мини-карта пустая, а раздвижка считает по оценочному `BOX`). Качание весов — CSS-переменные, не состояние React: перерисовка узлов на каждом кадре вернула бы мерцание.
 * Панель портрета на узкой раскладке скрыта `display: none`, React Flow меряет её нулём: карта вписывается заново по `ResizeObserver` (`GraphView`), проверка — в e2e «адаптивность…».
 
 Подробности — `docs/` (architecture, decisions, security, risk-methodology, knowledge-base, deployment, internet-access, backup-restore, evaluation, design-system, progress).
