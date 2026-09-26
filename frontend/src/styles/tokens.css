@@ -1,57 +1,89 @@
-/* Единственный источник правды по цвету, типографике, геометрии и движению.
+/* Единственный источник правды по цвету, типографике, геометрии, глубине, стеклу и движению.
    В компонентах не должно быть литеральных цветов и размеров — только эти переменные.
-   Тёмная тема: [data-theme="dark"] или prefers-color-scheme, если пользователь не выбрал тему явно. */
+   Принцип: интерфейс — стекло (навигация, панели управления, меню, диалоги), правовая реальность — твёрдая (диалог, карта, факты).
+   Тёмная тема — основная: [data-theme="dark"] или prefers-color-scheme, если пользователь не выбрал тему явно.
+   Светлая тема — «бумажная»; её значения совпадают с печатной палитрой PDF (backend/app/config/print.yaml, тест сверяет). */
 
 :root {
   /* Поверхности */
-  --bg: #f6f1e9;
-  --surface: #fffdf9;
-  --surface-2: #fbf7f0;
-  --surface-3: #f4efe5;
-  --surface-alt: #ffffff;
+  --bg: #f4efe7;
+  --surface: #fbf8f3;
+  --surface-2: #f7f2ea;
+  --surface-3: #efe8dd;
+  --surface-alt: #fffdf9;
 
   /* Линии */
-  --line: #e3d8c8;
-  --line-soft: #eadfcd;
-  --line-strong: #c6b8a4;
+  --line: #e2d7c7;
+  --line-soft: #ebe2d4;
+  --line-strong: #c9baa5;
 
   /* Текст */
-  --ink: #241c1a;
-  --ink-2: #4a403a;
-  --muted: #5f544e;
-  --faint: #8a7d74;
+  --ink: #1f1917;
+  --ink-2: #463c36;
+  --muted: #5f554e;
+  --faint: #857a70;
 
-  /* Бренд */
-  --brand: #5b1a2b;
-  --brand-deep: #471420;
-  --brand-tint: #efe0e3;
-  --brand-on: #fffdf9; /* текст на бордовом */
-  --gold: #b08d57;
-  --gold-tint: #f4ece0;
+  /* Бренд: бордовый — подпись DoorAIn, бронза/шампань — связи, реквизиты, фокус */
+  --brand: #6b1f33;
+  --brand-deep: #551828;
+  --brand-tint: #f1e3e6;
+  --brand-on: #fffaf6; /* текст на бордовом */
+  --brand-glow: rgba(107, 31, 51, 0.16);
+  --gold: #a8865a;
+  --link: #6b1f33;
+  --link-hover: #551828;
+  --gold-tint: #f3ebdf;
 
-  /* Уровни риска */
-  --risk-none: #6b7280;
-  --risk-none-tint: #eff0f2;
-  --risk-low: #3c7a45;
-  --risk-low-tint: #e7f0e7;
-  --risk-mid: #c98a12;
-  --risk-mid-tint: #faefd8;
-  --risk-high: #b3261e;
-  --risk-high-tint: #f7e3e1;
-  --risk-critical: #5b1a2b;
-  --risk-critical-tint: #f1e2e5;
-  --on-risk-mid: #2b2008; /* тёмный текст на насыщенном жёлтом: контраст ≥ 4.5:1 */
+  /* Уровни риска — не светофор: тёплый камень → бронза → бордовый → сдержанный тёплый красный.
+     --risk-*-ink — текст на подложке и на фоне страницы (контраст ≥ 4.5:1). */
+  --risk-none: #77716a;
+  --risk-none-tint: #efece8;
+  --risk-low: #6d665c;
+  --risk-low-tint: #ece8e1;
+  --risk-low-ink: #5a544b;
+  --risk-mid: #b27c30;
+  --risk-mid-tint: #f6ecdb;
+  --risk-high: #6b1f33;
+  --risk-high-tint: #f3e3e7;
+  --risk-high-ink: #6b1f33;
+  --risk-critical: #b0392a;
+  --risk-critical-tint: #f8e4e0;
+  --risk-critical-ink: #a33526;
+  --on-risk-mid: #1a1206; /* тёмный текст на бронзе: контраст ≥ 4.5:1 */
   --on-risk: #ffffff;
-  --risk-mid-ink: #7a5405; /* текст на подложке-тинте среднего уровня */
+  --risk-mid-ink: #6e4a12; /* текст на подложке-тинте среднего уровня */
   /* Штриховка уровня: дублирует цвет, различима в ч/б печати. dark — поверх тинта, light — поверх насыщенной заливки */
-  --hatch-dark: rgba(36, 28, 26, 0.2);
+  --hatch-dark: rgba(31, 25, 23, 0.2);
   --hatch-light: rgba(255, 253, 249, 0.34);
-  --chip-norm-ink: var(--brand); /* реквизит нормы на золотой подложке */
+  --hatch-faint: rgba(31, 25, 23, 0.1); /* пустые ячейки матрицы: уровень читается, но не шумит */
+  --chip-norm-ink: var(--brand); /* реквизит нормы на бронзовой подложке */
+
+  /* Стекло: полупрозрачная поверхность, размытие того, что под ней, светлая кромка сверху */
+  --glass: rgba(255, 252, 247, 0.72);
+  --glass-strong: rgba(255, 252, 247, 0.92);
+  --glass-edge: rgba(70, 45, 30, 0.1);
+  --glass-hi: rgba(255, 255, 255, 0.75);
+  --glass-blur: 22px;
+  /* Элементы управления: вторичные кнопки, дорожка переключателя, чипы */
+  --control: #fffdf9;
+  --control-hover: #f1eadf;
+  --sheen: rgba(255, 255, 255, 0.16); /* блик сверху на бордовой кнопке */
+  /* Окружающий свет страницы: бордовый слева сверху, шампань справа — «музейный свет» за стеклом */
+  --ambient-1: rgba(107, 31, 51, 0.07);
+  --ambient-2: rgba(168, 134, 90, 0.09);
+  --spot: rgba(255, 255, 255, 0.55); /* световое пятно в центре карты */
+
+  /* Мрамор медальона «Вы» и символов (тёмный камень в обеих темах) */
+  --marble-hi: #4a3f39;
+  --marble-lo: #120e0c;
+  --marble-vein: #cbbba6;
+  --marble-relief: #e9dfd2;
 
   /* Геометрия */
-  --r-chip: 6px;
-  --r-card: 10px;
-  --r-zone: 14px;
+  --r-chip: 8px;
+  --r-control: 10px;
+  --r-card: 14px;
+  --r-zone: 20px;
   --r-pill: 999px;
   --space-1: 4px;
   --space-2: 8px;
@@ -59,37 +91,46 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
+  --space-7: 48px;
 
-  /* Глубина */
-  --shadow-hover: 0 6px 16px rgba(58, 47, 42, 0.16);
-  --focus-ring: 0 0 0 3px var(--gold);
-  --backdrop: rgba(36, 28, 26, 0.32);
+  /* Глубина: 1 — поверхность, 2 — всплывающее, 3 — модальное */
+  --shadow-1: 0 1px 2px rgba(60, 40, 28, 0.06), 0 1px 1px rgba(60, 40, 28, 0.04);
+  --shadow-2: 0 10px 30px -8px rgba(60, 40, 28, 0.18), 0 2px 6px rgba(60, 40, 28, 0.06);
+  --shadow-3: 0 28px 70px -16px rgba(40, 24, 16, 0.32), 0 4px 14px rgba(40, 24, 16, 0.08);
+  --shadow-hover: var(--shadow-2);
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--gold);
+  --backdrop: rgba(31, 25, 23, 0.34);
 
-  /* Движение */
-  --t-fast: 120ms;
+  /* Движение: 150–300 мс, мягкая пружина без перелёта через край */
+  --t-fast: 150ms;
+  --t-base: 220ms;
   --t-node: 300ms;
   --t-risk: 400ms;
   --t-camera: 500ms;
-  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --spring: cubic-bezier(0.3, 1.25, 0.5, 1);
 
-  /* Типографика */
+  /* Типографика: гротеск Inter для интерфейса; антиква Playfair — только для бренда и вступлений */
   --font-display: "Playfair Display", "PT Serif", Georgia, serif;
-  --font-sans: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+  --font-sans: "Inter Variable", "Segoe UI Variable Text", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "Cascadia Mono", "Courier New", monospace;
 
+  --display-xl: clamp(32px, 4.4vw, 44px);
   --display-l: 30px;
-  --display-m: 22px;
-  --display-s: 17px;
+  --display-m: 21px;
+  --display-s: 16px;
   --body-l: 14px;
   --body-m: 13px;
   --body-s: 12px;
   --caption: 11.5px;
-  --overline: 10px;
+  --overline: 10.5px;
   --mono-m: 11px;
   --mono-l: 13px;
+  --tracking-tight: -0.021em;
+  --tracking-wide: 0.12em;
 }
 
-/* Тёплая тёмная тема. Применяется по выбору пользователя либо по системной настройке. */
+/* Тёмная тема — эспрессо-чёрный, графит, приглушённый бордовый, слоновая кость. Применяется по выбору пользователя либо по системной настройке. */
 :root[data-theme="dark"],
 :root:not([data-theme="light"]) {
   color-scheme: light;
@@ -98,77 +139,119 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #17120f;
-    --surface: #1f1a16;
-    --surface-2: #241e19;
-    --surface-3: #2b241e;
-    --surface-alt: #241e19;
-    --line: #3a312a;
-    --line-soft: #332b25;
-    --line-strong: #4d4239;
-    --ink: #f2ebe0;
-    --ink-2: #d9cfc1;
-    --muted: #b3a798;
-    --faint: #8f8375;
-    --brand: #8e2d45;
-    --brand-deep: #a3364f;
-    --brand-tint: #3a1d25;
-    --brand-on: #fdf7f8;
-    --gold: #c9a26b;
-    --gold-tint: #32291f;
-    --risk-none: #9aa1ac;
-    --risk-none-tint: #2a2622;
-    --risk-low: #5fa36a;
-    --risk-low-tint: #1f2b21;
-    --risk-mid: #e3a62b;
-    --risk-mid-tint: #332915;
-    --risk-high: #e05a50;
-    --risk-high-tint: #331f1d;
-    --risk-critical: #c2506a;
-    --risk-critical-tint: #331d24;
-    --on-risk-mid: #1c1409;
-    --hatch-dark: rgba(242, 235, 224, 0.2);
-    --hatch-light: rgba(23, 18, 15, 0.3);
-    --risk-mid-ink: #e3a62b;
-  --chip-norm-ink: var(--gold);
-    --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.45);
+    --bg: #0c0908;
+    --surface: #14100e;
+    --surface-2: #18130f;
+    --surface-3: #221c18;
+    --surface-alt: #1a1512;
+    --line: rgba(236, 214, 190, 0.1);
+    --line-soft: rgba(236, 214, 190, 0.06);
+    --line-strong: rgba(236, 214, 190, 0.18);
+    --ink: #eee6da;
+    --ink-2: #d3c8b9;
+    --muted: #a69a8b;
+    --faint: #857a6e;
+    --brand: #7b2437;
+    --brand-deep: #8f2c42;
+    --brand-tint: rgba(163, 55, 84, 0.2);
+    --brand-on: #fbf3ef;
+    --brand-glow: rgba(168, 57, 90, 0.34);
+    --gold: #c2a57c;
+  --link: #e0909f;
+  --link-hover: #eee6da;
+    --link: #e0909f;
+    --link-hover: #eee6da;
+    --gold-tint: rgba(194, 165, 124, 0.13);
+    --risk-none: #6a635b;
+    --risk-none-tint: rgba(150, 140, 128, 0.13);
+    --risk-low: #6f685e;
+    --risk-low-tint: rgba(170, 160, 145, 0.14);
+    --risk-low-ink: #b9b0a1;
+    --risk-mid: #b88a4a;
+    --risk-mid-tint: rgba(196, 150, 85, 0.16);
+    --risk-high: #a33754;
+    --risk-high-tint: rgba(163, 55, 84, 0.22);
+    --risk-high-ink: #e0909f;
+    --risk-critical: #b8412e;
+    --risk-critical-tint: rgba(200, 75, 55, 0.2);
+    --risk-critical-ink: #ee8f7b;
+    --on-risk-mid: #1b1309;
+    --on-risk: #fbf3ef;
+    --hatch-dark: rgba(238, 230, 218, 0.18);
+    --hatch-light: rgba(12, 9, 8, 0.3);
+  --hatch-faint: rgba(238, 230, 218, 0.07);
+    --hatch-faint: rgba(238, 230, 218, 0.07);
+    --risk-mid-ink: #d7b079;
+    --chip-norm-ink: var(--gold);
+    --glass: rgba(26, 20, 17, 0.62);
+    --glass-strong: rgba(24, 19, 16, 0.9);
+    --glass-edge: rgba(255, 236, 214, 0.09);
+    --glass-hi: rgba(255, 240, 222, 0.07);
+    --control: rgba(236, 214, 190, 0.05);
+    --control-hover: rgba(236, 214, 190, 0.1);
+    --sheen: rgba(255, 236, 220, 0.12);
+    --ambient-1: rgba(123, 36, 55, 0.2);
+    --ambient-2: rgba(194, 165, 124, 0.06);
+    --spot: rgba(236, 214, 190, 0.05);
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-2: 0 14px 36px -10px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.35);
+    --shadow-3: 0 34px 90px -20px rgba(0, 0, 0, 0.85), 0 6px 18px rgba(0, 0, 0, 0.4);
+    --backdrop: rgba(5, 3, 2, 0.6);
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #17120f;
-  --surface: #1f1a16;
-  --surface-2: #241e19;
-  --surface-3: #2b241e;
-  --surface-alt: #241e19;
-  --line: #3a312a;
-  --line-soft: #332b25;
-  --line-strong: #4d4239;
-  --ink: #f2ebe0;
-  --ink-2: #d9cfc1;
-  --muted: #b3a798;
-  --faint: #8f8375;
-  --brand: #8e2d45;
-  --brand-deep: #a3364f;
-  --brand-tint: #3a1d25;
-  --brand-on: #fdf7f8;
-  --gold: #c9a26b;
-  --gold-tint: #32291f;
-  --risk-none: #9aa1ac;
-  --risk-none-tint: #2a2622;
-  --risk-low: #5fa36a;
-  --risk-low-tint: #1f2b21;
-  --risk-mid: #e3a62b;
-  --risk-mid-tint: #332915;
-  --risk-high: #e05a50;
-  --risk-high-tint: #331f1d;
-  --risk-critical: #c2506a;
-  --risk-critical-tint: #331d24;
-  --on-risk-mid: #1c1409;
-  --hatch-dark: rgba(242, 235, 224, 0.2);
-  --hatch-light: rgba(23, 18, 15, 0.3);
-  --risk-mid-ink: #e3a62b;
+  --bg: #0c0908;
+  --surface: #14100e;
+  --surface-2: #18130f;
+  --surface-3: #221c18;
+  --surface-alt: #1a1512;
+  --line: rgba(236, 214, 190, 0.1);
+  --line-soft: rgba(236, 214, 190, 0.06);
+  --line-strong: rgba(236, 214, 190, 0.18);
+  --ink: #eee6da;
+  --ink-2: #d3c8b9;
+  --muted: #a69a8b;
+  --faint: #857a6e;
+  --brand: #7b2437;
+  --brand-deep: #8f2c42;
+  --brand-tint: rgba(163, 55, 84, 0.2);
+  --brand-on: #fbf3ef;
+  --brand-glow: rgba(168, 57, 90, 0.34);
+  --gold: #c2a57c;
+  --gold-tint: rgba(194, 165, 124, 0.13);
+  --risk-none: #6a635b;
+  --risk-none-tint: rgba(150, 140, 128, 0.13);
+  --risk-low: #6f685e;
+  --risk-low-tint: rgba(170, 160, 145, 0.14);
+  --risk-low-ink: #b9b0a1;
+  --risk-mid: #b88a4a;
+  --risk-mid-tint: rgba(196, 150, 85, 0.16);
+  --risk-high: #a33754;
+  --risk-high-tint: rgba(163, 55, 84, 0.22);
+  --risk-high-ink: #e0909f;
+  --risk-critical: #b8412e;
+  --risk-critical-tint: rgba(200, 75, 55, 0.2);
+  --risk-critical-ink: #ee8f7b;
+  --on-risk-mid: #1b1309;
+  --on-risk: #fbf3ef;
+  --hatch-dark: rgba(238, 230, 218, 0.18);
+  --hatch-light: rgba(12, 9, 8, 0.3);
+  --risk-mid-ink: #d7b079;
   --chip-norm-ink: var(--gold);
-  --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.45);
+  --glass: rgba(26, 20, 17, 0.62);
+  --glass-strong: rgba(24, 19, 16, 0.9);
+  --glass-edge: rgba(255, 236, 214, 0.09);
+  --glass-hi: rgba(255, 240, 222, 0.07);
+  --control: rgba(236, 214, 190, 0.05);
+  --control-hover: rgba(236, 214, 190, 0.1);
+  --sheen: rgba(255, 236, 220, 0.12);
+  --ambient-1: rgba(123, 36, 55, 0.2);
+  --ambient-2: rgba(194, 165, 124, 0.06);
+  --spot: rgba(236, 214, 190, 0.05);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 14px 36px -10px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-3: 0 34px 90px -20px rgba(0, 0, 0, 0.85), 0 6px 18px rgba(0, 0, 0, 0.4);
+  --backdrop: rgba(5, 3, 2, 0.6);
 }

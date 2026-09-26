@@ -15,7 +15,7 @@ export function Banner({ tone = 'info', children, action }: { tone?: 'info' | 'w
   const cls = tone === 'error' ? 'risk-critical' : tone === 'warn' ? 'risk-medium' : 'risk-none'
   const Icon = tone === 'error' ? CircleAlert : Info
   return (
-    <div role={tone === 'error' ? 'alert' : 'status'} className={`flex items-start gap-2 rounded-md px-3 py-2 text-small ${cls}`}>
+    <div role={tone === 'error' ? 'alert' : 'status'} className={`flex items-start gap-2 rounded-[var(--r-control)] px-3 py-2 text-small ${cls}`}>
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       <div className="min-w-0 flex-1">{children}</div>
       {action}
@@ -42,7 +42,7 @@ export function OfflineBanner() {
 export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-4 py-10 text-center">
-      <h3>{title}</h3>
+      <h3 className="serif text-[19px] font-semibold tracking-normal">{title}</h3>
       {children && <div className="text-small text-muted">{children}</div>}
       {action}
     </div>

@@ -91,8 +91,8 @@ function HoverCard({ graph, hover, sessionId, nums }: { graph: Graph; hover: Hov
 function Legend({ questions }: { questions: number }) {
   return (
     <ul className="caption space-y-1.5" aria-label="Легенда">
-      <li className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-full bg-brand" />тема</li>
-      <li className="flex items-center gap-1.5"><span className="inline-block h-3 w-5 rounded border-2 border-risk-high bg-alt" />вопрос</li>
+      <li className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-full border border-line-strong bg-[var(--risk-none-tint)]" />тема</li>
+      <li className="flex items-center gap-1.5"><span className="inline-block h-3 w-5 rounded border border-line-strong bg-alt" />вопрос</li>
       <li className="flex items-center gap-1.5"><svg width="16" height="14" viewBox="0 0 46 40" aria-hidden><polygon points="12,2 34,2 44,20 34,38 12,38 2,20" fill="none" stroke="var(--gold)" strokeWidth="4" /></svg>норма</li>
       <li className="flex items-center gap-1.5"><span className="inline-block size-2.5 rotate-45 rounded-[2px] bg-risk-high" />риск</li>
       {questions > 1 && <li className="flex items-center gap-1.5"><svg width="24" height="4" aria-hidden><line x1="0" y1="2" x2="24" y2="2" stroke="var(--gold)" strokeWidth="2" strokeDasharray="5 3" /></svg>нить диалога 1 → {questions}</li>}
@@ -204,16 +204,16 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
     const dimmed = (a: string, b: string) => marked.size > 0 && !(marked.has(a) && marked.has(b))
     const base: Edge[] = graph.edges.filter((e) => ids.has(e.source) && ids.has(e.target)).map((e) => {
       const kind = e.kind === 'follow_up_of' ? 'refines' : e.kind === 'cites' ? 'grounded_in' : e.kind === 'evidences' || e.kind === 'grounded_in' ? 'raises' : e.kind
-      const style = kind === 'refines' ? { stroke: col.line, strokeDasharray: '4 4', strokeWidth: 1.2 }
-        : kind === 'grounded_in' ? { stroke: col.line, strokeDasharray: '1 3', strokeWidth: 1.2 }
-          : kind === 'raises' ? { stroke: col.high, strokeWidth: 1.2 }
-            : { stroke: col.line, strokeWidth: kind === 'belongs_to' ? 1.4 : 1 }
+      const style = kind === 'refines' ? { stroke: col.line, strokeDasharray: '4 4', strokeWidth: 1 }
+        : kind === 'grounded_in' ? { stroke: col.line, strokeDasharray: '1 3', strokeWidth: 1 }
+          : kind === 'raises' ? { stroke: col.high, strokeWidth: 1 }
+            : { stroke: col.line, strokeWidth: kind === 'belongs_to' ? 1.1 : 0.8 }
       return { id: e.id, source: e.source, target: e.target, type: 'straight', data: { kind }, markerEnd: kind === 'refines' ? { type: MarkerType.ArrowClosed, color: col.line, width: 14, height: 14 } : undefined, style: { ...style, opacity: dimmed(e.source, e.target) ? 0.25 : 1, transition: 'opacity var(--t-fast)' } }
     })
     const thread: Edge[] = dialogThread(graph).filter((e) => ids.has(e.source) && ids.has(e.target)).map((e) => ({
       id: e.id, source: e.source, target: e.target, type: 'straight', data: { kind: 'asked_next' },
       markerEnd: { type: MarkerType.ArrowClosed, color: col.gold, width: 14, height: 14 },
-      style: { stroke: col.gold, strokeDasharray: '6 4', strokeWidth: 1.6, opacity: dimmed(e.source, e.target) ? 0.25 : 1 },
+      style: { stroke: col.gold, strokeDasharray: '6 4', strokeWidth: 1.2, opacity: dimmed(e.source, e.target) ? 0.25 : 0.9 },
     }))
     return [...base, ...thread]
   }, [graph, visible, marked])
@@ -347,7 +347,7 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
         {(sel.riskId || sel.nodeId || sel.messageId) && <button className="btn btn-tertiary" onClick={clear}>Снять выделение</button>}
         <span className="ml-auto"><HelpPopover label="Условные обозначения карты"><Legend questions={nums.size} /></HelpPopover></span>
       </div>
-      <div ref={box} className="relative min-h-0 flex-1 bg-panel" onKeyDown={onKey}>
+      <div ref={box} className="map-stage relative min-h-0 flex-1" onKeyDown={onKey}>
         <ReactFlow
           nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={0.15} maxZoom={2} fitView proOptions={{ hideAttribution: true }}
           nodesConnectable={false} deleteKeyCode={null} aria-label="Карта тем: цифровой слепок сессии"
@@ -362,9 +362,9 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
           onNodeDragStop={(_, n) => { positions.current = { ...positions.current, [n.id]: n.position }; force((x) => x + 1); persist(filters) }}
           onPaneClick={() => { clear(); hoverNode(null) }}
         >
-          <Background gap={22} size={1.2} color={cssVar('--line')} />
+          <Background gap={26} size={1} color={cssVar('--line')} />
           <Controls showInteractive={false} />
-          <MiniMap pannable zoomable ariaLabel="Мини-карта слепка" nodeColor={minimapColor} maskColor="transparent" style={{ width: 120, height: 84 }} />
+          <MiniMap pannable zoomable ariaLabel="Мини-карта слепка" nodeColor={minimapColor} maskColor="transparent" style={{ width: 120, height: 84, backgroundColor: 'var(--glass)' }} />
         </ReactFlow>
         {hover && <HoverCard graph={graph} hover={hover} sessionId={sessionId} nums={nums} />}
       </div>

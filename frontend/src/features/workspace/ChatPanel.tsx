@@ -153,8 +153,8 @@ export function ChatPanel({ session, draft, setDraft }: { session: Session; draf
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <p className="overline px-4 pt-3">Диалог</p>
-      <div ref={listRef} onScroll={onScroll} role="log" aria-label="Диалог" aria-live="polite" className="relative min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
+      <p className="overline px-4 pt-3.5">Правовой диалог</p>
+      <div ref={listRef} onScroll={onScroll} role="log" aria-label="Диалог" aria-live="polite" className="relative min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-3">
         {msgs.isLoading && <Skeleton lines={5} />}
         {msgs.isError && <ErrorNote error={msgs.error} onRetry={() => msgs.refetch()} />}
         {msgs.data && rows.length === 0 && (
@@ -168,7 +168,8 @@ export function ChatPanel({ session, draft, setDraft }: { session: Session; draf
           const askedId = m.role === 'assistant' ? [...rows.slice(0, i)].reverse().find((x) => x.role === 'user')?.id : undefined
           const hl = highlightMsgs.has(m.id) || sel.messageId === m.id
           return (
-            <article key={m.id} data-message-id={m.id} className={`space-y-2 rounded-lg ${hl ? 'bg-panel ring-1 ring-gold' : ''}`} aria-label={m.role === 'user' ? 'Сообщение пользователя' : 'Ответ ассистента'}>
+            <article key={m.id} data-message-id={m.id} className={`rounded-[var(--r-card)] transition-[box-shadow,background-color] duration-200 ${hl ? 'bg-[var(--gold-tint)] p-2 ring-1 ring-gold' : ''}`} aria-label={m.role === 'user' ? 'Сообщение пользователя' : 'Ответ ассистента'}>
+              <p className="msg-label overline" aria-hidden>{m.role === 'user' ? 'Вопрос' : 'Ответ'}</p>
               {m.role === 'user' ? (
                 <button type="button" onClick={() => { selectMessage(m.id); if (qn) selectNode(qn.id) }} className="bubble-user block w-full cursor-pointer text-left" title="Показать вопрос на карте">
                   <span className="whitespace-pre-wrap break-words">{m.text}</span>
@@ -192,8 +193,8 @@ export function ChatPanel({ session, draft, setDraft }: { session: Session; draf
           </Banner>
         )}
       </div>
-      {!atBottom && <button type="button" className="btn absolute bottom-28 right-6 shadow-sm" onClick={toBottom}><ArrowDown className="size-4" aria-hidden />Новые сообщения</button>}
-      <div className="border-t border-line p-3">
+      {!atBottom && <button type="button" className="btn glass absolute bottom-28 right-6" onClick={toBottom}><ArrowDown className="size-4" aria-hidden />Новые сообщения</button>}
+      <div className="border-t border-line-soft p-3">
         {modelBad && <div className="mb-2"><Banner tone="warn">Локальная модель сейчас недоступна: {status.data?.model.detail}. Вопрос будет сохранён, но ответ не сформируется. Облачный сервис не используется.</Banner></div>}
         {sendError != null && <div className="mb-2"><ErrorNote error={sendError} /></div>}
         {!online && <p className="mb-2 text-small text-risk-medium">Нет интернета — отправка отключена, введённый текст сохранён.</p>}

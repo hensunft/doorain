@@ -1,5 +1,6 @@
-import { Download, Search } from 'lucide-react'
+import { Download, Landmark, Search } from 'lucide-react'
 import { useState } from 'react'
+import { Medallion } from '../../components/Medallion'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { Banner, EmptyState, ErrorNote, Skeleton } from '../../components/States'
 import { Button, Field, RiskBadge, Spinner } from '../../components/ui'
@@ -68,16 +69,25 @@ export function StyleguidePage() {
         </div>
       </Row>
 
+      <Row title="Материалы" hint="Интерфейс — стекло (навигация, панели управления, меню, диалоги); правовая реальность — твёрдая поверхность. Медальон «Вы» — якорь портрета.">
+        <div className="glass w-56 rounded-[var(--r-zone)] p-4"><p className="overline">glass</p><p className="body-s mt-1">Панель инструментов, боковая навигация, слой рисков</p></div>
+        <div className="glass-strong w-56 rounded-[var(--r-card)] p-4"><p className="overline">glass-strong</p><p className="body-s mt-1">Меню, подсказки, диалоги</p></div>
+        <div className="zone w-56"><p className="overline">zone</p><p className="body-s mt-1">Диалог, карта — твёрдое содержание</p></div>
+        <div className="flex items-center gap-4"><Medallion size={96} /><span className="role-coin" aria-hidden><Landmark className="size-[18px]" /></span></div>
+      </Row>
+
       <Row title="Типографика">
         <div className="space-y-2">
+          <p className="display-xl">Правовой портрет — display-xl 44, антиква</p>
+          <p className="caption">Антиква (Playfair Display) — только бренд, вступления, пустые состояния и «Вы» на карте; в плотном интерфейсе — гротеск Inter.</p>
           <p className="display-l">Цифровой слепок — display-l 30</p>
-          <p className="display-m">Заголовок раздела — display-m 22</p>
-          <p className="display-s">Заголовок зоны — display-s 17</p>
+          <p className="display-m">Заголовок раздела — display-m 21</p>
+          <p className="display-s">Заголовок зоны — display-s 16</p>
           <p className="body-l">Основной текст интерфейса — body-l 14</p>
           <p className="body-m">Сообщения диалога — body-m 13</p>
           <p className="body-s">Пояснения в карточках — body-s 12</p>
           <p className="caption">Подписи и легенда — caption 11,5</p>
-          <p className="overline">Метка блока — overline 10</p>
+          <p className="overline">Метка блока — overline 10,5</p>
           <p className="mono-m">152-ФЗ, ст. 22, ч. 1 · ред. от 08.08.2024 — mono-m</p>
           <p className="mono-l">4 × 3 = 12 — mono-l</p>
         </div>

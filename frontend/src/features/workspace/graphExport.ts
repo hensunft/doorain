@@ -50,7 +50,7 @@ export function toSvg(nodes: GraphNode[], edges: { source: string; target: strin
     })
     .join('')
   const legend = LEVEL_ORDER.map((l, i) => `<circle cx="${14 + i * 120}" cy="${h - 16}" r="5" fill="${lv(l)}"/><text x="${24 + i * 120}" y="${h - 12}" font-size="11" fill="${col.muted}">${LEVEL_RU[l]}</text>`).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(w)}" height="${Math.round(h)}" viewBox="0 0 ${Math.round(w)} ${Math.round(h)}" font-family="IBM Plex Sans, system-ui, sans-serif">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(w)}" height="${Math.round(h)}" viewBox="0 0 ${Math.round(w)} ${Math.round(h)}" font-family="Inter Variable, Inter, system-ui, sans-serif">
 <rect width="100%" height="100%" fill="${col.bg}"/><title>${esc(title)}</title>
 <text x="14" y="22" font-size="13" font-family="Playfair Display, serif" fill="${col.ink}">${esc(title)}</text>
 <text x="14" y="38" font-size="10" fill="${col.muted}">Цвет узла — максимальный активный риск; тонкая обводка — след снятого. Серый не означает «безопасно».</text>

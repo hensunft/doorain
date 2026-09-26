@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { BookOpen, Landmark, ScanEye } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Banner } from '../../components/States'
@@ -14,6 +15,8 @@ const ROLES: { id: Role; title: string; text: string; gets: string[] }[] = [
   { id: 'entrepreneur', title: 'Предприниматель', text: 'Понять, что грозит бизнесу и что делать.', gets: ['Краткий условный вывод и действия', 'Риски с оценкой P × S и план шагов', 'Отчёт для юриста в PDF'] },
   { id: 'expert', title: 'Эксперт', text: 'Точные нормы для собственной работы.', gets: ['Выдержки с реквизитами и редакцией', 'Условия применимости, сравнение редакций', 'Выгрузка цитат'] },
 ]
+/** Символы ролей: книга (учёба), колонна (дело), глаз (экспертиза) — маленькие «монеты» из тёмного камня с бронзовым знаком. */
+const SYM = { student: BookOpen, entrepreneur: Landmark, expert: ScanEye } as const
 type Tri = 'yes' | 'no' | 'unknown'
 const TRI: { v: Tri; t: string }[] = [{ v: 'unknown', t: 'Не знаю' }, { v: 'yes', t: 'Да' }, { v: 'no', t: 'Нет' }]
 
@@ -32,32 +35,39 @@ export function WelcomePage() {
   })
   const submit = (e: FormEvent) => { e.preventDefault(); create.mutate() }
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
-      <header className="space-y-3">
-        <h1 className="display-l">Портрет вашего правового положения</h1>
-        <p className="max-w-prose text-muted">Задавайте вопросы по праву высоких технологий. Каждый ответ опирается на источники из закрытой базы знаний, а сессия постепенно складывается в карту вопросов и таблицу рисков.</p>
+    <div className="mx-auto max-w-5xl space-y-10 px-4 py-10">
+      <header className="space-y-4">
+        <p className="overline">Новая сессия</p>
+        <h1 className="display-xl max-w-3xl">Портрет вашего правового положения</h1>
+        <p className="body-l max-w-prose text-muted">Задавайте вопросы по праву высоких технологий. Каждый ответ опирается на источники из закрытой базы знаний, а сессия постепенно складывается в карту вопросов и таблицу рисков.</p>
         <Banner>Ответы носят информационный характер и не заменяют профессиональную юридическую помощь.</Banner>
       </header>
 
       <form onSubmit={submit} className="space-y-6" aria-label="Новая сессия">
         <fieldset className="space-y-3">
-          <legend className="display-s mb-3">Выберите роль</legend>
-          <div className="grid justify-center gap-4 [grid-template-columns:repeat(auto-fit,minmax(0,320px))]">
-            {ROLES.map((r) => (
-              <label key={r.id} className="card flex cursor-pointer flex-col gap-2 !p-5 transition-[border-color,box-shadow] duration-150 hover:shadow-[var(--shadow-hover)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--focus-ring)]" style={{ borderWidth: 2, borderColor: role === r.id ? 'var(--brand)' : 'var(--line)' }}>
+          <legend className="display-s mb-4">Выберите роль</legend>
+          <div className="grid justify-center gap-5 [grid-template-columns:repeat(auto-fit,minmax(0,310px))]">
+            {ROLES.map((r) => {
+              const Sym = SYM[r.id]
+              return (
+              <label key={r.id} className="role-card" data-on={role === r.id}>
                 <input type="radio" name="role" value={r.id} checked={role === r.id} onChange={() => setRole(r.id)} className="sr-only" />
-                <span className="display-s">{r.title}</span>
+                <span className="flex items-center justify-between gap-3">
+                  <span className="role-title">{r.title}</span>
+                  <span className="role-sym role-coin" aria-hidden><Sym className="size-[18px]" /></span>
+                </span>
                 <span className="body-m text-muted">{r.text}</span>
                 <span className="overline mt-1">что получите</span>
-                <ul className="body-s list-disc space-y-1 pl-4">{r.gets.map((g) => <li key={g}>{g}</li>)}</ul>
+                <ul className="body-s list-disc space-y-1 pl-4 marker:text-faint">{r.gets.map((g) => <li key={g}>{g}</li>)}</ul>
               </label>
-            ))}
+              )
+            })}
           </div>
         </fieldset>
 
         {role === 'entrepreneur' && (
-          <fieldset className="grid gap-4 rounded-lg border border-line p-4 md:grid-cols-2">
-            <legend className="px-1 text-h3 font-semibold">Профиль бизнеса <span className="text-small font-normal text-muted">(необязательно)</span></legend>
+          <fieldset className="zone grid gap-4 !p-5 md:grid-cols-2">
+            <legend className="float-left mb-1 w-full text-h3 font-semibold md:col-span-2">Профиль бизнеса <span className="text-small font-normal text-muted">(необязательно)</span></legend>
             <p className="hint md:col-span-2">Профиль уточняет риски. «Не знаю» не означает «нет»: такой ответ не используется как факт.</p>
             <Field id="sphere" label="Сфера деятельности"><input id="sphere" className="input" value={profile.sphere} maxLength={200} onChange={(e) => setProfile({ ...profile, sphere: e.target.value })} placeholder="Например, онлайн-школа программирования" /></Field>
             {([['has_site_or_app', 'Есть сайт или приложение'], ['processes_pd', 'Работаете с персональными данными'], ['mailings', 'Ведёте рассылки']] as const).map(([k, label]) => (
@@ -87,9 +97,9 @@ export function WelcomePage() {
       {recent.data && recent.data.length > 0 && (
         <section aria-labelledby="cont" className="space-y-2">
           <h2 id="cont" className="text-h3">Продолжить</h2>
-          <ul className="divide-y divide-line rounded-lg border border-line">
+          <ul className="zone divide-y divide-line-soft overflow-hidden !p-0">
             {recent.data.slice(0, 5).map((s) => (
-              <li key={s.id}><Link to={`/s/${s.id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 no-underline hover:bg-sidebar"><span className="truncate text-ink">{s.title}</span><span className="shrink-0 text-small text-muted">{ROLE_RU[s.role]} · сообщений: {s.messages_count} · рисков: {s.active_risks}</span></Link></li>
+              <li key={s.id}><Link to={`/s/${s.id}`} className="flex min-h-11 items-center justify-between gap-3 px-4 py-2.5 no-underline hover:bg-hover"><span className="truncate text-ink">{s.title}</span><span className="shrink-0 text-small text-muted">{ROLE_RU[s.role]} · сообщений: {s.messages_count} · рисков: {s.active_risks}</span></Link></li>
             ))}
           </ul>
         </section>

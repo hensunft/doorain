@@ -1,5 +1,6 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import type { CSSProperties } from 'react'
+import { Medallion } from '../../components/Medallion'
 import type { GraphNode, Level } from '../../lib/api'
 import { levelVar } from '../../lib/risk'
 import { growth, normParts, short } from './graphModel'
@@ -19,13 +20,16 @@ export interface PData extends Record<string, unknown> {
   title: string
 }
 
-/** Цвета узла из токенов уровня: заливка, текст на заливке, обводка (для снятого риска — след прежнего цвета). */
+/** Цвета узла из токенов уровня: заливка (ромб), текст на заливке, обводка (для снятого риска — след прежнего цвета),
+ *  полупрозрачная подложка и читаемый оттенок уровня для номера вопроса. */
 function paint(level: Level | null, past: Level | null): CSSProperties {
+  const tok = level === 'medium' ? 'mid' : level
   return {
     ['--fill' as string]: level ? levelVar(level) : 'var(--risk-none-tint)',
     ['--ink-on' as string]: level ? (level === 'medium' ? 'var(--on-risk-mid)' : 'var(--on-risk)') : 'var(--ink)',
     ['--edge' as string]: level ? levelVar(level) : past ? levelVar(past) : 'var(--line-strong)',
-    ['--tint' as string]: level ? `var(--risk-${level === 'medium' ? 'mid' : level}-tint)` : 'var(--surface-3)',
+    ['--edge-ink' as string]: level ? `var(--risk-${tok}-ink)` : 'var(--ink-2)',
+    ['--tint' as string]: level ? `var(--risk-${tok}-tint)` : 'var(--risk-none-tint)',
   }
 }
 
@@ -47,14 +51,14 @@ function Diamond({ data, style }: { data: PData; style?: CSSProperties }) {
   return <span className="gn-diamond" style={style} aria-hidden><span>{data.count}</span></span>
 }
 
+/** «Вы» — якорь портрета: медальон правовой личности (мрамор, стеклянный ореол), под ним роль и тема сессии. */
 function CenterNode({ data }: NodeProps<Node<PData>>) {
   return (
     <Shell data={data}>
-      <div className="gn-center">
-        <span className="display-s" style={{ color: 'inherit', fontSize: 22, lineHeight: 1 }}>ВЫ</span>
-        <span className="caption" style={{ color: 'inherit', opacity: 0.85, fontSize: 10 }}>{data.role}</span>
-      </div>
-      <span className="caption mt-2 max-w-[180px] truncate">{short(data.label, 40)}</span>
+      <div className="gn-center"><Medallion size={120} /></div>
+      <span className="serif mt-1.5 text-[17px] font-semibold leading-none">Вы</span>
+      <span className="overline mt-1">{data.role}</span>
+      <span className="caption mt-0.5 max-w-[180px] truncate">{short(data.label, 40)}</span>
     </Shell>
   )
 }

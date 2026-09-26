@@ -14,7 +14,7 @@ const cells: Cell[] = [5, 4, 3, 2, 1].flatMap((p) => [1, 2, 3, 4, 5].map((s) => 
   p, s, level: lv(p * s), count: p === 4 && s === 3 ? 2 : 0,
   risks: p === 4 && s === 3 ? [{ id: 'r1', title: 'ПДн на зарубежном сервере' }, { id: 'r2', title: 'Нет уведомления РКН' }] : [],
 })))
-const risks = [{ id: 'r1', norms: ['152-ФЗ, ст. 18 ч. 5'], status: 'open' }, { id: 'r2', norms: [], status: 'in_progress' }] as unknown as Risk[]
+const risks = [{ id: 'r1', norms: ['152-ФЗ, ст. 18 ч. 5'], status: 'open', p: 4, s: 3, consequences: 'Штраф по ст. 13.11 КоАП', recommendation: 'Перенести базу в РФ' }, { id: 'r2', norms: [], status: 'in_progress' }] as unknown as Risk[]
 
 function setup() {
   const qc = new QueryClient()
@@ -43,5 +43,21 @@ describe('матрица рисков', () => {
     expect(list).toHaveTextContent('ПДн на зарубежном сервере')
     expect(list).toHaveTextContent('152-ФЗ, ст. 18 ч. 5')
     expect(list).toHaveTextContent('В работе')
+  })
+
+  it('наведение на точку показывает стеклянную карточку: название, P и S, норма, пояснение, следующий шаг; уход — скрывает', async () => {
+    setup()
+    const cell = screen.getByRole('gridcell', { name: /P4 × S3/ })
+    await userEvent.hover(cell)
+    const card = screen.getByRole('tooltip')
+    expect(cell).toHaveAttribute('aria-describedby', card.id)
+    expect(card).toHaveTextContent('ПДн на зарубежном сервере')
+    expect(card).toHaveTextContent('P 4 · S 3 · 152-ФЗ, ст. 18 ч. 5')
+    expect(card).toHaveTextContent('Штраф по ст. 13.11 КоАП')
+    expect(card).toHaveTextContent('Следующий шаг: Перенести базу в РФ')
+    expect(card).toHaveTextContent('Нет уведомления РКН')
+    expect(cell).toHaveTextContent(/^2$/)  // в самой ячейке — только число
+    await userEvent.unhover(cell)
+    expect(screen.queryByRole('tooltip')).toBeNull()
   })
 })

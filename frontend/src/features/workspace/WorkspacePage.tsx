@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { FileDown, GraduationCap, Repeat, X } from 'lucide-react'
+import { CalendarDays, FileDown, GitBranch, GraduationCap, ListChecks, Network, Repeat, X } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Dialog } from '../../components/Dialog'
@@ -19,7 +19,7 @@ import { SourceDrawer } from './SourceDrawer'
 import { Splitter } from './Splitter'
 
 export type PortraitMode = 'map' | 'timeline' | 'plan'
-const MODES: [PortraitMode, string][] = [['map', 'Карта тем'], ['timeline', 'Хронология'], ['plan', 'План-схема']]
+const MODES: [PortraitMode, string, typeof Network][] = [['map', 'Карта тем', Network], ['timeline', 'Хронология', GitBranch], ['plan', 'План-схема', ListChecks]]
 
 function TopBar({ session, mode, setMode, onExport, onQuiz, showModes = true }: { session: Session; mode: PortraitMode; setMode: (m: PortraitMode) => void; onExport: () => void; onQuiz: () => void; showModes?: boolean }) {
   const status = useStatus()
@@ -36,7 +36,7 @@ function TopBar({ session, mode, setMode, onExport, onQuiz, showModes = true }: 
   const [dev] = useLocalState('doorain.dev', false)
   const anySel = !!(sel.riskId || sel.nodeId || sel.messageId)
   return (
-    <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-canvas px-4 py-2">
+    <header className="glass relative z-10 mx-3 mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--r-zone)] px-4 py-2">
       <div className="min-w-[min(100%,18rem)] flex-1">
         {editing ? (
           <form onSubmit={(e) => { e.preventDefault(); if (title.trim()) rename.mutate(title) }} className="flex gap-2">
@@ -45,11 +45,11 @@ function TopBar({ session, mode, setMode, onExport, onQuiz, showModes = true }: 
             <Button type="submit">Сохранить</Button>
           </form>
         ) : (
-          <button type="button" className="display-s min-h-11 max-w-full truncate rounded-md px-1 text-left hover:bg-hover" onClick={() => { setTitle(session.title); setEditing(true) }} title="Переименовать сессию">{session.title}</button>
+          <button type="button" className="display-s min-h-11 max-w-full truncate rounded-[var(--r-control)] px-1.5 text-left hover:bg-hover" onClick={() => { setTitle(session.title); setEditing(true) }} title="Переименовать сессию">{session.title}</button>
         )}
-        <p className="caption flex flex-wrap items-center gap-x-3 gap-y-0.5">
+        <p className="caption flex flex-wrap items-center gap-x-3 gap-y-0.5 px-1.5">
           <span className="chip">{ROLE_RU[session.role]}</span>
-          <span className="tnum">Срез на {session.as_of_date}</span>
+          <span className="tnum flex items-center gap-1"><CalendarDays className="size-3.5 text-faint" aria-hidden />Срез на {session.as_of_date}</span>
           {st?.corpus_empty && <span>Корпус пуст</span>}
           {dev && st && !st.corpus_empty && <span className="mono-m">generation №{st.generation_seq}</span>}
           {model && model.state !== 'ready' && <span className={`chip ${model.state === 'unavailable' ? 'risk-high' : 'risk-medium'}`}>{model.state === 'unavailable' ? 'Модель недоступна' : 'Тестовый режим: не языковая модель'}</span>}
@@ -59,8 +59,8 @@ function TopBar({ session, mode, setMode, onExport, onQuiz, showModes = true }: 
       </div>
       {showModes && (
         <div className="seg" role="tablist" aria-label="Режим портрета">
-          {MODES.map(([id, label]) => (
-            <button key={id} role="tab" className="seg-item" aria-selected={mode === id} onClick={() => setMode(id)}>{label}</button>
+          {MODES.map(([id, label, Icon]) => (
+            <button key={id} role="tab" className="seg-item" aria-selected={mode === id} onClick={() => setMode(id)}><Icon className="size-3.5" aria-hidden />{label}</button>
           ))}
         </div>
       )}
@@ -102,12 +102,12 @@ function ThreePanels({ chat, portrait, risks }: { chat: React.ReactNode; portrai
   const left = Math.min(w[0], maxFor(w[1]))
   const right = Math.min(w[1], maxFor(left))
   return (
-    <div ref={box} className="grid min-h-0 flex-1 gap-0 bg-page p-3" style={{ gridTemplateColumns: `${left}px 32px minmax(${CENTER_MIN}px, 1fr) 32px ${right}px` }}>
+    <div ref={box} className="grid min-h-0 flex-1 gap-0 p-3" style={{ gridTemplateColumns: `${left}px 32px minmax(${CENTER_MIN}px, 1fr) 32px ${right}px` }}>
       <section aria-label="Диалог" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{chat}</section>
       <Splitter label="Изменить ширину диалога" value={left} min={SIDE_MIN} max={maxFor(right)} dir={1} onChange={(v) => setW([v, right])} />
       <section aria-label="Цифровой слепок" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{portrait}</section>
       <Splitter label="Изменить ширину рисков" value={right} min={SIDE_MIN} max={maxFor(left)} dir={-1} onChange={(v) => setW([left, v])} />
-      <section aria-label="Риски" className="zone min-h-0 min-w-0 overflow-hidden !p-0">{risks}</section>
+      <section aria-label="Риски" className="zone glass min-h-0 min-w-0 overflow-hidden !p-0">{risks}</section>
     </div>
   )
 }
@@ -135,9 +135,9 @@ function Inner({ session }: { session: Session }) {
       {mode === 'wide' && <ThreePanels chat={chat} portrait={portrait} risks={risks} />}
       {mode === 'mid' && (
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(320px,46fr)_minmax(320px,54fr)]">
-          <section aria-label="Диалог" className="min-h-0 min-w-0 border-r border-line">{chat}</section>
-          <section className="flex min-h-0 min-w-0 flex-col" aria-label="Портрет и риски">
-            <div role="tablist" aria-label="Правая панель" className="flex gap-1 border-b border-line px-3 py-2">{tabBtn('portrait', 'Портрет', right === 'portrait', () => setRight('portrait'))}{tabBtn('risks', 'Риски', right === 'risks', () => setRight('risks'))}</div>
+          <section aria-label="Диалог" className="zone m-3 mr-1.5 min-h-0 min-w-0 overflow-hidden !p-0">{chat}</section>
+          <section className="zone glass m-3 ml-1.5 flex min-h-0 min-w-0 flex-col overflow-hidden !p-0" aria-label="Портрет и риски">
+            <div role="tablist" aria-label="Правая панель" className="flex gap-1 border-b border-line-soft px-3 py-2">{tabBtn('portrait', 'Портрет', right === 'portrait', () => setRight('portrait'))}{tabBtn('risks', 'Риски', right === 'risks', () => setRight('risks'))}</div>
             <div className={`min-h-0 flex-1 ${right === 'portrait' ? '' : 'hidden'}`}>{portrait}</div>
             <div className={`min-h-0 flex-1 ${right === 'risks' ? '' : 'hidden'}`}>{risks}</div>
           </section>
@@ -145,7 +145,7 @@ function Inner({ session }: { session: Session }) {
       )}
       {mode === 'narrow' && (
         <>
-          <div role="tablist" aria-label="Разделы сессии" className="flex gap-1 border-b border-line px-2 py-1.5">{tabBtn('chat', 'Диалог', tab === 'chat', () => setTab('chat'))}{tabBtn('portrait', 'Портрет', tab === 'portrait', () => setTab('portrait'))}{tabBtn('risks', 'Риски', tab === 'risks', () => setTab('risks'))}</div>
+          <div role="tablist" aria-label="Разделы сессии" className="glass mx-3 mt-2 flex gap-1 rounded-[var(--r-card)] p-1">{tabBtn('chat', 'Диалог', tab === 'chat', () => setTab('chat'))}{tabBtn('portrait', 'Портрет', tab === 'portrait', () => setTab('portrait'))}{tabBtn('risks', 'Риски', tab === 'risks', () => setTab('risks'))}</div>
           <div className={`min-h-0 flex-1 ${tab === 'chat' ? '' : 'hidden'}`}>{chat}</div>
           <div className={`min-h-0 flex-1 ${tab === 'portrait' ? '' : 'hidden'}`}>{portrait}</div>
           <div className={`min-h-0 flex-1 ${tab === 'risks' ? '' : 'hidden'}`}>{risks}</div>

@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { App } from './app/App'
 import { ApiError } from './lib/api'
+import '@fontsource-variable/inter/wght.css'
 import './styles/index.css'
 import { applyTheme, readTheme } from './lib/theme'
 
