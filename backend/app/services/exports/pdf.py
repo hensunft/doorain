@@ -325,8 +325,53 @@ def _arrow(d: Drawing, x: float, y: float, dx: float, dy: float, color: colors.C
 
 # ───────────── граф-слепок ─────────────
 # Раскладка по колонкам «тема → вопрос → норма → риск»: детерминирована (порядок — номер вопроса), подписи не
-# перекрываются, текст остаётся текстом. Ширина колонок в сумме = полоса набора A4 (170 мм ≈ 482 pt).
-COLS = {"topic": (0.0, 96.0), "question": (114.0, 58.0), "norm": (190.0, 120.0), "risk": (326.0, 156.0)}
+# перекрываются, текст остаётся текстом. Колонки и промежутки в сумме = полоса набора A4 (170 мм ≈ 482 pt).
+# Связи разведены «шинами»: в промежутке между колонками у каждой темы (вопросы по теме), каждого вопроса (нормы в ответе)
+# и каждого основания риска своя вертикальная дорожка; к узлам линии подходят горизонтально, каждая в свою точку.
+# Ответвление от дорожки отмечено точкой, пересечение — без точки и под прямым углом: связи различимы и при десятках линий.
+WIDTHS = {"topic": 104.0, "question": 56.0, "norm": 124.0}
+RISK_MIN_W = 108.0
+LANE, LANE_PAD, LOOP = 4.5, 5.0, 10.0  # шаг дорожек, поля промежутка, место под петли уточнений слева от вопросов
+Link = tuple[str, str, str]  # левый узел, правый узел, ключ дорожки
+Pos = dict[str, tuple[float, float, float, float, list[str]]]
+
+
+def _links(ns: list[dict[str, Any]], edges: list[dict[str, Any]]) -> dict[str, list[Link]]:
+    """Связи по промежуткам: tq — тема → вопрос, qn — вопрос → норма (общая дорожка у узла той стороны, где узлов меньше:
+    меньше дорожек — шире шаг), nr — норма → риск (своя дорожка и цвет уровня у каждого основания)."""
+    kind = {n["id"]: n["kind"] for n in ns}
+    out: dict[str, list[Link]] = {"tq": [], "qn": [], "nr": []}
+    for e in edges:
+        a, b = e["source"], e["target"]
+        ka, kb = kind.get(a), kind.get(b)
+        if e["kind"] == "asks_about" and ka == "question" and kb == "topic":
+            out["tq"].append((b, a, ""))
+        elif e["kind"] == "cites" and ka == "question" and kb == "norm":
+            out["qn"].append((a, b, ""))
+        elif e["kind"] == "grounded_in" and ka == "risk" and kb == "norm":
+            out["nr"].append((b, a, f"{a}>{b}"))
+    for g in ("tq", "qn"):
+        left = len({a for a, _, _ in out[g]}) <= len({b for _, b, _ in out[g]})
+        out[g] = [(a, b, a if left else b) for a, b, _ in out[g]]
+    return {g: list(dict.fromkeys(v)) for g, v in out.items()}
+
+
+def _cols(ns: list[dict[str, Any]], edges: list[dict[str, Any]], width: float) -> tuple[dict[str, tuple[float, float]], dict[str, float], float]:
+    """Колонки (x, ширина), левые края промежутков и шаг дорожек: промежуток растёт с числом дорожек, риски берут остаток."""
+    lanes = {g: len({k for *_, k in v}) for g, v in _links(ns, edges).items()}
+    extra = sum(max(0, n - 1) for n in lanes.values())
+    room = width - sum(WIDTHS.values()) - 6 * LANE_PAD - LOOP - RISK_MIN_W
+    step = min(LANE, max(2.0, room / extra)) if extra else LANE
+    cols: dict[str, tuple[float, float]] = {}
+    gaps: dict[str, float] = {}
+    x = 0.0
+    for kind, gap in (("topic", "tq"), ("question", "qn"), ("norm", "nr")):
+        cols[kind] = (x, WIDTHS[kind])
+        x += WIDTHS[kind]
+        gaps[gap] = x
+        x += 2 * LANE_PAD + step * max(0, lanes[gap] - 1) + (LOOP if gap == "tq" else 0)
+    cols["risk"] = (x, width - x)
+    return cols, gaps, step
 
 
 def _scale(n: dict[str, Any]) -> float:
@@ -340,8 +385,9 @@ def _risk_label(n: dict[str, Any]) -> str:
     return f"{n['label']}{tail}"
 
 
-def _layout(ns: list[dict[str, Any]], edges: list[dict[str, Any]]) -> tuple[dict[str, tuple[float, float, float, float, list[str]]], float]:
-    """Позиции (x, y сверху, ширина, высота, строки подписи) и общая высота схемы."""
+def _layout(ns: list[dict[str, Any]], edges: list[dict[str, Any]], width: float = 482.0) -> tuple[Pos, float, dict[str, float], float]:
+    """Позиции (x, y сверху, ширина, высота, строки подписи), общая высота схемы, промежутки и шаг дорожек."""
+    cols, gaps, step = _cols(ns, edges, width)
     ids = {n["id"] for n in ns}
     qs = sorted((n for n in ns if n["kind"] == "question"), key=lambda n: n.get("num") or 0)
     num = {n["id"]: n.get("num") or 0 for n in qs}
@@ -355,15 +401,22 @@ def _layout(ns: list[dict[str, Any]], edges: list[dict[str, Any]]) -> tuple[dict
     for e in edges:  # риск выравнивается по своей норме-основанию
         if e["kind"] == "grounded_in" and e["source"] in ids and e["target"] in ids:
             anchor[e["source"]] = [x for x in anchor[e["source"]] if x not in num] + [e["target"]]
-    order = {"question": qs, **{k: sorted((n for n in ns if n["kind"] == k), key=lambda n: (first.get(n["id"], 10**6), n["label"])) for k in ("topic", "norm", "risk")}}
+    order = {"question": qs, **{k: sorted((n for n in ns if n["kind"] == k), key=lambda n: (first.get(n["id"], 10**6), n["label"])) for k in ("topic", "norm")}}
+    nidx = {n["id"]: i for i, n in enumerate(order["norm"])}
+    rnorm: dict[str, list[int]] = defaultdict(list)
+    for e in edges:
+        if e["kind"] == "grounded_in" and e["target"] in nidx:
+            rnorm[e["source"]].append(nidx[e["target"]])
+    # риски — в порядке своих норм-оснований: дорожки норма → риск идут вниз, почти не пересекаясь
+    order["risk"] = sorted((n for n in ns if n["kind"] == "risk"), key=lambda n: (min(rnorm[n["id"]], default=10**6), first.get(n["id"], 10**6), n["label"]))
     counts: dict[str, int] = defaultdict(int)
     for e in edges:
         if e["kind"] == "asks_about" and e["source"] in num and e["target"] in ids:
             counts[e["target"]] += 1
-    pos: dict[str, tuple[float, float, float, float, list[str]]] = {}
+    pos: Pos = {}
     height = 0.0
     for kind, items in order.items():
-        x, w = COLS[kind]
+        x, w = cols[kind]
         y = 6.0
         for n in items:
             if kind == "topic":
@@ -382,11 +435,46 @@ def _layout(ns: list[dict[str, Any]], edges: list[dict[str, Any]]) -> tuple[dict
             pos[n["id"]] = (x, y, w, h, lines)
             y += h + 8
         height = max(height, y)
-    return pos, height + 2
+    return pos, height + 2, gaps, step
+
+
+def _route(d: Drawing, pos: Pos, height: float, links: list[Link], x0: float, step: float, style: Any) -> None:
+    """Связи одного промежутка «шинами»: общая вертикальная дорожка на ключ, горизонтальные подходы к узлам.
+    Порты разнесены по высоте узла (по порядку другого конца), ответвления от дорожки — точки. style(link) → (цвет, толщина, пунктир)."""
+    if not links:
+        return
+
+    def mid(n: str) -> float:  # y сверху
+        return pos[n][1] + pos[n][3] / 2
+
+    keys = sorted({k for *_, k in links}, key=lambda k: min(min(mid(a), mid(b)) for a, b, kk in links if kk == k))
+    lane = {k: x0 + LANE_PAD + i * step for i, k in enumerate(keys)}
+    ends: dict[tuple[str, str], dict[str, float]] = defaultdict(dict)  # (узел, сторона) → ключ дорожки → y другого конца
+    for a, b, k in links:
+        ends[(a, "r")][k] = min(ends[(a, "r")].get(k, 1e9), mid(b))
+        ends[(b, "l")][k] = min(ends[(b, "l")].get(k, 1e9), mid(a))
+    port: dict[tuple[str, str, str], float] = {}
+    for (n, side), others in ends.items():
+        ks = sorted(others, key=lambda k: (others[k], lane[k]))
+        gap = min(5.0, (pos[n][3] - 6) / max(1, len(ks) - 1))
+        for i, k in enumerate(ks):
+            port[(n, side, k)] = mid(n) + (i - (len(ks) - 1) / 2) * gap
+    on_lane: dict[str, set[float]] = defaultdict(set)
+    for link in links:
+        a, b, k = link
+        c, w, dash = style(link)
+        ya, yb, lx = port[(a, "r", k)], port[(b, "l", k)], lane[k]
+        pts = [pos[a][0] + pos[a][2], ya, lx, ya, lx, yb, pos[b][0] + 2, yb]
+        d.add(PolyLine([v if i % 2 == 0 else height - v for i, v in enumerate(pts)], strokeColor=c, strokeWidth=w, strokeDashArray=dash))
+        on_lane[k] |= {ya, yb}
+    for k, ys in on_lane.items():  # ответвление (не крайняя точка дорожки) — точка того же цвета
+        c = style(next(link for link in links if link[2] == k))[0]
+        for y in sorted(ys)[1:-1]:
+            d.add(Circle(lane[k], height - y, 1.5, fillColor=c, strokeColor=None))
 
 
 def _graph_drawing(ns: list[dict[str, Any]], edges: list[dict[str, Any]], width: float) -> Drawing:
-    pos, height = _layout(ns, edges)
+    pos, height, gaps, step = _layout(ns, edges, width)
     d = Drawing(width, height)
     by = {n["id"]: n for n in ns}
 
@@ -396,20 +484,18 @@ def _graph_drawing(ns: list[dict[str, Any]], edges: list[dict[str, Any]], width:
     def mid(nid: str) -> float:
         return bottom(nid) + pos[nid][3] / 2
 
-    for e in edges:  # связи — под узлами
+    def risk_style(link: Link) -> tuple[colors.Color, float, list[float] | None]:
+        r = by[link[1]]
+        closed = r.get("status") in CLOSED
+        return lv_fill(r.get("resolved_level") if closed else r.get("risk_level")), 1.1, [3, 2] if closed else None
+
+    links = _links(ns, edges)  # связи — под узлами
+    _route(d, pos, height, links["tq"], gaps["tq"], step, lambda _: (col("line-strong"), 0.9, None))
+    _route(d, pos, height, links["qn"], gaps["qn"], step, lambda _: (col("faint"), 0.7, None))
+    _route(d, pos, height, links["nr"], gaps["nr"], step, risk_style)
+    for e in edges:  # уточнение: петля слева от колонки вопросов
         a, b = e["source"], e["target"]
-        if a not in pos or b not in pos:
-            continue
-        ka, kb = by[a]["kind"], by[b]["kind"]
-        if e["kind"] == "asks_about" and ka == "question" and kb == "topic":
-            d.add(Line(pos[b][0] + pos[b][2], mid(b), pos[a][0], mid(a), strokeColor=col("line-strong"), strokeWidth=0.8))
-        elif e["kind"] == "cites" and ka == "question" and kb == "norm":
-            d.add(Line(pos[a][0] + pos[a][2], mid(a), pos[b][0] + 2, mid(b), strokeColor=col("muted"), strokeWidth=0.8, strokeDashArray=[1, 2]))
-        elif e["kind"] == "grounded_in" and ka == "risk" and kb == "norm":
-            r = by[a]
-            closed = r.get("status") in CLOSED
-            d.add(Line(pos[b][0] + pos[b][2], mid(b), pos[a][0] + 1, mid(a), strokeColor=lv_fill(r.get("resolved_level") if closed else r.get("risk_level")), strokeWidth=1.1, strokeDashArray=[3, 2] if closed else None))
-        elif e["kind"] == "follow_up_of" and ka == "question" and kb == "question":
+        if e["kind"] == "follow_up_of" and a in pos and b in pos and by[a]["kind"] == by[b]["kind"] == "question":
             x = pos[a][0]
             d.add(PolyLine([x, mid(a), x - 9, mid(a), x - 9, mid(b), x, mid(b)], strokeColor=col("ink-2"), strokeWidth=0.9, strokeDashArray=[3, 2]))
             _arrow(d, x, mid(b), 1, 0, col("ink-2"))
@@ -461,7 +547,7 @@ def _legend(width: float) -> Drawing:
     d.add(Polygon(_diamond(x, y1 + 4, 7), fillColor=lv_fill("high"), strokeColor=lv_fill("high")))
     label(x + 12, y1, "риск · размер нормы и риска — число связей")
     x = 0.0
-    for text, c, dash, sw in (("вопрос по теме", col("line-strong"), None, 0.8), ("норма в ответе", col("muted"), [1, 2], 0.8), ("основание риска", lv_fill("high"), None, 1.1),
+    for text, c, dash, sw in (("вопрос по теме", col("line-strong"), None, 0.8), ("норма в ответе", col("faint"), None, 0.7), ("основание риска", lv_fill("high"), None, 1.1),
                               ("уточнение", col("ink-2"), [3, 2], 0.9), ("следующий вопрос", col("gold"), [3, 2], 1.4)):
         d.add(Line(x, y2 + 3, x + 22, y2 + 3, strokeColor=c, strokeWidth=sw, strokeDashArray=dash))
         x = label(x + 26, y2, text) + 12
@@ -509,7 +595,8 @@ def _graph_flowables(snap: dict[str, Any], st: dict[str, ParagraphStyle], width:
         chunk: list[dict[str, Any]] = []
         for q in qs:  # схема выше полосы делится по вопросам на продолжения — кегль подписей не уменьшается
             trial = [*chunk, q]
-            if chunk and _layout(head + _neighbourhood({x["id"] for x in trial}, edges, by), edges)[1] > max_h:
+            part = head + _neighbourhood({x["id"] for x in trial}, edges, by)
+            if chunk and (_layout(part, edges, width)[1] > max_h or _cols(part, edges, width)[2] < 2.5):  # дорожки уже 2.5 pt — продолжение
                 chunks.append(chunk)
                 chunk = [q]
             else:
@@ -632,7 +719,8 @@ def _graph_block(snap: dict[str, Any], st: dict[str, ParagraphStyle], fw: float,
         "Как читать слепок. Слева — темы, правее — вопросы по порядку их появления (текст вопросов в документ не включается), "
         "затем нормы, на которые опирались ответы, и риски с их основаниями. Рамка темы и вопроса окрашена наивысшим уровнем "
         "связанных открытых рисков: чем темнее и насыщеннее узел, тем серьёзнее риск; серый — открытых рисков нет. Закрытый риск "
-        "оставляет пунктирный след прежнего цвета — портрет высветляется по мере закрытия рисков.", st["small"])
+        "оставляет пунктирный след прежнего цвета — портрет высветляется по мере закрытия рисков. Связи идут по дорожкам между "
+        "колонками: точка на дорожке — ответвление к узлу, пересечение без точки — просто перекрёсток линий.", st["small"])
     return [*out, *flows[:-1], KeepTogether([flows[-1], Spacer(1, 8), note])]  # комментарий — под схемой, без отрыва на пустую страницу
 
 

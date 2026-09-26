@@ -277,3 +277,26 @@ def test_pdf_large_session_splits_graph_by_topic_and_is_reproducible(env: Path) 
     out3 = env / "mid.pdf"
     render_pdf(small, out3)
     assert "Тема: " not in _pdf_text(out3.read_bytes())[0]  # до 40 узлов — одна схема без врезок
+
+
+def test_pdf_graph_edges_routed_on_lanes() -> None:
+    """Граф PDF при многих связях: у темы, нормы и основания риска своя дорожка, шаг дорожек ≥ 2.5 pt, схема в полосе набора."""
+    from app.services.exports.pdf import _cols, _links
+
+    def node(i: str, kind: str, **kw: Any) -> dict[str, Any]:
+        return {"id": i, "kind": kind, "label": i, "weight": 1, "risk_level": None, "resolved_level": None, "risk_count": 0, **kw}
+
+    topics = {"t0": range(1, 8), "t1": range(1, 11), "t2": (5, 6), "t3": (2, 4, 6, 8, 10), "t4": (9, 10), "t5": (8,)}
+    cites = {1: "ab", 2: "ac", 3: "cdb", 4: "da", 5: "e", 6: "ef", 7: "bh", 8: "fd", 9: "g", 10: "hga"}
+    ns = [node(t, "topic") for t in topics] + [node(f"q{q}", "question", num=q) for q in range(1, 11)] + [node(n, "norm") for n in "abcdefgh"]
+    ns += [node(f"r{n}", "risk", risk_level="high", status="open") for n in "abcdeg"]
+    edges = [{"source": f"q{q}", "target": t, "kind": "asks_about"} for t, qs in topics.items() for q in qs]
+    edges += [{"source": f"q{q}", "target": n, "kind": "cites"} for q, ns_ in cites.items() for n in ns_]
+    edges += [{"source": f"r{n}", "target": n, "kind": "grounded_in"} for n in "abcdeg"]
+    links = _links(ns, edges)
+    assert len({k for *_, k in links["tq"]}) == 6  # дорожка — у стороны, где узлов меньше: 6 тем < 10 вопросов
+    assert len({k for *_, k in links["qn"]}) == 8  # 8 норм < 10 вопросов
+    assert len({k for *_, k in links["nr"]}) == len(links["nr"]) == 6  # у каждого основания риска своя дорожка и цвет
+    cols, _, step = _cols(ns, edges, 482.0)
+    assert step >= 2.5
+    assert cols["risk"][0] + cols["risk"][1] == 482.0 and cols["risk"][1] >= 100

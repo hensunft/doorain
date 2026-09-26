@@ -94,9 +94,9 @@ export function radialLayout(graph: Graph, visible: GraphNode[], keep: Positions
   const ids = new Set(visible.map((n) => n.id))
   const topics = visible.filter((n) => n.kind === 'topic')
   const T = Math.max(1, topics.length)
-  const R1 = 170 + 16 * T
-  const R2 = R1 + 150
-  const R3 = R2 + 110
+  const R1 = Math.max(200, (T * 270) / (2 * Math.PI)) // капсулы тем по кругу не упираются друг в друга
+  const R2 = R1 + 200
+  const R3 = R2 + 180
   const center: Positions = {}
   const angle = new Map<string, number>()
   const at = (a: number, r: number) => ({ x: Math.cos(a) * r, y: Math.sin(a) * r })
@@ -132,10 +132,12 @@ export function radialLayout(graph: Graph, visible: GraphNode[], keep: Positions
   })
   const placedNorm = new Map<string, number>()
   for (const n of visible.filter((x) => x.kind === 'norm' || x.kind === 'risk')) {
-    const src = graph.edges.find((e) => (e.kind === 'cites' || e.kind === 'evidences') && e.target === n.id && angle.has(e.source))?.source
-    const a0 = src ? (angle.get(src) ?? 0) : 0
-    const k = placedNorm.get(src ?? '') ?? 0
-    placedNorm.set(src ?? '', k + 1)
+    // норма — по среднему направлению всех вопросов, которые на неё опираются: связи короче и реже пересекают карту
+    const src = graph.edges.filter((e) => (e.kind === 'cites' || e.kind === 'evidences') && e.target === n.id && angle.has(e.source)).map((e) => angle.get(e.source) ?? 0)
+    const a0 = src.length ? Math.atan2(src.reduce((v, a) => v + Math.sin(a), 0), src.reduce((v, a) => v + Math.cos(a), 0)) : 0
+    const slot = String(Math.round(a0 * 20))
+    const k = placedNorm.get(slot) ?? 0
+    placedNorm.set(slot, k + 1)
     const a = a0 + (k - 0.5) * 0.14 * (n.kind === 'risk' ? -1 : 1)
     center[n.id] = at(a, n.kind === 'risk' ? R2 + 70 : R3 + (k % 2) * 40)
   }
@@ -156,7 +158,8 @@ export type SizeOf = (n: GraphNode) => { w: number; h: number; k?: number }
 const boxOf: SizeOf = (n) => BOX[n.kind]
 
 /** Раздвигает пересекающиеся узлы по их видимым прямоугольникам (центр + масштаб); закреплённые узлы не двигаются.
- *  Сдвиг — по оси наименьшего перекрытия, поровну между двумя свободными узлами.
+ *  Сдвиг — вдоль линии центров, ровно до расхождения по одной из осей, поровну между двумя свободными узлами:
+ *  узлы расходятся веером от соседей, радиальная картина сохраняется (сдвиг по оси выстраивал узлы в столбик).
  *  ponytail: O(n²) за проход, до 60 проходов — достаточно для слепка в сотни узлов; при тысячах нужен пространственный индекс. */
 export function separate(nodes: GraphNode[], pos: Positions, fixed: Set<string>, size: SizeOf = boxOf, gap = 12): void {
   const dim = nodes.map((n) => { const s = size(n), k = s.k ?? 1; return { w: s.w, h: s.h, hw: (s.w * k) / 2, hh: (s.h * k) / 2 } })
@@ -173,16 +176,19 @@ export function separate(nodes: GraphNode[], pos: Positions, fixed: Set<string>,
         const dy = A.hh + B.hh + gap - Math.abs(ay - by)
         if (dx <= 0 || dy <= 0) continue
         moved = true
-        const horizontal = dx < dy
-        const sign = horizontal ? Math.sign(ax - bx) || 1 : Math.sign(ay - by) || 1
-        const shift = Math.ceil((horizontal ? dx : dy) / (fixed.has(a.id) || fixed.has(b.id) ? 1 : 2))
-        const move = (id: string, s: number) => {
+        const len = Math.hypot(ax - bx, ay - by)
+        const ux = len > 1e-6 ? (ax - bx) / len : 0, uy = len > 1e-6 ? (ay - by) / len : 1
+        const t = Math.min(Math.abs(ux) > 1e-6 ? dx / Math.abs(ux) : Infinity, Math.abs(uy) > 1e-6 ? dy / Math.abs(uy) : Infinity)
+        const share = fixed.has(a.id) || fixed.has(b.id) ? 1 : 0.5
+        const out = (v: number) => (v > 0 ? Math.ceil(v) : Math.floor(v)) // целые пиксели, округление наружу — пара точно расходится
+        const sx = out(ux * t * share), sy = out(uy * t * share)
+        const move = (id: string, k: number) => {
           if (fixed.has(id)) return
           const p = pos[id]!
-          pos[id] = horizontal ? { x: p.x + s * shift, y: p.y } : { x: p.x, y: p.y + s * shift }
+          pos[id] = { x: p.x + k * sx, y: p.y + k * sy }
         }
-        move(a.id, sign)
-        move(b.id, -sign)
+        move(a.id, 1)
+        move(b.id, -1)
       }
     }
     if (!moved) return

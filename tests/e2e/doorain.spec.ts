@@ -588,7 +588,7 @@ test('карта: неподвижный курсор над узлом — од
   expect(await page.evaluate(() => (window as unknown as { __hov: string[] }).__hov)).not.toContain('hidden')
 })
 
-test('карта: узлы не залезают друг на друга (и после перетаскивания); весы «Вы» качаются при перемещении и успокаиваются', async ({ page }) => {
+test('карта: узлы не залезают друг на друга (и после перетаскивания); связи различимы; весы «Вы» качаются при перемещении и успокаиваются', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await login(page)
   await startSession(page)
@@ -596,7 +596,7 @@ test('карта: узлы не залезают друг на друга (и п
   for (const [i, q] of qs.entries()) {
     await ask(page, q)
     await expect(page.locator('.react-flow__node-question')).toHaveCount(i + 1)  // ответ получен, узел на карте
-    await expect(page.getByLabel('Ваш вопрос')).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Отправить' })).toBeVisible()  // генерация завершена (вместо «Стоп»)
   }
   await page.waitForTimeout(800)
   // видимые прямоугольники узлов (с масштабом капсулы темы и подписями) попарно не пересекаются
@@ -613,6 +613,25 @@ test('карта: узлы не залезают друг на друга (и п
     return bad
   })
   expect(await overlaps()).toEqual([])
+
+  // связи различимы: наведение на вопрос выделяет его ветку (остальное приглушено), на связь — подпись «что → куда»
+  await page.locator('.react-flow__node-question').first().hover()
+  const opacities = () => page.locator('.react-flow__edge-path').evaluateAll((ps) => ps.map((p) => Number(getComputedStyle(p).opacity)))
+  await expect.poll(async () => (await opacities()).filter((o) => o === 1).length).toBeGreaterThan(1)
+  expect((await opacities()).filter((o) => o < 0.2).length).toBeGreaterThan(0)
+  await page.mouse.move(5, 5)
+  const onEdge = await page.evaluate(() => {
+    for (const p of document.querySelectorAll<SVGPathElement>('.react-flow__edge-path')) {
+      const m = p.getPointAtLength(p.getTotalLength() / 2), r = p.getScreenCTM()!
+      const x = m.x * r.a + r.e, y = m.y * r.d + r.f
+      if (document.elementFromPoint(x, y)?.closest('.react-flow__edge')) return { x, y }
+    }
+    return null
+  })
+  expect(onEdge).not.toBeNull()
+  await page.mouse.move(onEdge!.x, onEdge!.y)
+  await expect(page.locator('.edge-label')).toBeVisible()
+  await page.mouse.move(5, 5)
 
   const medal = page.locator('.react-flow__node-center .gn-center')
   const pan = () => medal.evaluate((e) => Math.abs(parseFloat(e.style.getPropertyValue('--pan') || '0')))

@@ -1,4 +1,4 @@
-import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
+import { BaseEdge, EdgeLabelRenderer, Handle, Position, useInternalNode, type Edge, type EdgeProps, type InternalNode, type Node, type NodeProps } from '@xyflow/react'
 import { useEffect, useRef, type CSSProperties } from 'react'
 import { Medallion } from '../../components/Medallion'
 import type { GraphNode, Level } from '../../lib/api'
@@ -143,3 +143,49 @@ function RiskNode({ data }: NodeProps<Node<PData>>) {
 }
 
 export const nodeTypes = { center: CenterNode, topic: TopicNode, question: QuestionNode, norm: NormNode, risk: RiskNode }
+
+export interface EData extends Record<string, unknown> { arrow: boolean; label: string; hot: boolean }
+
+/** Центр узла и точка на его границе в сторону другого узла. «Вы» — круг медальона (подписи под ним не задеваются),
+ *  капсула темы — с учётом масштаба, остальные — рамка узла. */
+function centre(n: InternalNode): { x: number; y: number } {
+  const p = n.internals.positionAbsolute, w = n.measured.width ?? 0, h = n.measured.height ?? 0
+  return { x: p.x + w / 2, y: n.type === 'center' ? p.y + 60 : p.y + h / 2 }
+}
+function rim(n: InternalNode, toward: { x: number; y: number }): { x: number; y: number } {
+  const c = centre(n), dx = toward.x - c.x, dy = toward.y - c.y, len = Math.hypot(dx, dy) || 1
+  if (n.type === 'center') { // круг медальона; вниз — от нижнего края узла, чтобы линия не шла по подписям «Вы» и роли
+    const o = { x: c.x + (dx / len) * 64, y: c.y + (dy / len) * 64 }
+    const bottom = n.internals.positionAbsolute.y + (n.measured.height ?? 0)
+    const xb = dy > 0 ? c.x + (dx / dy) * (bottom - c.y) : Infinity
+    return Math.abs(xb - c.x) < (n.measured.width ?? 0) / 2 ? { x: xb, y: bottom } : o
+  }
+  const k = n.type === 'topic' ? growth(Number((n.data as PData).weight) || 1) : 1
+  const hw = ((n.measured.width ?? 0) * k) / 2 + 3, hh = ((n.measured.height ?? 0) * k) / 2 + 3
+  const t = Math.min(hw / Math.max(Math.abs(dx), 1e-6), hh / Math.max(Math.abs(dy), 1e-6), 1)
+  return { x: c.x + dx * t, y: c.y + dy * t }
+}
+
+/** Связь «от узла к узлу»: прямая между границами (не от скрытых ручек сверху и снизу, поэтому не режет соседние узлы),
+ *  стрелка — куда ведёт связь (от «Вы» наружу), при наведении — подпись «что → куда» посередине. */
+function FloatEdge({ id, source, target, style, data }: EdgeProps<Edge<EData>>) {
+  const a = useInternalNode(source), b = useInternalNode(target)
+  if (!a || !b) return null
+  const s = rim(a, centre(b)), t = rim(b, centre(a))
+  const len = Math.hypot(t.x - s.x, t.y - s.y) || 1, ux = (t.x - s.x) / len, uy = (t.y - s.y) / len
+  const head = data?.arrow ? 7 : 0 // линия заканчивается у основания стрелки, остриё — на границе узла
+  const stroke = style?.stroke ?? 'var(--line-strong)'
+  return (
+    <>
+      <BaseEdge id={id} path={`M ${s.x},${s.y} L ${t.x - ux * head},${t.y - uy * head}`} style={style} interactionWidth={16} />
+      {data?.arrow && <path d={`M ${t.x},${t.y} L ${t.x - ux * 8 - uy * 3.6},${t.y - uy * 8 + ux * 3.6} L ${t.x - ux * 8 + uy * 3.6},${t.y - uy * 8 - ux * 3.6} Z`} style={{ fill: stroke, opacity: style?.opacity }} />}
+      {data?.hot && data.label && (
+        <EdgeLabelRenderer>
+          <div className="edge-label" style={{ transform: `translate(-50%, -50%) translate(${(s.x + t.x) / 2}px, ${(s.y + t.y) / 2}px)` }}>{data.label}</div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  )
+}
+
+export const edgeTypes = { float: FloatEdge }

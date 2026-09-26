@@ -1,7 +1,6 @@
 import {
   Background,
   Controls,
-  MarkerType,
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
@@ -19,12 +18,12 @@ import type { Graph, GraphNode, Level } from '../../lib/api'
 import { put } from '../../lib/api'
 import { todayISO } from '../../lib/date'
 import { useMessages, useRisks } from '../../lib/queries'
-import { LEVEL_ORDER, LEVEL_RU, ROLE_RU } from '../../lib/risk'
+import { LEVEL_ORDER, LEVEL_RU, levelVar, ROLE_RU } from '../../lib/risk'
 import { nodesForRisk, riskIdsForNode, useSelection } from '../../lib/selection'
 import { cssVar } from '../../lib/theme'
 import { download, NODE_TITLE, svgToPng, toSvg } from './graphExport'
 import { BOX, branchOf, countersText, dialogThread, growth, lodFor, questionNumbers, radialLayout, separate, short, topicCounters, visibleAt, type Positions, type SizeOf } from './graphModel'
-import { nodeTypes, type PData } from './GraphNodes'
+import { edgeTypes, nodeTypes, type EData, type PData } from './GraphNodes'
 import { ReasoningDrawer } from './ReasoningDrawer'
 
 export interface GraphFilters { topic: string; kinds: Record<'question' | 'norm' | 'risk', boolean>; showResolved: boolean; minLevel: Level | ''; lastN: number }
@@ -37,6 +36,7 @@ const LOD_FROM_NODES = 20
 const HOVER_OUT_MS = 80
 
 interface Hover { id: string; x: number; y: number }
+interface HotEdge { id: string; source: string; target: string }
 
 /** Карточка наведения (уровень 1): без запроса к серверу — только из уже загруженных данных сессии. */
 function HoverCard({ graph, hover, sessionId, nums }: { graph: Graph; hover: Hover; sessionId: string; nums: Map<string, number> }) {
@@ -95,9 +95,11 @@ function Legend({ questions }: { questions: number }) {
       <li className="flex items-center gap-1.5"><span className="inline-block h-3 w-5 rounded border border-line-strong bg-alt" />вопрос</li>
       <li className="flex items-center gap-1.5"><svg width="16" height="14" viewBox="0 0 46 40" aria-hidden><polygon points="12,2 34,2 44,20 34,38 12,38 2,20" fill="none" stroke="var(--gold)" strokeWidth="4" /></svg>норма</li>
       <li className="flex items-center gap-1.5"><span className="inline-block size-2.5 rotate-45 rounded-[2px] bg-risk-high" />риск</li>
-      {questions > 1 && <li className="flex items-center gap-1.5"><svg width="24" height="4" aria-hidden><line x1="0" y1="2" x2="24" y2="2" stroke="var(--gold)" strokeWidth="2" strokeDasharray="5 3" /></svg>нить диалога 1 → {questions}</li>}
-      <li className="flex items-center gap-1.5"><svg width="24" height="4" aria-hidden><line x1="0" y1="2" x2="24" y2="2" stroke="var(--line-strong)" strokeWidth="2" strokeDasharray="1 3" /></svg>основание ответа</li>
-      <li className="flex items-center gap-1.5"><svg width="24" height="4" aria-hidden><line x1="0" y1="2" x2="24" y2="2" stroke="var(--line-strong)" strokeWidth="2" strokeDasharray="4 4" /></svg>уточняющий вопрос</li>
+      <li className="flex items-center gap-1.5"><svg width="24" height="6" aria-hidden><line x1="0" y1="3" x2="18" y2="3" stroke="var(--muted)" strokeWidth="1.6" /><path d="M24 3 L17 0 L17 6 Z" fill="var(--muted)" /></svg>стрелка — от «Вы» наружу: тема → вопрос → норма</li>
+      <li className="flex items-center gap-1.5"><svg width="24" height="4" aria-hidden><line x1="0" y1="2" x2="24" y2="2" stroke="var(--gold)" strokeWidth="1.5" /></svg>основание ответа (норма); на большой карте — у узла под курсором</li>
+      <li className="flex items-center gap-1.5"><svg width="24" height="4" aria-hidden><line x1="0" y1="2" x2="24" y2="2" stroke="var(--ink-2)" strokeWidth="2" strokeDasharray="5 4" /></svg>уточняющий вопрос</li>
+      {questions > 1 && <li className="flex items-center gap-1.5"><svg width="24" height="4" aria-hidden><line x1="0" y1="2" x2="24" y2="2" stroke="var(--gold)" strokeWidth="2" strokeDasharray="6 4" /></svg>нить диалога 1 → {questions} — у вопроса под курсором</li>}
+      <li>наведите на узел — выделятся его связи; на линию — подпись «что → куда»</li>
       <li className="flex flex-wrap items-center gap-x-3 gap-y-1">цвет — наивысший уровень открытых рисков:{LEVEL_ORDER.map((l) => <span key={l} className="flex items-center gap-1" data-level={l}><span className="mx-swatch" aria-hidden />{LEVEL_RU[l].toLowerCase()}</span>)}</li>
       <li>серый — рисков нет или данных мало; бледный узел с обводкой — риск закрыт</li>
     </ul>
@@ -112,6 +114,7 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   const [filters, setFilters] = useState<GraphFilters>(() => ({ ...defaultFilters, ...saved, kinds: { ...defaultFilters.kinds, ...(saved.kinds ?? {}) } }))
   const [query, setQuery] = useState('')
   const [hover, setHover] = useState<Hover | null>(null)
+  const [hotEdge, setHotEdge] = useState<HotEdge | null>(null)
   const [drawer, setDrawer] = useState<string | null>(null)
   const positions = useRef<Positions>({ ...(graph.positions as Positions) })
   const [moved, force] = useState(0)
@@ -189,7 +192,7 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
   const match = useMemo(() => (query.trim() ? new Set(graph.nodes.filter((n) => n.label.toLowerCase().includes(query.trim().toLowerCase())).map((n) => n.id)) : new Set<string>()), [graph.nodes, query])
   // наведение на риск в матрице или списке подсвечивает его узлы; остальное приглушается
   const riskHover = useMemo(() => (hoverRisks?.length ? new Set(hoverRisks.flatMap((id) => [...nodesForRisk(graph, id)])) : null), [graph, hoverRisks])
-  const marked = branch ?? riskHover ?? (match.size ? match : highlight)
+  const marked = useMemo(() => (hotEdge ? new Set([hotEdge.source, hotEdge.target]) : null), [hotEdge]) ?? branch ?? riskHover ?? (match.size ? match : highlight)
   const role = String(graph.nodes.find((n) => n.kind === 'center')?.data['role'] ?? '')
 
   const nodes: Node<PData>[] = useMemo(
@@ -209,25 +212,44 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
     [visible, layout, lod, nums, counters, role, marked, branch],
   )
 
-  const edges: Edge[] = useMemo(() => {
+  // Связи по типу: цвет, толщина, пунктир и стрелка «от "Вы" наружу» (тема → вопрос → норма → риск). Выделенные (ветка
+  // узла под курсором, выбранный риск, связь под курсором) — толще и непрозрачны, остальные приглушаются до 12 %.
+  // Нить диалога видна только у вопроса под курсором или выбранного: через всю карту она перечёркивала остальные связи.
+  // Основания ответа (вопрос → норма) в покое приглушены, а на большой карте видны только у узла в фокусе:
+  // при десятке норм на ответ они иначе сливаются в сетку через весь слепок.
+  const edges: Edge<EData>[] = useMemo(() => {
     const ids = new Set(visible.map((n) => n.id))
-    const col = { gold: cssVar('--gold'), line: cssVar('--line-strong'), high: cssVar('--risk-high') }
-    const dimmed = (a: string, b: string) => marked.size > 0 && !(marked.has(a) && marked.has(b))
-    const base: Edge[] = graph.edges.filter((e) => ids.has(e.source) && ids.has(e.target)).map((e) => {
-      const kind = e.kind === 'follow_up_of' ? 'refines' : e.kind === 'cites' ? 'grounded_in' : e.kind === 'evidences' || e.kind === 'grounded_in' ? 'raises' : e.kind
-      const style = kind === 'refines' ? { stroke: col.line, strokeDasharray: '4 4', strokeWidth: 1 }
-        : kind === 'grounded_in' ? { stroke: col.line, strokeDasharray: '1 3', strokeWidth: 1 }
-          : kind === 'raises' ? { stroke: col.high, strokeWidth: 1 }
-            : { stroke: col.line, strokeWidth: kind === 'belongs_to' ? 1.1 : 0.8 }
-      return { id: e.id, source: e.source, target: e.target, type: 'straight', data: { kind }, markerEnd: kind === 'refines' ? { type: MarkerType.ArrowClosed, color: col.line, width: 14, height: 14 } : undefined, style: { ...style, opacity: dimmed(e.source, e.target) ? 0.25 : 1, transition: 'opacity var(--t-fast)' } }
-    })
-    const thread: Edge[] = dialogThread(graph).filter((e) => ids.has(e.source) && ids.has(e.target)).map((e) => ({
-      id: e.id, source: e.source, target: e.target, type: 'straight', data: { kind: 'asked_next' },
-      markerEnd: { type: MarkerType.ArrowClosed, color: col.gold, width: 14, height: 14 },
-      style: { stroke: col.gold, strokeDasharray: '6 4', strokeWidth: 1.2, opacity: dimmed(e.source, e.target) ? 0.25 : 0.9 },
-    }))
-    return [...base, ...thread]
-  }, [graph, visible, marked])
+    const byId = new Map(graph.nodes.map((n) => [n.id, n]))
+    const name = (id: string) => { const n = byId.get(id); return n?.kind === 'question' ? `вопрос №${nums.get(id) ?? ''}` : `«${short(n?.label ?? '', 36)}»` }
+    const focus = hover?.id ?? sel.nodeId
+    const dense = visible.length > LOD_FROM_NODES
+    const out: Edge<EData>[] = []
+    const add = (id: string, source: string, target: string, stroke: string, width: number, dash: string | undefined, arrow: boolean, label: string, always = false, rest = 0.75) => {
+      const hot = hotEdge?.id === id
+      const lit = hot || always || (marked.size > 0 && marked.has(source) && marked.has(target))
+      const quiet = !lit && (hotEdge !== null || marked.size > 0)
+      if (!lit && rest === 0) return // на большой карте связь видна только у узла в фокусе
+      out.push({
+        id, source, target, type: 'float', zIndex: lit ? 1 : 0, data: { arrow, label, hot },
+        style: { stroke, strokeWidth: lit ? width + 0.9 : width, strokeDasharray: dash, opacity: quiet ? 0.12 : lit ? 1 : rest, transition: 'opacity var(--t-fast), stroke-width var(--t-fast)' },
+      })
+    }
+    for (const e of graph.edges) {
+      if (!ids.has(e.source) || !ids.has(e.target)) continue
+      const risk = (id: string) => levelVar(byId.get(id)?.risk_level ?? 'high')
+      if (e.kind === 'belongs_to') add(e.id, e.target, e.source, 'var(--line-strong)', 1.6, undefined, false, `Тема портрета: ${name(e.source)}`)
+      else if (e.kind === 'asks_about') add(e.id, e.target, e.source, 'var(--muted)', 1.1, undefined, true, `Тема ${name(e.target)} → ${name(e.source)}`)
+      // основания ответа — самые многочисленные связи: в покое тонкие и полупрозрачные, проявляются у узла под курсором
+      else if (e.kind === 'cites') add(e.id, e.source, e.target, 'var(--gold)', 0.9, undefined, true, `${name(e.source)} опирается на норму ${name(e.target)}`, false, dense ? 0 : 0.3)
+      else if (e.kind === 'evidences') add(e.id, e.source, e.target, risk(e.target), 1.3, undefined, true, `${name(e.source)} → риск ${name(e.target)}`)
+      else if (e.kind === 'grounded_in') add(e.id, e.target, e.source, risk(e.source), 1.3, undefined, true, `Норма ${name(e.target)} — основание риска ${name(e.source)}`)
+      else if (e.kind === 'follow_up_of') add(e.id, e.source, e.target, 'var(--ink-2)', 1.1, '5 4', true, `${name(e.source)} уточняет ${name(e.target)}`)
+    }
+    for (const e of dialogThread(graph)) {
+      if (ids.has(e.source) && ids.has(e.target) && (focus === e.source || focus === e.target)) add(e.id, e.source, e.target, 'var(--gold)', 1.4, '6 4', true, `Следующий вопрос: ${name(e.source)} → ${name(e.target)}`, true)
+    }
+    return out
+  }, [graph, visible, marked, hotEdge, hover, sel.nodeId, nums])
 
   useEffect(() => { const t = window.setTimeout(() => rf.fitView({ padding: 0.15, duration: 0 }), 50); return () => window.clearTimeout(t) }, [rf, graph.nodes.length])
   // Панель портрета на узком экране скрыта (display: none) и измеряется нулём: после показа карту вписываем заново.
@@ -367,7 +389,7 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
       </div>
       <div ref={box} className="map-stage relative min-h-0 flex-1" onKeyDown={onKey}>
         <ReactFlow
-          nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={0.15} maxZoom={2} fitView proOptions={{ hideAttribution: true }}
+          nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} minZoom={0.15} maxZoom={2} fitView proOptions={{ hideAttribution: true }}
           nodesConnectable={false} deleteKeyCode={null} aria-label="Карта тем: цифровой слепок сессии"
           onNodeClick={(_, n) => activate(n.id)}
           onNodeDoubleClick={(_, n) => { if (graph.nodes.find((x) => x.id === n.id)?.kind === 'topic') setF({ ...filters, topic: n.id }) }}
@@ -379,6 +401,8 @@ function Inner({ sessionId, graph }: { sessionId: string; graph: Graph }) {
           onNodeMouseLeave={() => { window.clearTimeout(hoverOut.current); hoverOut.current = window.setTimeout(() => hoverNode(null), HOVER_OUT_MS) }}
           onNodeDragStop={(_, n) => { positions.current = { ...positions.current, [n.id]: n.position }; force((x) => x + 1); persist(filters) }}
           onPaneClick={() => { clear(); hoverNode(null) }}
+          onEdgeMouseEnter={(_, e) => setHotEdge({ id: e.id, source: e.source, target: e.target })}
+          onEdgeMouseLeave={() => setHotEdge(null)}
         >
           <Background gap={26} size={1} color={cssVar('--line')} />
           <Controls showInteractive={false} />
