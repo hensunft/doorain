@@ -441,6 +441,9 @@
   .gn[data-user="true"] .gn-question { border-style: dashed; }
   .react-flow__node:focus-visible { outline: none; }
   .react-flow__node:focus-visible .gn > :first-child { box-shadow: var(--focus-ring); }
+  /* Глубина: нормы — дальний план (приглушены), темы со свечением — ближний; наведение возвращает норму вперёд */
+  .react-flow__node-norm .gn-norm, .react-flow__node-norm .gn-cap { opacity: 0.78; transition: opacity var(--t-fast) var(--ease); }
+  .react-flow__node-norm:hover .gn-norm, .react-flow__node-norm:hover .gn-cap, .react-flow__node-norm:focus-visible .gn-norm { opacity: 1; }
   /* Сцена карты: световое пятно в центре и виньетка — узлы будто в пространстве, а не на плоской сетке */
   .map-stage { background: radial-gradient(ellipse 70% 60% at 50% 48%, var(--spot), transparent 72%), var(--surface-2); }
 
