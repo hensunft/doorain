@@ -35,7 +35,9 @@
 		root * /srv
 		@assets path /assets/* /fonts/*
 		header @assets Cache-Control "public, max-age=31536000, immutable"
-		header /index.html Cache-Control "no-store"
+		# страница (любой маршрут SPA → index.html) не кэшируется: иначе браузер держит старый хеш бандла после обновления
+		@page not path /assets/* /fonts/*
+		header @page Cache-Control "no-store"
 		try_files {path} /index.html
 		file_server
 	}
