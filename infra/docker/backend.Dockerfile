@@ -25,7 +25,6 @@ COPY backend/alembic.ini ./
 COPY backend/app ./app
 COPY backend/prompts ./prompts
 COPY backend/migrations ./migrations
-COPY fixtures ./fixtures
 COPY knowledge_base ./knowledge_base
 USER doorain
 EXPOSE 8000
