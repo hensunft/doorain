@@ -69,7 +69,7 @@ case "$CMD" in
     if [ "$DEEP" = 1 ]; then
       echo "== Глубокая проверка (нужен запущенный стек)"
       probe() { printf '%s\n' "$2" | dc exec -T "$1" python -; }  # код передаётся через stdin
-      probe api $'import urllib.request,sys\nsys.exit(0 if urllib.request.urlopen("http://127.0.0.1:8000/api/v1/health/live", timeout=5).status==200 else 1)' && ok "API отвечает" || fail "API не отвечает"
+      probe api $'import json,os,sys,urllib.request as u\nh=(json.loads(os.environ.get("DOORAIN_ALLOWED_HOSTS") or "[]") or ["127.0.0.1"])[0]\nsys.exit(0 if u.urlopen(u.Request("http://127.0.0.1:8000/api/v1/health/live", headers={"Host": h}), timeout=5).status==200 else 1)' && ok "API отвечает" || fail "API не отвечает"
       probe worker $'import urllib.request,sys\ntry:\n    urllib.request.urlopen("https://huggingface.co", timeout=5)\nexcept Exception:\n    sys.exit(0)\nprint("REACHABLE")\nsys.exit(1)' && ok "worker не имеет внешней сети" || fail "worker имеет выход в интернет (изоляция нарушена)"
       echo "Реальный inference (HTTP API Ollama из контейнера worker)…"
       probe worker $'import httpx,os\nr=httpx.post(os.environ["DOORAIN_OLLAMA_URL"]+"/api/generate", json={"model":os.environ["DOORAIN_OLLAMA_MODEL"],"prompt":"Reply with one word: yes","stream":False,"options":{"num_predict":8}}, timeout=600)\nr.raise_for_status()\nd=r.json()\nprint("response=%r eval_count=%s total_ms=%d" % (d.get("response","").strip()[:30], d.get("eval_count"), d.get("total_duration",0)//1000000))' && { ok "Модель отвечает"; dc exec -T ollama ollama ps; } || fail "Модель не ответила (выполните prepare)"

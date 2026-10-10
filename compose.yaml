@@ -72,6 +72,12 @@ services:
       qdrant: { condition: service_healthy }
     stop_grace_period: 20s
     deploy: { resources: { limits: { memory: 1g } } }
+    healthcheck:  # Host — первый из DOORAIN_ALLOWED_HOSTS: в интернет-режиме TrustedHost отклоняет «127.0.0.1»
+      test: ["CMD", "python", "-c", 'import json,os,sys,urllib.request as u; h=(json.loads(os.environ.get("DOORAIN_ALLOWED_HOSTS") or "[]") or ["127.0.0.1"])[0]; sys.exit(0 if u.urlopen(u.Request("http://127.0.0.1:8000/api/v1/health/live", headers={"Host": h}), timeout=3).status==200 else 1)']
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
 
   worker:
     <<: *backend

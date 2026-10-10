@@ -103,7 +103,7 @@ switch ($Command) {
     if ($Deep) {
       Say '== Глубокая проверка (нужен запущенный стек)'
       function Probe([string]$svc, [string]$code) { $a = ComposeArgs; $out = $code | & docker @a exec -T $svc python - ; $rc = $LASTEXITCODE; $out | ForEach-Object { Write-Host "    $_" }; return $rc }  # код — через stdin; вывод не смешивается с кодом возврата
-      if ((Probe 'api' "import urllib.request,sys`nsys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=5).status==200 else 1)") -eq 0) { Ok 'API отвечает' } else { Fail 'API не отвечает' }
+      if ((Probe 'api' "import json,os,sys,urllib.request as u`nh=(json.loads(os.environ.get('DOORAIN_ALLOWED_HOSTS') or '[]') or ['127.0.0.1'])[0]`nsys.exit(0 if u.urlopen(u.Request('http://127.0.0.1:8000/api/v1/health/live', headers={'Host': h}), timeout=5).status==200 else 1)") -eq 0) { Ok 'API отвечает' } else { Fail 'API не отвечает' }
       if ((Probe 'worker' "import urllib.request,sys`ntry:`n    urllib.request.urlopen('https://huggingface.co', timeout=5)`nexcept Exception:`n    sys.exit(0)`nprint('REACHABLE')`nsys.exit(1)") -eq 0) { Ok 'worker не имеет внешней сети (изоляция internal)' } else { Fail 'worker имеет выход в интернет (изоляция нарушена)' }
       Say 'Реальный inference (HTTP API Ollama из контейнера worker)…'
       $infer = "import httpx,os,sys`nr=httpx.post(os.environ['DOORAIN_OLLAMA_URL']+'/api/generate', json={'model':os.environ['DOORAIN_OLLAMA_MODEL'],'prompt':'Reply with one word: yes','stream':False,'options':{'num_predict':8}}, timeout=600)`nr.raise_for_status()`nd=r.json()`nprint('response=%r eval_count=%s total_ms=%d' % (d.get('response','').strip()[:30], d.get('eval_count'), d.get('total_duration',0)//1000000))"

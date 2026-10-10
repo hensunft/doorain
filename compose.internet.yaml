@@ -15,6 +15,8 @@ services:
       - "443:443/udp"
     environment:
       DOORAIN_SITE_ADDRESS: ${DOORAIN_DOMAIN:?Укажите DOORAIN_DOMAIN в .env}
+    healthcheck:  # здесь Caddy слушает только 443 (редиректы с 80 отключены); api проверяется своей проверкой
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 443 || exit 1"]
   api:
     environment: *prod-env
   worker:
