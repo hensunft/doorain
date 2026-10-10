@@ -47,6 +47,13 @@ def test_verify_unknown_marker_and_missing_citation() -> None:
     assert ok.state == "verified" and ok.markers == ["C1"] and ok.kind == "claim"
 
 
+def test_verify_grouped_markers_are_split() -> None:
+    src = {**SRC, "C2": "Политика размещается на сайте оператора."}
+    ck = verify.check_paragraph("Оператор обязан публиковать политику на сайте [C1, C2].", src)
+    assert ck.state == "verified" and ck.markers == ["C1", "C2"] and "[C" not in ck.text
+    assert verify.check_paragraph("Нужна политика [C1; C9]", src).reason == "unknown_marker:C9"  # каждая метка проверяется
+
+
 def test_verify_kinds_and_quotes() -> None:
     assert verify.check_paragraph("Допущение: сайт работает в РФ.", SRC).kind == "assumption"
     assert verify.check_paragraph("Со слов пользователя: сервер за рубежом.", SRC).kind == "fact"

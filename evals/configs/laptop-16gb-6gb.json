@@ -1,10 +1,10 @@
 {
   "profile": "laptop-16gb-6gb",
   "description": "Целевой ноутбук: Windows, 16 GB RAM, GPU 6 GB (ожидается GTX 1660 Ti по ТЗ; на машине разработки измерялась RTX 4050 Laptop 6 GB). Фактическое железо всегда пишется в отчёт прогона.",
-  "llm": { "ollama_tag": "qwen3:4b-instruct-2507-q4_K_M", "num_ctx": 4096, "num_predict": 640, "num_parallel": 1, "max_loaded_models": 1, "think": false },
+  "llm": { "ollama_tag": "gigachat3.1:10b-a1.8b-q4_K_M", "num_ctx": 8192, "template_tokens": 1200, "gpu_required": true, "num_predict": 640, "num_parallel": 1, "max_loaded_models": 1, "think": false },
   "embeddings": { "model": "BAAI/bge-m3", "device": "cpu", "dtype": "fp32", "batch": 2, "max_length": 512, "return_colbert_vecs": false },
   "reranker": { "model": "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1", "device": "cpu", "max_length": 512 },
   "retrieval": { "top_k": 30, "rerank_keep": 12, "context_budget_tokens": 2000, "chars_per_token": 2.6 },
-  "candidates_to_compare": ["qwen3:4b-instruct-2507-q4_K_M", "qwen3:4b-q4_K_M (think:false)", "меньшая модель (~1.7–3B) при нехватке VRAM"],
+  "candidates_to_compare": ["gigachat3.1:10b-a1.8b-q4_K_M", "qwen3:4b-instruct-2507-q4_K_M (запасная, без GPU, num_ctx=4096)"],
   "notes": "Сравнение кандидатов выполняется последовательно, без одновременной загрузки. Модель выбирается по качеству и скорости вместе (docs/evaluation.md)."
 }

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from ...core.util import norm_ws, stems
 
 MARKER = re.compile(r"\[(C\d+)\]")
+GROUPED = re.compile(r"\[\s*(C\d+(?:\s*[,;]\s*C\d+)+)\s*\]")  # «[C1, C2]» (так пишет GigaChat) → «[C1] [C2]»
 QUOTE = re.compile(r"«([^»]{15,})»")
 NOTICE_UNSUPPORTED = "Недостаточно данных в базе знаний, чтобы подтвердить этот фрагмент ответа."
 FACT_PREFIX = re.compile(r"^со слов пользователя\s*[:,—–-]?\s*", re.I)
@@ -50,6 +51,7 @@ def split_paragraphs(buf: str) -> tuple[list[str], str]:
 
 def check_paragraph(text: str, sources: dict[str, str], user_text: str | None = None) -> Checked:
     """sources: marker -> исходный текст чанка; user_text — реплики пользователя (для проверки блока «Со слов пользователя»)."""
+    text = GROUPED.sub(lambda m: " ".join(f"[{c}]" for c in re.findall(r"C\d+", m.group(1))), text)
     markers = list(dict.fromkeys(MARKER.findall(text)))
     clean = re.sub(r"\s*\[C\d+\]", "", text).strip()
     low = clean.lower()

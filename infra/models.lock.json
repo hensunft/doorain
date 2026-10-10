@@ -18,10 +18,24 @@
       "ignore_patterns": ["*.safetensors"]
     }
   ],
+  "gguf": [
+    {
+      "name": "gigachat3.1-10b-a1.8b-q4_K_M",
+      "repo": "ai-sage/GigaChat3.1-10B-A1.8B-GGUF",
+      "revision": "97045b260251cfa86f5ad25638fa2dd074153446",
+      "file": "GigaChat3.1-10B-A1.8B-q4_K_M.gguf",
+      "sha256": "68a8732fb5cee04f83ebffd7924e15c534d4442c5a43d2ba9e2041fe310b8deb",
+      "size": 6474702976,
+      "license": "MIT",
+      "ollama_tag": "gigachat3.1:10b-a1.8b-q4_K_M",
+      "modelfile": "infra/ollama/gigachat3.1-10b-a1.8b-q4_K_M.Modelfile",
+      "role": "основная модель: GigaChat 3.1 Lightning (MoE 10B, активно 1.8B); на laptop-16gb-6gb — только с GPU (-Gpu)"
+    }
+  ],
   "ollama": [
     {
       "tag": "qwen3:4b-instruct-2507-q4_K_M",
-      "role": "основной кандидат профиля laptop-16gb-6gb",
+      "role": "прежняя модель, запасной вариант (DOORAIN_OLLAMA_MODEL=этот тег, prepare); работает и без GPU",
       "license": "Apache-2.0 (проверить по карточке модели перед загрузкой)",
       "digest": null
     },

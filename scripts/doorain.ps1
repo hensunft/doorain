@@ -130,6 +130,7 @@ switch ($Command) {
 
   'start' {
     if (-not (Test-Path .env)) { throw 'Нет .env: scripts\doorain.ps1 init' }
+    if (-not $Gpu -and -not $NativeOllama -and (EnvValue 'DOORAIN_OLLAMA_MODEL') -like 'gigachat*') { Warn 'GigaChat (6.5 ГБ) без -Gpu не помещается в память Docker ноутбука 16/6 ГБ: запустите start -Gpu (docs/deployment.md)' }
     Compose @('up', '-d', '--no-build', '--pull', 'never', '--wait')  # без сборки и скачивания
     $port = EnvValue 'DOORAIN_HTTP_PORT'; if (-not $port) { $port = '8080' }
     if ($Internet) { Ok "Запущено в интернет-режиме: https://$(EnvValue 'DOORAIN_DOMAIN')" } else { Ok "Запущено: http://127.0.0.1:$port" }

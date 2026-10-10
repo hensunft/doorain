@@ -28,8 +28,11 @@ class Settings(BaseSettings):
     # провайдеры: ollama = реальные локальные модели, test = детерминированные заглушки (маркируются в UI)
     provider_mode: Literal["ollama", "test"] = "ollama"
     ollama_url: str = "http://ollama:11434"
-    ollama_model: str = "qwen3:4b-instruct-2507-q4_K_M"
-    ollama_num_ctx: int = 4096
+    ollama_model: str = "gigachat3.1:10b-a1.8b-q4_K_M"
+    ollama_num_ctx: int = 8192
+    # токены служебной обвязки шаблона модели в бюджете контекста: у GigaChat 3.1 официальный шаблон
+    # добавляет вступление «developer system» (~1070 токенов), у qwen3 хватает 120
+    ollama_template_tokens: int = 1200
     ollama_num_predict: int = 640
     ollama_timeout_s: float = 300
     embed_model_path: str = "/models/bge-m3"

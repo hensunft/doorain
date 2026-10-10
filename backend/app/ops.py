@@ -58,8 +58,8 @@ def _counts(db: Any) -> dict[str, int]:
 
 
 # ───────────── модели (подготовка с интернетом) ─────────────
-def fetch_models(lock: Path, dest: Path) -> None:
-    from huggingface_hub import snapshot_download  # noqa: PLC0415
+def fetch_models(lock: Path, dest: Path, ollama: Path | None = None) -> None:
+    from huggingface_hub import hf_hub_download, snapshot_download  # noqa: PLC0415
 
     spec = json.loads(lock.read_text(encoding="utf-8"))
     for m in spec["huggingface"]:
@@ -69,6 +69,23 @@ def fetch_models(lock: Path, dest: Path) -> None:
         files = {str(p.relative_to(target)): _sha256(p) for p in sorted(target.rglob("*")) if p.is_file() and ".cache" not in p.parts}
         (target / ".doorain-lock.json").write_text(json.dumps({"repo": m["repo"], "revision": m["revision"], "license": m["license"], "files": files}, indent=1), encoding="utf-8")
         print(f"  файлов: {len(files)}", flush=True)
+    # GGUF-модели кладутся прямо в хранилище Ollama под sha256: Modelfile (infra/ollama) ссылается на этот слой, второй копии нет.
+    # `ollama pull hf.co/...` не подходит: Ollama 0.34 не идёт по перенаправлению Hugging Face на его CDN.
+    if ollama is None:
+        return
+    for m in spec.get("gguf", []):
+        blob = ollama / "models" / "blobs" / f"sha256-{m['sha256']}"
+        if blob.exists():  # сюда файл попадает только после сверки хеша
+            print(f"→ {m['file']}: уже в хранилище Ollama", flush=True)
+            continue
+        print(f"→ {m['repo']}@{m['revision'][:8]}/{m['file']} ({m['size'] / 1e9:.1f} ГБ) → {blob}", flush=True)
+        tmp = Path(hf_hub_download(repo_id=m["repo"], filename=m["file"], revision=m["revision"], local_dir=str(ollama / "import")))
+        if (got := _sha256(tmp)) != m["sha256"]:
+            tmp.unlink()
+            raise SystemExit(f"sha256 {m['file']} не совпал с lock: {got}")
+        blob.parent.mkdir(parents=True, exist_ok=True)
+        tmp.replace(blob)
+        shutil.rmtree(ollama / "import", ignore_errors=True)
 
 
 # ───────────── режим обслуживания ─────────────
@@ -291,6 +308,7 @@ def main() -> None:
     f = sub.add_parser("fetch-models")
     f.add_argument("--lock", required=True)
     f.add_argument("--dest", required=True)
+    f.add_argument("--ollama", help="каталог данных Ollama (том ollama): сюда ложатся GGUF-модели из lock")
     mt = sub.add_parser("maintenance")
     mt.add_argument("state", choices=["on", "off"])
     mt.add_argument("--wait", action="store_true")
@@ -307,7 +325,7 @@ def main() -> None:
     a = ap.parse_args()
     rc = 0
     if a.cmd == "fetch-models":
-        fetch_models(Path(a.lock), Path(a.dest))
+        fetch_models(Path(a.lock), Path(a.dest), Path(a.ollama) if a.ollama else None)
     elif a.cmd == "maintenance":
         rc = maintenance(a.state == "on", a.wait, a.timeout)
     elif a.cmd == "worker-alive":

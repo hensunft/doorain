@@ -59,6 +59,7 @@ python evals/run_eval.py --user owner --split holdout   # DOORAIN_EVAL_PASSWORD 
 * В PDF не должно быть реплик диалога: вопросы подписываются номерами (`test_export_pdf_content_snapshot_and_auth`).
 * Дата «сегодня» во фронтенде — `todayISO()` (`src/lib/date.ts`): `toISOString()` даёт UTC и до 03:00 по Москве подставляет вчерашний срез.
 * Раздвижка узлов карты (`separate`) идёт по размерам из `onNodesChange` (`sizes`) на каждой пересборке раскладки; новый или изменившийся замер вызывает пересборку (иначе мини-карта пустая, а раздвижка считает по оценочному `BOX`). Качание весов — CSS-переменные, не состояние React: перерисовка узлов на каждом кадре вернула бы мерцание.
+* Модель — GigaChat 3.1 Lightning из GGUF (`infra/models.lock.json` → `gguf`, `infra/ollama/*.Modelfile`; `prepare` кладёт файл в хранилище Ollama со сверкой sha256). `ollama pull hf.co/…` в Ollama 0.34 не работает (перенаправление на CDN). Ollama берёт шаблон диалога из GGUF, а не из Modelfile; его вступление (~1070 токенов) — `DOORAIN_OLLAMA_TEMPLATE_TOKENS`. На 8 GB Docker модель идёт только с `-Gpu`.
 * Панель портрета на узкой раскладке скрыта `display: none`, React Flow меряет её нулём: карта вписывается заново по `ResizeObserver` (`GraphView`), проверка — в e2e «адаптивность…».
 
 Подробности — `docs/` (architecture, decisions, security, risk-methodology, knowledge-base, deployment, internet-access, backup-restore, evaluation, design-system, progress).

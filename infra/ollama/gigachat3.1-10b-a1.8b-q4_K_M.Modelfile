@@ -1,0 +1,8 @@
+# GigaChat 3.1 Lightning (ai-sage/GigaChat3.1-10B-A1.8B-GGUF, q4_K_M, MIT): модель собирается из GGUF, который
+# `prepare` (app.ops fetch-models --ollama) кладёт в хранилище Ollama под sha256 из infra/models.lock.json.
+# Шаблон диалога не задаётся: Ollama 0.34 применяет официальный chat_template из GGUF («template selection: gguf_chat_template»).
+FROM /root/.ollama/models/blobs/sha256-68a8732fb5cee04f83ebffd7924e15c534d4442c5a43d2ba9e2041fe310b8deb
+# num_ctx совпадает с DOORAIN_OLLAMA_NUM_CTX: иначе doctor/ollama run загружают модель заново (~1.5 мин с диска)
+PARAMETER num_ctx 8192
+PARAMETER stop "<|message_sep|>"
+PARAMETER stop "<|role_sep|>"

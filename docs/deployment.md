@@ -8,8 +8,8 @@ Docker Compose v2 — основной способ. Он фиксирует о�
 |---|---|---|
 | ОС / CPU | Windows 10/11 x86-64 | Linux x86-64 |
 | Docker | Docker Desktop, Linux containers, WSL2 | Docker Engine + Compose plugin |
-| GPU (необязательно) | NVIDIA + актуальный драйвер Windows (для WSL2) | драйвер + NVIDIA Container Toolkit |
-| RAM / диск | 16 GB / ≥ 25 GB свободно (образы ≈ 3 GB, модели ≈ 6 GB) | то же |
+| GPU | NVIDIA ≥ 6 GB VRAM + актуальный драйвер Windows (для WSL2) — обязательно для GigaChat на 16 GB RAM; без GPU — запасная qwen3 (раздел «Память и WSL2») | драйвер + NVIDIA Container Toolkit |
+| RAM / диск | 16 GB / ≥ 50 GB свободно (образы ≈ 12 GB: Ollama 9.2, backend 2.5; модели ≈ 9.3 GB: GigaChat 6.5, BGE-M3 2.3, reranker 0.5; кэш сборки при `prepare`) | то же |
 
 Скрипты `scripts/doorain.ps1` (PowerShell) и `scripts/doorain.sh` (Bash) делают одно и то же. Ниже — PowerShell; для Linux замените флаги `-Gpu` на `--gpu` и т. д.
 
@@ -54,11 +54,13 @@ Docker Desktop использует WSL2; по умолчанию VM получ�
 
 Изменение действует на **все** WSL-дистрибутивы и применяется после `wsl --shutdown`. Мониторьте фактический пик (`docker stats`, диспетчер задач); постоянный swap thrashing — нерабочий профиль. Лимиты контейнеров заданы в `compose.yaml` (api 1 GB, worker 4 GB, postgres 768 MB, qdrant 768 MB).
 
-Параметры модели: `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=1`, `num_ctx=4096`; BGE-M3 — CPU fp32, batch 2. Увеличение контекста до 8192 — только после измерения VRAM/RAM.
+Параметры модели: `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=1`, `num_ctx=8192`; BGE-M3 — CPU fp32, batch 2.
+
+**GigaChat 3.1 Lightning** (`gigachat3.1:10b-a1.8b-q4_K_M`, MoE: 10B параметров, активно 1.8B, файл 6.5 GB) на профиле `laptop-16gb-6gb` работает **только с GPU**: `scripts\doorain.ps1 start -Gpu`. В 7.6 GB памяти Docker без видеокарты веса не помещаются. Измерено на RTX 4050 Laptop 6 GB: все 27 слоёв на GPU, часть экспертов MoE в RAM (`ollama ps`: `37%/63% CPU/GPU`), ~4.1 GB VRAM, ~56 токенов/с на прогретой модели; первая загрузка с диска — до 2 минут. Ollama 0.34 применяет официальный шаблон диалога из GGUF; он добавляет служебное вступление ≈ 1070 токенов, которое бюджет контекста учитывает через `DOORAIN_OLLAMA_TEMPLATE_TOKENS=1200` (для qwen3 достаточно 120). Запасной вариант без GPU — `qwen3:4b-instruct-2507-q4_K_M` с `NUM_CTX=4096`, `TEMPLATE_TOKENS=120`.
 
 ## Смена модели
 
-1. В `.env`: `DOORAIN_OLLAMA_MODEL=<tag>`; загрузите модель при наличии интернета: `prepare`.
+1. В `.env`: `DOORAIN_OLLAMA_MODEL=<tag>`; загрузите модель при наличии интернета: `prepare`. Модель из библиотеки Ollama загружается `ollama pull`. GGUF с Hugging Face описывается в `infra/models.lock.json` (раздел `gguf`: репозиторий, ревизия, sha256) и `infra/ollama/<тег, «:» → «-»>.Modelfile`: `prepare` скачивает файл прямо в хранилище Ollama со сверкой хеша и собирает модель `ollama create` без второй копии. `ollama pull hf.co/…` не используется: Ollama 0.34 не идёт по перенаправлению Hugging Face на его CDN.
 2. `scripts\doorain.ps1 start` (worker перечитает конфигурацию при пересоздании: `docker compose up -d worker`).
 3. Сравните кандидатов последовательно (`evals/run_eval.py`); смена **embedding-модели или версии чанкинга** требует новой generation («Переиндексировать»); до этого поиск заблокирован (`index_incompatible`).
 
@@ -71,4 +73,4 @@ Docker Desktop использует WSL2; по умолчанию VM получ�
 ## Наблюдаемые особенности
 
 * При изменении сетевой конфигурации Compose (например, после обновления `compose.yaml`) выполните `docker compose down` (без `-v`) и `up`: иначе контейнеры могут потерять DNS-алиасы сервисов.
-* `ollama` образ ≈ 3.5 GB (сжатый); модель `qwen3:4b-instruct-2507-q4_K_M` ≈ 2.5 GB; BGE-M3 ≈ 2.3 GB; reranker ≈ 0.5 GB.
+* `ollama` образ ≈ 3.5 GB (сжатый); модель GigaChat 3.1 Lightning q4_K_M ≈ 6.5 GB (запасная `qwen3:4b-instruct-2507-q4_K_M` ≈ 2.5 GB); BGE-M3 ≈ 2.3 GB; reranker ≈ 0.5 GB.

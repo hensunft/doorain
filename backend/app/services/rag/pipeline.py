@@ -264,7 +264,7 @@ def _answer(db: Session, job: Job, p: Providers, s: Settings, run: GenerationRun
     rules = prompts.render("common/rules", as_of=run.as_of_date.isoformat())
     hist_txt = "\n".join(f"{'Пользователь' if x['role'] == 'user' else 'Ассистент'}: {x['text']}" for x in hist[-4:]) or "нет"
     system = rules.text + "\n\n" + role_prompt.text
-    fixed = est_tokens(system + hist_txt + msg.content, s.chars_per_token) + s.ollama_num_predict + 120
+    fixed = est_tokens(system + hist_txt + msg.content, s.chars_per_token) + s.ollama_num_predict + s.ollama_template_tokens
     hits_used: list[Any] = []
     used = fixed
     for hit in hits:  # бюджет контекста: целые фрагменты, без обрезки норм
