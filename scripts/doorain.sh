@@ -73,7 +73,8 @@ case "$CMD" in
       probe worker $'import urllib.request,sys\ntry:\n    urllib.request.urlopen("https://huggingface.co", timeout=5)\nexcept Exception:\n    sys.exit(0)\nprint("REACHABLE")\nsys.exit(1)' && ok "worker не имеет внешней сети" || fail "worker имеет выход в интернет (изоляция нарушена)"
       echo "Реальный inference (HTTP API Ollama из контейнера worker)…"
       probe worker $'import httpx,os\nr=httpx.post(os.environ["DOORAIN_OLLAMA_URL"]+"/api/generate", json={"model":os.environ["DOORAIN_OLLAMA_MODEL"],"prompt":"Reply with one word: yes","stream":False,"options":{"num_predict":8}}, timeout=600)\nr.raise_for_status()\nd=r.json()\nprint("response=%r eval_count=%s total_ms=%d" % (d.get("response","").strip()[:30], d.get("eval_count"), d.get("total_duration",0)//1000000))' && { ok "Модель отвечает"; dc exec -T ollama ollama ps; } || fail "Модель не ответила (выполните prepare)"
-    fi    if [ "$CHECK_PUBLIC" = 1 ]; then echo "== Внешний адрес (явный запрос к api.ipify.org)"; echo "Публичный IP: $(curl -fsS --max-time 10 https://api.ipify.org || echo н/д); сверьте с WAN роутера (CGNAT?)"; fi
+    fi
+    if [ "$CHECK_PUBLIC" = 1 ]; then echo "== Внешний адрес (явный запрос к api.ipify.org)"; echo "Публичный IP: $(curl -fsS --max-time 10 https://api.ipify.org || echo н/д); сверьте с WAN роутера (CGNAT?)"; fi
     echo; echo "Итог: ошибок $FAIL, предупреждений $WARN"; [ "$FAIL" -eq 0 ] || exit 1;;
 
   prepare)
@@ -86,6 +87,7 @@ case "$CMD" in
 
   start)
     [ -f .env ] || { echo "Нет .env: scripts/doorain.sh init" >&2; exit 1; }
+    [ "$GPU" = 1 ] || [ "$NATIVE" = 1 ] || case "$(env_value DOORAIN_OLLAMA_MODEL)" in gigachat*) warn "GigaChat (6.5 ГБ) без --gpu не помещается в память Docker ноутбука 16/6 ГБ: start --gpu (docs/deployment.md)";; esac
     dc up -d --no-build --pull never --wait
     port="$(env_value DOORAIN_HTTP_PORT)"; port="${port:-8080}"
     [ "$INTERNET" = 1 ] && ok "Запущено в интернет-режиме: https://$(env_value DOORAIN_DOMAIN)" || ok "Запущено: http://127.0.0.1:$port";;
